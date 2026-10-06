@@ -17,7 +17,7 @@ export interface Project {
   id: string; shareToken: string; name: string; client: string; status: ProjectStatus; dueDate: string; recurring: boolean; summary: string;
   archived: boolean; createdAt: string; updatedAt: string; counts: Record<Column, number>; total: number; progress: number;
 }
-export interface Designer { id: string; name: string; role: string; email?: string; hasLogin?: boolean }
+export interface Designer { id: string; name: string; role: string; email?: string; hasLogin?: boolean; projectIds?: string[] }
 export interface Comment { id: string; authorId: string; authorName: string; authorRole: "owner" | "designer" | "client"; visibility: "internal" | "client"; text: string; createdAt: string }
 export interface TaskLink {
   id: string; type: "relates" | "blocks" | "duplicates"; label: string;

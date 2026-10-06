@@ -101,6 +101,12 @@ function cleanDesigner(body, partial = false) {
     }
     out.password = body.password;
   }
+  if ('projectIds' in body) {
+    if (!Array.isArray(body.projectIds) || body.projectIds.length > 200 || body.projectIds.some((x) => typeof x !== 'string' || x.length > 64)) {
+      throw new HttpError(400, 'projectIds must be a list of project ids');
+    }
+    out.projectIds = [...new Set(body.projectIds)];
+  }
   return out;
 }
 

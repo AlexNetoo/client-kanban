@@ -72,6 +72,7 @@ class Store {
       if (d.email === undefined) { d.email = ''; changed = true; }
       if (d.passwordHash === undefined) { d.passwordHash = ''; changed = true; }
       if (d.tokenVersion === undefined) { d.tokenVersion = 0; changed = true; }
+      if (!Array.isArray(d.projectIds)) { d.projectIds = []; changed = true; }
     }
     if (!this.data.links) { this.data.links = []; changed = true; }
     if (!this.data.clients) { this.data.clients = []; changed = true; }
@@ -108,7 +109,7 @@ class Store {
   /** Never includes the password hash. */
   publicDesigner(d, { full = false } = {}) {
     const base = { id: d.id, name: d.name, role: d.role };
-    return full ? { ...base, email: d.email, hasLogin: !!(d.email && d.passwordHash) } : base;
+    return full ? { ...base, email: d.email, hasLogin: !!(d.email && d.passwordHash), projectIds: d.projectIds || [] } : base;
   }
 
   listDesigners(opts) { return this.data.designers.map((d) => this.publicDesigner(d, opts)); }
@@ -225,18 +226,19 @@ class Store {
     this.save();
   }
 
-  createDesigner({ name, role = '', email = '', passwordHash = '' }) {
+  createDesigner({ name, role = '', email = '', passwordHash = '', projectIds = [] }) {
     if (email && !passwordHash) throw new HttpError(400, 'Set a password for this login');
     if (passwordHash && !email) throw new HttpError(400, 'Add an email for this login');
     this.assertEmailFree(email);
-    const d = { id: crypto.randomUUID(), name, role, email, passwordHash, tokenVersion: 0 };
+    const d = { id: crypto.randomUUID(), name, role, email, passwordHash, tokenVersion: 0, projectIds: this.validProjectIds(projectIds) };
     this.data.designers.push(d);
     this.save();
     return this.publicDesigner(d, { full: true });
   }
 
   /** Changing the email or password bumps tokenVersion, which signs the designer out everywhere. */
-  updateDesigner(id, { name, role, email, passwordHash }) {
+  updateDesigner(id, { name, role, email, passwordHash, projectIds }) {
+    if (projectIds !== undefined) this.validProjectIds(projectIds);
     const d = this.getDesigner(id);
     if (!d) throw new HttpError(404, 'Designer not found');
     const nextEmail = email !== undefined ? email : d.email;
@@ -246,6 +248,7 @@ class Store {
     this.assertEmailFree(nextEmail, id);
     if (name !== undefined) d.name = name;
     if (role !== undefined) d.role = role;
+    if (projectIds !== undefined) d.projectIds = projectIds;
     if (nextEmail !== d.email || nextHash !== d.passwordHash) d.tokenVersion += 1;
     d.email = nextEmail; d.passwordHash = nextHash;
     this.save();
@@ -259,9 +262,10 @@ class Store {
     this.save();
   }
 
-  /** Projects (non-archived) in which the designer has at least one assigned task. */
+  /** Projects (non-archived) the designer is assigned to, directly or through at least one task. */
   projectIdsFor(designerId) {
     const ids = new Set(this.data.tasks.filter((t) => t.assigneeId === designerId).map((t) => t.projectId));
+    for (const pid of (this.getDesigner(designerId) || {}).projectIds || []) ids.add(pid); // projects the admin assigned directly
     return new Set([...ids].filter((pid) => this.data.projects.some((p) => p.id === pid && !p.archived)));
   }
 
@@ -447,6 +451,7 @@ class Store {
     this.data.tasks = this.data.tasks.filter((t) => t.projectId !== id);
     this.data.links = this.data.links.filter((l) => !gone.has(l.fromId) && !gone.has(l.toId));
     this.data.clients.forEach((c) => { c.projectIds = c.projectIds.filter((pid) => pid !== id); });
+    this.data.designers.forEach((d) => { d.projectIds = (d.projectIds || []).filter((pid) => pid !== id); });
     this.save();
   }
 

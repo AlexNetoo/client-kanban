@@ -59,11 +59,15 @@ function useGuard() {
 const row = (pal: ReturnType<typeof usePalette>) => ({ padding: "14px 0", borderBottom: `1px solid ${pal.borderSubtle}` });
 
 // ============================== Designers ==============================
-function DesignersPanel({ designers, reload, setRevealed }: { designers: Designer[]; reload: () => void; setRevealed: (r: Revealed) => void }) {
+function DesignersPanel({ designers, projects, reload, setRevealed }: { designers: Designer[]; projects: Project[]; reload: () => void; setRevealed: (r: Revealed) => void }) {
   const pal = usePalette();
   const toast = useToast();
   const g = useGuard();
   const [name, setName] = useState(""); const [role, setRole] = useState(""); const [email, setEmail] = useState(""); const [password, setPassword] = useState("");
+  const [ids, setIds] = useState<string[]>([]);
+  const [assigning, setAssigning] = useState<string | null>(null);
+  const [aIds, setAIds] = useState<string[]>([]);
+  const projectName = (id: string) => projects.find((p) => p.id === id)?.name ?? "(deleted)";
   const [editing, setEditing] = useState<string | null>(null);
   const [eEmail, setEEmail] = useState(""); const [ePassword, setEPassword] = useState("");
   const [deleting, setDeleting] = useState<Designer | null>(null);
@@ -72,9 +76,9 @@ function DesignersPanel({ designers, reload, setRevealed }: { designers: Designe
     if (!name.trim()) throw new Error("Enter a name.");
     if ((email || password) && !(email && password)) throw new Error("A login needs both an email and a password.");
     if (password && password.length < MIN) throw new Error(`Password must be at least ${MIN} characters.`);
-    const d = await api.createDesigner({ name, role, email: email || undefined, password: password || undefined });
+    const d = await api.createDesigner({ name, role, email: email || undefined, password: password || undefined, projectIds: ids });
     if (password) setRevealed({ who: `${d.name} (${email})`, password });
-    setName(""); setRole(""); setEmail(""); setPassword(""); reload(); toast(`${d.name} added`);
+    setName(""); setRole(""); setEmail(""); setPassword(""); setIds([]); reload(); toast(`${d.name} added`);
   });
   const saveLogin = (d: Designer) => g.run(async () => {
     if (!eEmail.trim() || !ePassword) throw new Error("Enter an email and a password.");
@@ -94,11 +98,24 @@ function DesignersPanel({ designers, reload, setRevealed }: { designers: Designe
               <div style={{ flex: 1, minWidth: 160 }}>
                 <div style={{ fontWeight: 600 }}>{d.name}{d.role && <span style={{ fontWeight: 400, color: pal.textSecondary }}> · {d.role}</span>}</div>
                 <Text size="sm" secondary>{d.hasLogin ? d.email : "No login yet"}</Text>
+                <div style={{ fontSize: 12, color: pal.textSecondary, marginTop: 2 }}>{d.projectIds?.length ? `Projects: ${d.projectIds.map(projectName).join(", ")}` : "No projects assigned"}</div>
               </div>
+              <Button size="sm" variant="secondary" aria-label={`Assign projects to ${d.name}`} onClick={() => { if (assigning === d.id) setAssigning(null); else { setAssigning(d.id); setAIds(d.projectIds ?? []); g.setError(""); } }}>Projects</Button>
               <Button size="sm" variant="secondary" aria-label={`${d.hasLogin ? "Reset password for" : "Set login for"} ${d.name}`}
                 onClick={() => { if (editing === d.id) setEditing(null); else { setEditing(d.id); setEEmail(d.email ?? ""); setEPassword(""); g.setError(""); } }}>{d.hasLogin ? "Reset password" : "Set login"}</Button>
               <Button size="sm" variant="ghost" aria-label={`Delete ${d.name}`} onClick={() => setDeleting(d)}>Delete</Button>
             </div>
+            {assigning === d.id && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12, paddingLeft: 46, maxWidth: 520 }}>
+                <Err>{g.error}</Err>
+                <ProjectPicker projects={projects} value={aIds} onChange={setAIds} legend={`Projects ${d.name} can open`} />
+                <div style={{ display: "flex", gap: 8 }}>
+                  <Button type="button" size="sm" loading={g.busy} onClick={() => g.run(async () => { await api.updateDesigner(d.id, { projectIds: aIds }); setAssigning(null); reload(); toast(`Projects updated for ${d.name}`); })}>Save projects</Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => setAssigning(null)}>Cancel</Button>
+                </div>
+                <Text size="sm" secondary>Designers also see any project where a task is assigned to them.</Text>
+              </div>
+            )}
             {editing === d.id && (
               <form onSubmit={(e) => { e.preventDefault(); saveLogin(d); }} style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12, paddingLeft: 46, maxWidth: 520 }}>
                 <Err>{g.error}</Err>
@@ -121,6 +138,7 @@ function DesignersPanel({ designers, reload, setRevealed }: { designers: Designe
         {editing === null && <Err>{g.error}</Err>}
         <div className="row2"><Text1 label="Name" value={name} onChange={setName} /><Text1 label="Role (optional)" value={role} onChange={setRole} /></div>
         <div className="row2"><Text1 label="Login email (optional)" type="email" value={email} onChange={setEmail} /><PasswordField label={`Password (min ${MIN})`} value={password} onChange={setPassword} /></div>
+        {projects.length > 0 && <ProjectPicker projects={projects} value={ids} onChange={setIds} legend="Projects this designer can open (optional)" />}
         <div><Button type="button" loading={g.busy} onClick={add}>Add designer</Button></div>
       </form>
 
@@ -132,11 +150,11 @@ function DesignersPanel({ designers, reload, setRevealed }: { designers: Designe
 }
 
 // ============================== Clients ==============================
-function ProjectPicker({ projects, value, onChange }: { projects: Project[]; value: string[]; onChange: (v: string[]) => void }) {
+function ProjectPicker({ projects, value, onChange, legend = "Projects this client can see" }: { projects: Project[]; value: string[]; onChange: (v: string[]) => void; legend?: string }) {
   const pal = usePalette();
   return (
     <fieldset style={{ border: `1px solid ${pal.border}`, borderRadius: 14, padding: "10px 14px", margin: 0 }}>
-      <legend style={{ fontSize: 13, color: pal.textSecondary, padding: "0 6px" }}>Projects this client can see</legend>
+      <legend style={{ fontSize: 13, color: pal.textSecondary, padding: "0 6px" }}>{legend}</legend>
       {projects.length === 0 && <Text size="sm" secondary>No projects yet.</Text>}
       <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 200, overflowY: "auto" }}>
         {projects.map((p) => (
@@ -303,7 +321,7 @@ export function AdminConsole() {
       </div>
       <div style={{ marginBottom: 20 }}><Tabs tabs={TABS} value={tab} onChange={(t: string) => { setTab(t); setRevealed(null); }} /></div>
       <RevealBanner revealed={revealed} onDismiss={() => setRevealed(null)} />
-      {tab === "Designers" && <DesignersPanel designers={data.designers} reload={load} setRevealed={setRevealed} />}
+      {tab === "Designers" && <DesignersPanel designers={data.designers} projects={data.projects} reload={load} setRevealed={setRevealed} />}
       {tab === "Clients" && <ClientsPanel clients={data.clients} projects={data.projects} reload={load} setRevealed={setRevealed} />}
       {tab === "Requests" && (data.requests.length === 0
         ? <StateBlock title="No requests yet" description="When a client submits a project brief from their account it appears here with its estimate." />

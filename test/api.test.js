@@ -746,6 +746,23 @@ test('client onboarding: server prices the brief, the admin approves it into a p
   assert.strictEqual((await call('DELETE', `/api/requests/${r.json.id}`, { cookie: owner })).res.status, 200);
 });
 
+test('admin can assign projects to a designer directly', async () => {
+  const owner = (await login(OWNER_PW)).cookie;
+  const proj = (await call('POST', '/api/projects', { cookie: owner, body: { name: 'Assigned P', client: 'Acme' } })).json;
+  const email = 'assign-designer@example.com'; const pw = 'designer-pass-123456';
+  const d = await call('POST', '/api/designers', { cookie: owner, body: { name: 'Dee', role: 'UI', email, password: pw } });
+  assert.strictEqual(d.res.status, 201, d.text);
+  const dc = (await login(pw, email, 'designer')).cookie;
+  assert.ok(!(await call('GET', '/api/projects', { cookie: dc })).json.some((p) => p.id === proj.id));
+  assert.strictEqual((await call('PATCH', `/api/designers/${d.json.id}`, { cookie: owner, body: { projectIds: ['nope'] } })).res.status, 400);
+  const up = await call('PATCH', `/api/designers/${d.json.id}`, { cookie: owner, body: { projectIds: [proj.id] } });
+  assert.deepStrictEqual(up.json.projectIds, [proj.id]);
+  assert.ok((await call('GET', '/api/projects', { cookie: dc })).json.some((p) => p.id === proj.id)); // same session, no re-login needed
+  assert.strictEqual((await call('PATCH', `/api/designers/${d.json.id}`, { cookie: dc, body: { projectIds: [] } })).res.status, 403);
+  await call('DELETE', `/api/projects/${proj.id}`, { cookie: owner });
+  assert.deepStrictEqual((await call('GET', '/api/designers', { cookie: owner })).json.find((x) => x.id === d.json.id).projectIds, []);
+});
+
 test('admin sign-in locks out after 5 wrong passwords, even for the right one', async () => {
   const bad = async () => (await call('POST', '/api/login', { body: { password: 'definitely-wrong-1' } })).res.status;
   for (let i = 0; i < 5; i += 1) assert.strictEqual(await bad(), 401);
