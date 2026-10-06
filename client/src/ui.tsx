@@ -77,6 +77,7 @@ export const LockIcon = () => svg(<><rect x="3" y="11" width="18" height="11" rx
 export const EyeIcon = () => svg(<><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></>);
 export const PlusIcon = () => svg(<path d="M12 5v14M5 12h14" />);
 export const CalendarIcon = () => svg(<><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></>);
+export const RepeatIcon = () => svg(<><path d="m17 2 4 4-4 4" /><path d="M3 11v-1a4 4 0 0 1 4-4h14" /><path d="m7 22-4-4 4-4" /><path d="M21 13v1a4 4 0 0 1-4 4H3" /></>);
 export const CheckIcon = () => svg(<path d="M20 6 9 17l-5-5" />);
 
 /** Grayscale initials avatar (the kit's Avatar picks a hue per name). */

@@ -14,7 +14,7 @@ export const PROJECT_STATUS: Record<ProjectStatus, string> = { planning: "Planni
 export const PRIORITY: Record<Priority, string> = { low: "Low", medium: "Medium", high: "High" };
 
 export interface Project {
-  id: string; shareToken: string; name: string; client: string; status: ProjectStatus; dueDate: string; summary: string;
+  id: string; shareToken: string; name: string; client: string; status: ProjectStatus; dueDate: string; recurring: boolean; summary: string;
   archived: boolean; createdAt: string; updatedAt: string; counts: Record<Column, number>; total: number; progress: number;
 }
 export interface Designer { id: string; name: string; role: string }
@@ -25,9 +25,9 @@ export interface Task {
   clientUpdate: string; clientUpdateAt: string; privateNotes: string;
 }
 export interface ClientProject {
-  name: string; client: string; status: ProjectStatus; dueDate: string; summary: string; progress: number;
+  name: string; client: string; status: ProjectStatus; dueDate: string; recurring: boolean; summary: string; progress: number;
   counts: Record<Column, number>; total: number; updatedAt: string;
 }
 export interface ClientTask { id: string; title: string; description: string; status: Column; dueDate: string; clientUpdate: string; clientUpdateAt: string }
-export type ProjectInput = Pick<Project, "name" | "client" | "status" | "dueDate" | "summary">;
+export type ProjectInput = Pick<Project, "name" | "client" | "status" | "dueDate" | "recurring" | "summary">;
 export type TaskInput = Pick<Task, "title" | "description" | "status" | "priority" | "dueDate" | "clientUpdate" | "privateNotes" | "assigneeId">;

@@ -1,5 +1,5 @@
 import { useState, type FormEvent, type ReactNode } from "react";
-import { Button, Select, Text } from "./halaska-kit";
+import { Button, Checkbox, Select, Text } from "./halaska-kit";
 import { api } from "./api";
 import { Area, Text1 } from "./fields";
 import { EyeIcon, LockIcon, Modal, useToast } from "./ui";
@@ -37,10 +37,11 @@ export function ProjectDialog({ project, onClose, onSaved }: { project?: Project
   const [client, setClient] = useState(project?.client ?? "");
   const [status, setStatus] = useState<ProjectStatus>(project?.status ?? "active");
   const [dueDate, setDue] = useState(project?.dueDate ?? "");
+  const [recurring, setRecurring] = useState(project?.recurring ?? false);
   const [summary, setSummary] = useState(project?.summary ?? "");
   const { busy, error, run } = useSave(onClose);
   const save = () => run(async () => {
-    const data = { name, client, status, dueDate, summary };
+    const data = { name, client, status, dueDate: recurring ? "" : dueDate, recurring, summary };
     if (project) await api.updateProject(project.id, data); else await api.createProject(data);
     toast(project ? "Project updated" : "Project created");
     onSaved();
@@ -53,8 +54,11 @@ export function ProjectDialog({ project, onClose, onSaved }: { project?: Project
         <Text1 label="Client" required value={client} onChange={setClient} />
         <div className="row2">
           <Select label="Status" value={status} onChange={(v: string) => setStatus(v as ProjectStatus)} options={toOptions(PROJECT_STATUS)} />
-          <Text1 label="Due date" type="date" value={dueDate} onChange={setDue} />
+          <div style={{ opacity: recurring ? 0.45 : 1 }}>
+            <Text1 label="Due date" type="date" value={recurring ? "" : dueDate} onChange={(v) => { if (!recurring) setDue(v); }} />
+          </div>
         </div>
+        <Checkbox checked={recurring} onChange={(c: boolean) => { setRecurring(c); if (c) setDue(""); }} label="Recurring project (no due date)" aria-label="Recurring project (no due date)" />
         <Area label="Summary (visible to the client)" value={summary} onChange={setSummary} />
       </Form>
     </Modal>

@@ -3,14 +3,15 @@ import { Badge, Button, Card, DropdownMenu, Heading, Progress, Stat, Tabs, Text 
 import { api } from "./api";
 import { ProjectDialog } from "./dialogs";
 import { TeamDialog } from "./TeamDialog";
-import { CalendarIcon, ConfirmDialog, Loading, PlusIcon, StateBlock, useToast } from "./ui";
+import { CalendarIcon, ConfirmDialog, RepeatIcon, Loading, PlusIcon, StateBlock, useToast } from "./ui";
 import { usePalette } from "./theme";
 import { formatDate, isOverdue } from "./lib/format";
 import { PROJECT_STATUS, type Project } from "./types";
 
 export const clientLink = (p: Project) => `${location.origin}/#/c/${p.shareToken}`;
 
-export function DueLabel({ date, done = false }: { date: string; done?: boolean }) {
+export function DueLabel({ date, done = false, recurring = false }: { date: string; done?: boolean; recurring?: boolean }) {
+  if (recurring) return <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 13 }}><RepeatIcon />Recurring</span>;
   if (!date) return <Text size="sm" secondary>No due date</Text>;
   const late = isOverdue(date, done);
   return (
@@ -127,7 +128,7 @@ export function Dashboard() {
                   <p style={{ marginTop: 8, fontSize: 13, color: pal.textSecondary }}>{p.progress}% · {p.counts.done} of {p.total} tasks done</p>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: "auto" }}>
-                  <DueLabel date={p.dueDate} done={p.status === "completed"} />
+                  <DueLabel date={p.dueDate} recurring={p.recurring} done={p.status === "completed"} />
                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                     <Button size="sm" aria-label={`Open board for ${p.name}`} onClick={() => { location.hash = `#/p/${p.id}`; }}>Open board</Button>
                     <ProjectMenu project={p} onChange={load} />

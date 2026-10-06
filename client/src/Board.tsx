@@ -94,7 +94,7 @@ export function Board({ id }: { id: string }) {
           <Heading level={1}>{project.name}</Heading>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 16px", alignItems: "center", marginTop: 10, color: pal.textSecondary, fontSize: 14 }}>
             <span>{project.client}</span><Badge>{PROJECT_STATUS[project.status]}</Badge>
-            <DueLabel date={project.dueDate} done={project.status === "completed"} />
+            <DueLabel date={project.dueDate} recurring={project.recurring} done={project.status === "completed"} />
             {project.archived && <Badge>Archived</Badge>}
           </div>
         </div>

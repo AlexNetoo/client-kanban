@@ -29,7 +29,7 @@ const SECURITY_HEADERS = {
 
 // What a client may see. Private notes and internal ids never appear here.
 const clientProject = (p) => ({
-  name: p.name, client: p.client, status: p.status, dueDate: p.dueDate, summary: p.summary,
+  name: p.name, client: p.client, status: p.status, dueDate: p.dueDate, recurring: !!p.recurring, summary: p.summary,
   progress: p.progress, counts: p.counts, total: p.total, updatedAt: p.updatedAt,
 });
 const clientTask = (t) => ({

@@ -139,6 +139,19 @@ test('designers, assignment and comments are owner-only and never reach clients'
   assert.strictEqual(after.comments.at(-1).authorName, 'Temp Person');
 });
 
+test('recurring projects have no due date and show as recurring to clients', async () => {
+  const { cookie } = await login(OWNER_PW);
+  const client = await login(CLIENT_PW);
+  const p = (await call('POST', '/api/projects', { cookie, body: { name: 'Retainer', client: 'Acme', status: 'active', dueDate: '2030-05-05', recurring: true } })).json;
+  assert.strictEqual(p.recurring, true);
+  assert.strictEqual(p.dueDate, '');
+  const view = await call('GET', `/api/client/${p.shareToken}`, { cookie: client.cookie });
+  assert.strictEqual(view.json.project.recurring, true);
+  const back = (await call('PATCH', `/api/projects/${p.id}`, { cookie, body: { recurring: false, dueDate: '2031-01-01' } })).json;
+  assert.deepStrictEqual([back.recurring, back.dueDate], [false, '2031-01-01']);
+  await call('DELETE', `/api/projects/${p.id}`, { cookie });
+});
+
 test('cross-origin writes are blocked', async () => {
   const { cookie } = await login(OWNER_PW);
   const res = await fetch(base + '/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: cookie, Origin: 'https://evil.example' }, body: '{}' });

@@ -50,6 +50,8 @@ function cleanProject(body, partial = false) {
   if (has('dueDate')) out.dueDate = date(body, 'dueDate');
   if (has('status')) out.status = partial || body.status ? oneOf(body, 'status', PROJECT_STATUSES) : 'active';
   if ('archived' in body) out.archived = body.archived === true;
+  if ('recurring' in body) out.recurring = body.recurring === true;
+  if (out.recurring) out.dueDate = ''; // a recurring project has no end date
   return out;
 }
 

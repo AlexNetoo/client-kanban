@@ -107,7 +107,7 @@ class Store {
 
   createProject(fields) {
     const now = new Date().toISOString();
-    const p = { id: crypto.randomUUID(), shareToken: newToken(), archived: false, createdAt: now, updatedAt: now, status: 'active', summary: '', dueDate: '', ...fields };
+    const p = { id: crypto.randomUUID(), shareToken: newToken(), archived: false, createdAt: now, updatedAt: now, status: 'active', summary: '', dueDate: '', recurring: false, ...fields };
     this.data.projects.push(p);
     this.save();
     return this.withStats(p);

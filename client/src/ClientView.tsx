@@ -54,7 +54,7 @@ export function ClientView({ token, role }: { token: string; role: "owner" | "cl
         <Progress value={p.progress} height={10} />
         <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 14px", alignItems: "center", fontSize: 14 }}>
           <Badge>{PROJECT_STATUS[p.status]}</Badge>
-          <DueLabel date={p.dueDate} done={p.status === "completed"} />
+          <DueLabel date={p.dueDate} recurring={p.recurring} done={p.status === "completed"} />
           <span style={{ color: pal.textSecondary }}>Last updated {formatDate(p.updatedAt.slice(0, 10))}</span>
         </div>
       </section>
