@@ -54,9 +54,9 @@ export function App() {
         {skip}
         <div className={collapsed ? "shell is-collapsed" : "shell"}>
           <aside className="sidebar" style={{ borderRight: `1px solid ${pal.border}`, background: pal.bg }}>
-            <div style={{ padding: "4px 4px 22px 12px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 4, flexDirection: collapsed ? "column" : "row", alignSelf: collapsed ? "stretch" : undefined }}>
-              <Brand href={isDemo() ? "/demo#/" : "/#/"} />
-              <button type="button" className="side-toggle" onClick={toggleSide} aria-expanded={!collapsed} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} title={collapsed ? "Expand sidebar" : "Collapse sidebar"} style={{ color: pal.textSecondary, alignSelf: collapsed ? "center" : undefined }}>
+            <div style={{ padding: collapsed ? "2px 0 20px" : "4px 4px 22px 12px", display: "flex", alignItems: collapsed ? "center" : "flex-start", justifyContent: collapsed ? "center" : "space-between", gap: 4 }}>
+              {!collapsed && <Brand href={isDemo() ? "/demo#/" : "/#/"} />}
+              <button type="button" className="side-toggle" onClick={toggleSide} aria-expanded={!collapsed} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} title={collapsed ? "Expand sidebar" : "Collapse sidebar"} style={{ color: pal.textSecondary }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
               </button>
             </div>
