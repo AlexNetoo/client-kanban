@@ -1,0 +1,13 @@
+{
+  "name": "client-kanban",
+  "version": "1.0.0",
+  "description": "Password-protected kanban for sharing project progress with clients",
+  "private": true,
+  "engines": { "node": ">=18.11" },
+  "scripts": {
+    "setup": "node scripts/setup.js",
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "test": "node --test test/"
+  }
+}
