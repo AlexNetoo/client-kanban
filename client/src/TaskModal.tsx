@@ -67,7 +67,7 @@ export function TaskModal({ task: t, projectName, designers, onClose, onChange, 
             <div style={{ display: "flex", gap: 8 }}>
               <Button size="sm" variant="ghost" aria-label={`Copy link to ${t.title}`} onClick={copyLink}>Copy link</Button>
               {canEdit && <Button size="sm" variant="secondary" aria-label={`Edit task ${t.title}`} onClick={onEdit}>Edit</Button>}
-              {owner && <Button size="sm" variant="secondary" aria-label={`Delete task ${t.title}`} onClick={onDelete}>Delete</Button>}
+              {canEdit && <Button size="sm" variant="secondary" aria-label={`Delete task ${t.title}`} onClick={onDelete}>Delete</Button>}
             </div>
           </div>
 

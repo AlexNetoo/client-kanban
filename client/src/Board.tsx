@@ -152,7 +152,7 @@ export function Board({ id, taskId }: { id: string; taskId?: string }) {
 
       {editing && (
         <TaskDialog projectId={id} task={editing.task} designers={designers} defaultStatus={editing.status} onClose={() => setEditing(null)}
-          onSaved={(t) => load(t.id)} onDelete={owner ? (t) => { setEditing(null); setDeleting(t); } : undefined} />
+          onSaved={(t) => load(t.id)} onDelete={(t) => { setEditing(null); setDeleting(t); }} />
       )}
       {viewingId && tasks.find((x) => x.id === viewingId) && (
         <TaskModal task={tasks.find((x) => x.id === viewingId)!} projectName={project.name} designers={designers} onClose={closeTask}

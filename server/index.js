@@ -182,7 +182,7 @@ function createApp(config) {
     return { ok: true };
   });
 
-  // ---- Tasks: owner edits everything; a designer may add and edit tasks in their projects (not delete them or touch private notes / client updates) ----
+  // ---- Tasks: owner edits everything; a designer may add, edit and delete tasks in their projects (not touch private notes / client updates) ----
   // Designers may add tasks to projects they can open. They can't write private notes or client updates, and an unassigned task becomes theirs.
   route('POST', '/api/projects/:id/tasks', 'staff', ({ params, body, session }) => {
     const fields = cleanTask(body);
@@ -199,7 +199,8 @@ function createApp(config) {
     if (Object.keys(body).some((k) => !DESIGNER_TASK_FIELDS.has(k))) throw new HttpError(403, 'Designers can’t change private notes or client updates');
     return outTask(session, store.updateTask(params.id, cleanTask(body, true)));
   });
-  route('DELETE', '/api/tasks/:id', 'owner', ({ params, defer }) => {
+  route('DELETE', '/api/tasks/:id', 'staff', ({ params, session, defer }) => {
+    taskFor(session, params.id); // designers: 404 unless the task is in one of their projects
     const atts = store.attachmentsOfTasks([params.id]);
     store.deleteTask(params.id);
     defer(() => Promise.all(atts.map((a) => files.remove(a))));
