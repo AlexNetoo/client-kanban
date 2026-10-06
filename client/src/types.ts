@@ -22,7 +22,7 @@ export interface Comment { id: string; authorId: string; authorName: string; tex
 export interface Task {
   assigneeId: string; comments: Comment[];
   id: string; projectId: string; title: string; description: string; status: Column; priority: Priority; dueDate: string;
-  clientUpdate: string; clientUpdateAt: string; privateNotes: string;
+  clientUpdate: string; clientUpdateAt: string; privateNotes: string; createdAt: string; updatedAt: string;
 }
 export interface ClientProject {
   name: string; client: string; status: ProjectStatus; dueDate: string; recurring: boolean; summary: string; progress: number;

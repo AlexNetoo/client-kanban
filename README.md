@@ -35,6 +35,12 @@ npm run dev:web     # optional Vite dev server on :5173 (proxies /api to :3000)
 
 `.env` and `data/` are git-ignored. Never commit them.
 
+## Signing in and navigating
+
+The login page has three tabs: **Freelancer** (the owner password), **Client** (the client password) and **Designer** (email + password). A password only works on its own tab. After signing in, freelancers and designers get a side menu (All projects, a list of projects, Team for the freelancer, Settings; it becomes a drawer on phones). Clients only see the project link they were given. Settings has appearance (system/light/dark, remembered in the browser), account info and, for designers, change password.
+
+Clicking a task opens a wide scrollable view with the description, client update, private notes (freelancer only), comments and a details panel (status, assignee, priority, due date) that the freelancer can edit in place.
+
 ## Designer logins
 
 Designers sign in on the **Designer** tab of the login page with an email and password. The freelancer creates them in **Team** (name, optional role, login email and a password of 10+ characters) and shares the password privately. A designer can then change it under **Change password**.

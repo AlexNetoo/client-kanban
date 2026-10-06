@@ -93,8 +93,12 @@ function createApp(config) {
       const d = store.findDesignerByEmail(email);
       const ok = verifyPassword(password, d && d.passwordHash ? d.passwordHash : DUMMY_HASH);
       if (d && d.passwordHash && ok) session = { role: 'designer', uid: d.id, v: d.tokenVersion };
-    } else if (verifyPassword(password, config.ownerHash)) session = { role: 'owner' };
-    else if (config.clientHash && verifyPassword(password, config.clientHash)) session = { role: 'client' };
+    } else {
+      // The sign-in tab says which account type is being claimed; a password only works on its own tab.
+      const as = body.as === 'owner' || body.as === 'client' ? body.as : null;
+      if ((!as || as === 'owner') && verifyPassword(password, config.ownerHash)) session = { role: 'owner' };
+      else if ((!as || as === 'client') && config.clientHash && verifyPassword(password, config.clientHash)) session = { role: 'client' };
+    }
     if (!session) {
       keys.forEach(fail);
       throw new HttpError(401, email ? 'That email or password isn’t right.' : 'That password isn’t right.');

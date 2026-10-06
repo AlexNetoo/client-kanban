@@ -3,12 +3,14 @@ import { Badge, Button, Heading, Progress } from "./halaska-kit";
 import { api } from "./api";
 import { TaskDialog } from "./dialogs";
 import { TaskCard } from "./TaskCard";
-import { TeamDialog } from "./TeamDialog";
+import { TaskModal } from "./TaskModal";
+import { StatusChip } from "./chips";
+import { useProjectsNav } from "./nav";
 import { DueLabel, ProjectMenu } from "./Dashboard";
 import { ConfirmDialog, EyeIcon, Loading, LockIcon, PlusIcon, StateBlock, useToast } from "./ui";
 import { usePalette } from "./theme";
 import { useMe } from "./session";
-import { COLUMNS, PROJECT_STATUS, columnLabel, type Column, type Designer, type Project, type Task } from "./types";
+import { COLUMNS, columnLabel, type Column, type Designer, type Project, type Task } from "./types";
 
 export function Board({ id }: { id: string }) {
   const pal = usePalette();
@@ -22,8 +24,8 @@ export function Board({ id }: { id: string }) {
   const [editing, setEditing] = useState<{ task?: Task; status?: Column } | null>(null);
   const [deleting, setDeleting] = useState<Task | null>(null);
   const [designers, setDesigners] = useState<Designer[]>([]);
-  const [team, setTeam] = useState(false);
-  const [openIds, setOpenIds] = useState<Set<string>>(new Set());
+  const [viewingId, setViewingId] = useState<string | null>(null);
+  const nav = useProjectsNav();
   const [dropCol, setDropCol] = useState<Column | null>(null);
   const dragId = useRef<string | null>(null);
   const root = useRef<HTMLDivElement>(null);
@@ -33,7 +35,7 @@ export function Board({ id }: { id: string }) {
   const load = useCallback(async (focus?: string) => {
     try {
       const d = await api.getProject(id);
-      setProject(d.project); setTasks(d.tasks); setError(null);
+      setProject(d.project); setTasks(d.tasks); setError(null); nav.reload();
       document.title = `${d.project.name} · Project Hub`;
       if (focus) focusTask(focus);
     } catch (e) { setError({ status: (e as { status?: number }).status ?? 0, message: (e as Error).message }); }
@@ -41,11 +43,6 @@ export function Board({ id }: { id: string }) {
   useEffect(() => { setProject(null); load(); }, [load]);
   const loadDesigners = useCallback(() => { api.listDesigners().then(setDesigners).catch(() => {}); }, []);
   useEffect(() => { loadDesigners(); }, [loadDesigners]);
-  const toggle = (taskId: string) => {
-    setOpenIds((s) => { const n = new Set(s); if (n.has(taskId)) n.delete(taskId); else n.add(taskId); return n; });
-    // After the column widens, keep the opened card fully visible inside the horizontally scrolling board.
-    setTimeout(() => root.current?.querySelector(`[data-task-id="${taskId}"]`)?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" }), 60);
-  };
   const replaceTask = (t: Task) => setTasks((s) => s.map((x) => (x.id === t.id ? t : x)));
 
   /** Optimistic move; reload on failure so the UI never lies. */
@@ -98,7 +95,7 @@ export function Board({ id }: { id: string }) {
         <div>
           <Heading level={1}>{project.name}</Heading>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 16px", alignItems: "center", marginTop: 10, color: pal.textSecondary, fontSize: 14 }}>
-            <span>{project.client}</span><Badge>{PROJECT_STATUS[project.status]}</Badge>
+            <span>{project.client}</span><StatusChip status={project.status} />
             <DueLabel date={project.dueDate} recurring={project.recurring} done={project.status === "completed"} />
             {project.archived && <Badge>Archived</Badge>}
           </div>
@@ -106,7 +103,7 @@ export function Board({ id }: { id: string }) {
         {owner && <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
           <Button icon={<PlusIcon />} onClick={() => setEditing({ status: "todo" })}>Add task</Button>
           <Button variant="secondary" icon={<EyeIcon />} onClick={() => { location.hash = `#/c/${project.shareToken}`; }}>Client view</Button>
-          <Button variant="secondary" onClick={() => setTeam(true)}>Team</Button>
+          <Button variant="secondary" onClick={() => { location.hash = "#/team"; }}>Team</Button>
           <ProjectMenu project={project} onChange={() => load()} afterDelete={() => { location.hash = "#/"; }} />
         </div>}
       </div>
@@ -118,8 +115,7 @@ export function Board({ id }: { id: string }) {
 
       {owner && project.total === 0 && <div style={{ marginBottom: 20 }}><StateBlock title="No tasks yet" description="Add the first task to start this board." action={<Button onClick={() => setEditing({ status: "todo" })}>Add task</Button>} /></div>}
 
-      <div className="board" role="group" aria-label="Kanban board"
-        style={{ gridTemplateColumns: COLUMNS.map((c) => (tasks.some((t) => t.status === c.id && openIds.has(t.id)) ? "minmax(340px, 1.5fr)" : "minmax(235px, 1fr)")).join(" ") }}>
+      <div className="board" role="group" aria-label="Kanban board">
         {COLUMNS.map((col) => {
           const items = tasks.filter((t) => t.status === col.id);
           return (
@@ -135,11 +131,10 @@ export function Board({ id }: { id: string }) {
                 onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropCol(null); }}
                 onDrop={(e) => onDrop(e, col.id)}>
                 {items.map((t) => (
-                  <li key={t.id} className="task" data-task-id={t.id} draggable={!openIds.has(t.id) && canMove(t)}
+                  <li key={t.id} className="task" data-task-id={t.id} draggable={canMove(t)}
                     onDragStart={(e) => { dragId.current = t.id; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", t.id); e.currentTarget.classList.add("dragging"); }}
                     onDragEnd={(e) => { dragId.current = null; setDropCol(null); e.currentTarget.classList.remove("dragging"); }}>
-                    <TaskCard task={t} designers={designers} expanded={openIds.has(t.id)} onToggle={() => toggle(t.id)}
-                      onEdit={() => setEditing({ task: t })} onDelete={() => setDeleting(t)} onMove={(s) => move(t, s)} onChange={replaceTask} />
+                    <TaskCard task={t} designers={designers} onOpen={() => setViewingId(t.id)} onEdit={() => setEditing({ task: t })} onMove={(s) => move(t, s)} />
                   </li>
                 ))}
                 {items.length === 0 && <li style={{ fontSize: 13, color: pal.textTertiary, textAlign: "center", padding: 16, border: `1px dashed ${pal.border}`, borderRadius: 14 }}>Nothing here yet</li>}
@@ -153,7 +148,12 @@ export function Board({ id }: { id: string }) {
         <TaskDialog projectId={id} task={editing.task} designers={designers} defaultStatus={editing.status} onClose={() => setEditing(null)}
           onSaved={(t) => load(t.id)} onDelete={(t) => { setEditing(null); setDeleting(t); }} />
       )}
-      {team && <TeamDialog onClose={() => setTeam(false)} onChanged={() => { loadDesigners(); load(); }} />}
+      {viewingId && tasks.find((x) => x.id === viewingId) && (
+        <TaskModal task={tasks.find((x) => x.id === viewingId)!} projectName={project.name} designers={designers} onClose={() => setViewingId(null)}
+          onChange={replaceTask} onMove={(t, s) => move(t, s)}
+          onEdit={() => { const t = tasks.find((x) => x.id === viewingId)!; setViewingId(null); setEditing({ task: t }); }}
+          onDelete={() => { const t = tasks.find((x) => x.id === viewingId)!; setViewingId(null); setDeleting(t); }} />
+      )}
       <ConfirmDialog open={!!deleting} title="Delete this task?" description={deleting ? `“${deleting.title}” will be permanently removed.` : ""} onClose={() => setDeleting(null)}
         onConfirm={async () => { if (deleting) { await api.deleteTask(deleting.id); toast("Task deleted"); load(); } }} />
     </div>

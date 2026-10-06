@@ -2,12 +2,13 @@ import { useCallback, useEffect, useState } from "react";
 import { Badge, Button, Card, DropdownMenu, Heading, Progress, Stat, Tabs, Text } from "./halaska-kit";
 import { api } from "./api";
 import { ProjectDialog } from "./dialogs";
-import { TeamDialog } from "./TeamDialog";
+import { StatusChip } from "./chips";
+import { useProjectsNav } from "./nav";
 import { CalendarIcon, ConfirmDialog, RepeatIcon, Loading, PlusIcon, StateBlock, useToast } from "./ui";
 import { usePalette } from "./theme";
 import { useMe } from "./session";
 import { formatDate, isOverdue } from "./lib/format";
-import { PROJECT_STATUS, type Project } from "./types";
+import { type Project } from "./types";
 
 export const clientLink = (p: Project) => `${location.origin}/#/c/${p.shareToken}`;
 
@@ -67,11 +68,11 @@ export function Dashboard() {
   const [error, setError] = useState("");
   const [tab, setTab] = useState<"Active" | "Archived">("Active");
   const [creating, setCreating] = useState(false);
-  const [team, setTeam] = useState(false);
+  const nav = useProjectsNav();
 
   const load = useCallback(async () => {
     setError("");
-    try { setProjects(await api.listProjects()); } catch (e) { setError((e as Error).message); }
+    try { setProjects(await api.listProjects()); nav.reload(); } catch (e) { setError((e as Error).message); }
   }, []);
   useEffect(() => { document.title = "Projects · Project Hub"; load(); }, [load]);
 
@@ -92,7 +93,7 @@ export function Dashboard() {
           <Text secondary>{owner ? "Everything in flight, and how it looks to each client." : "Projects with tasks assigned to you."}</Text>
         </div>
         {owner && <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <Button variant="secondary" onClick={() => setTeam(true)}>Team</Button>
+          <Button variant="secondary" onClick={() => { location.hash = "#/team"; }}>Team</Button>
           <Button icon={<PlusIcon />} onClick={() => setCreating(true)}>New project</Button>
         </div>}
       </div>
@@ -124,7 +125,7 @@ export function Dashboard() {
                     <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, letterSpacing: "-0.02em" }}><a href={`#/p/${p.id}`} style={{ textDecoration: "none" }}>{p.name}</a></h2>
                     <Text size="sm" secondary>{p.client}</Text>
                   </div>
-                  <Badge>{PROJECT_STATUS[p.status]}</Badge>
+                  <StatusChip status={p.status} />
                 </div>
                 <div>
                   <Progress value={p.progress} />
@@ -142,7 +143,6 @@ export function Dashboard() {
           ))}
         </ul>
       )}
-      {team && <TeamDialog onClose={() => setTeam(false)} onChanged={() => {}} />}
       {creating && <ProjectDialog onClose={() => setCreating(false)} onSaved={load} />}
     </>
   );

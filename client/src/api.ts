@@ -25,8 +25,8 @@ async function request<T>(method: string, url: string, body?: unknown): Promise<
 }
 
 export const api = {
-  login: (password: string, email?: string) => request<{ role: string }>("POST", "/api/login", email ? { email, password } : { password }),
-  session: () => request<{ role: "owner" | "client" | "designer"; designer?: { id: string; name: string } }>("GET", "/api/session"),
+  login: (password: string, opts: { email?: string; as?: "owner" | "client" } = {}) => request<{ role: string }>("POST", "/api/login", opts.email ? { email: opts.email, password } : { password, as: opts.as }),
+  session: () => request<{ role: "owner" | "client" | "designer"; designer?: { id: string; name: string }; expiresAt?: number }>("GET", "/api/session"),
   logout: () => request<{ ok: true }>("POST", "/api/logout", {}),
   listProjects: () => request<Project[]>("GET", "/api/projects"),
   getProject: (id: string) => request<{ project: Project; tasks: Task[] }>("GET", `/api/projects/${id}`),

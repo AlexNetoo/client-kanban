@@ -1,5 +1,5 @@
-import { createContext, useCallback, useContext, useRef, useState, type ChangeEvent, type ReactNode } from "react";
-import { Button, CardDialog, EmptyState, Skeleton, Toast, tokens } from "./halaska-kit";
+import { createContext, useCallback, useContext, useRef, useState, type ChangeEvent, type ReactNode, type RefObject } from "react";
+import { Button, CardDialog, EmptyState, IconButton, Skeleton, Toast, tokens, useModalFocus } from "./halaska-kit";
 import { usePalette } from "./theme";
 
 /** Halaska inputs call onChange with a value or an event depending on the control; normalise to a string. */
@@ -36,6 +36,25 @@ export function Modal({ open, onClose, title, description, children, actions }: 
     <CardDialog open={open} onClose={onClose} title={title} description={description} actions={actions}>
       {children && <div style={{ maxHeight: "60vh", overflowY: "auto", padding: 2, margin: -2 }}>{children}</div>}
     </CardDialog>
+  );
+}
+
+/** Large scrollable modal (Jira-style). Focus trap, Esc to close and focus restore come from the kit's useModalFocus. */
+export function WideModal({ open, onClose, label, header, children }: { open: boolean; onClose: () => void; label: string; header?: ReactNode; children: ReactNode }) {
+  const pal = usePalette();
+  const ref = (useModalFocus as unknown as (o: boolean, c: () => void) => RefObject<HTMLDivElement>)(open, onClose);
+  if (!open) return null;
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: "min(4vh, 32px) min(3vw, 24px)" }}>
+      <div ref={ref} role="dialog" aria-modal="true" aria-label={label} tabIndex={-1} onClick={(e) => e.stopPropagation()}
+        style={{ background: pal.bgElevated, color: pal.text, width: "min(1120px, 100%)", maxHeight: "100%", borderRadius: 16, border: `1px solid ${pal.borderSubtle}`, boxShadow: `0 24px 64px ${pal.shadowLg}`, display: "flex", flexDirection: "column", overflow: "hidden", outline: "none" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "14px 20px", borderBottom: `1px solid ${pal.border}`, flex: "none" }}>
+          <div style={{ minWidth: 0, fontSize: 13, color: pal.textSecondary }}>{header}</div>
+          <IconButton icon={<span aria-hidden="true" style={{ fontSize: 16 }}>✕</span>} label="Close" onClick={onClose} />
+        </div>
+        <div style={{ overflowY: "auto", flex: 1, minHeight: 0 }}>{children}</div>
+      </div>
+    </div>
   );
 }
 

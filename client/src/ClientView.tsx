@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { Badge, Button, Heading, Progress, Text } from "./halaska-kit";
+import { Button, Progress, Text } from "./halaska-kit";
 import { api } from "./api";
 import { DueLabel } from "./Dashboard";
+import { StatusChip } from "./chips";
 import { CheckIcon, EyeIcon, Loading, StateBlock } from "./ui";
 import { usePalette } from "./theme";
 import { formatDate, shortDate } from "./lib/format";
-import { PROJECT_STATUS, type ClientProject, type ClientTask, type Column } from "./types";
+import { type ClientProject, type ClientTask, type Column } from "./types";
 
 const STAGES: { id: Column; label: string }[] = [
   { id: "in_progress", label: "In progress now" }, { id: "in_review", label: "Ready for review" },
@@ -53,7 +54,7 @@ export function ClientView({ token, role }: { token: string; role: "owner" | "cl
         </div>
         <Progress value={p.progress} height={10} />
         <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 14px", alignItems: "center", fontSize: 14 }}>
-          <Badge>{PROJECT_STATUS[p.status]}</Badge>
+          <StatusChip status={p.status} />
           <DueLabel date={p.dueDate} recurring={p.recurring} done={p.status === "completed"} />
           <span style={{ color: pal.textSecondary }}>Last updated {formatDate(p.updatedAt.slice(0, 10))}</span>
         </div>

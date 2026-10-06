@@ -1,15 +1,16 @@
 import { useEffect, useState } from "react";
-import { Button, Text } from "./halaska-kit";
+import { Button, Heading, Text } from "./halaska-kit";
 import { api } from "./api";
 import { Text1 } from "./fields";
-import { Modal, Person, useToast } from "./ui";
+import { Person, useToast } from "./ui";
 import { usePalette } from "./theme";
 import type { Designer } from "./types";
 
 const MIN = 10;
 
 /** Manage designers and their logins. The owner sets the first password; designers can change it themselves. */
-export function TeamDialog({ onClose, onChanged }: { onClose: () => void; onChanged: () => void }) {
+export function TeamPage() {
+  const onChanged = () => {};
   const pal = usePalette();
   const toast = useToast();
   const [designers, setDesigners] = useState<Designer[] | null>(null);
@@ -48,9 +49,13 @@ export function TeamDialog({ onClose, onChanged }: { onClose: () => void; onChan
   });
   const dropLogin = (d: Designer) => guard(async () => { replace(await api.updateDesigner(d.id, { removeLogin: true })); setLoginFor(null); toast(`${d.name} can no longer sign in`); });
 
+  useEffect(() => { document.title = "Team · Project Hub"; }, []);
   return (
-    <Modal open onClose={onClose} title="Team" description="Designers can sign in (Designer tab) to see projects they’re assigned to, move their tasks and comment. They never see private notes or client links."
-      actions={<Button size="sm" onClick={onClose}>Done</Button>}>
+    <div style={{ maxWidth: 720 }}>
+      <div style={{ marginBottom: 24 }}>
+        <Heading level={1}>Team</Heading>
+        <Text secondary>Designers sign in on the Designer tab to see projects they’re assigned to, move their tasks and comment. They never see private notes or client links.</Text>
+      </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         {error && <p role="alert" style={{ border: `1px solid ${pal.text}`, borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 600 }}>Error: {error}</p>}
         <ul aria-label="Designers" style={{ display: "flex", flexDirection: "column" }}>
@@ -90,6 +95,6 @@ export function TeamDialog({ onClose, onChanged }: { onClose: () => void; onChan
           <div><Button type="button" size="sm" variant="secondary" loading={busy} onClick={add}>Add designer</Button></div>
         </form>
       </div>
-    </Modal>
+    </div>
   );
 }

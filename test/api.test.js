@@ -243,6 +243,14 @@ test('designer logins: scoped access, forced authorship, immediate revocation', 
   await call('PATCH', `/api/tasks/${mine.id}`, { ...O, body: { status: mine.status } });
 });
 
+test('sign-in tabs: a password only works on its own account type', async () => {
+  const as = async (password, which) => (await call('POST', '/api/login', { body: { password, as: which } })).res.status;
+  assert.strictEqual(await as(OWNER_PW, 'owner'), 200);
+  assert.strictEqual(await as(CLIENT_PW, 'client'), 200);
+  assert.strictEqual(await as(CLIENT_PW, 'owner'), 401);
+  assert.strictEqual(await as(OWNER_PW, 'client'), 401);
+});
+
 test('cross-origin writes are blocked', async () => {
   const { cookie } = await login(OWNER_PW);
   const res = await fetch(base + '/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: cookie, Origin: 'https://evil.example' }, body: '{}' });

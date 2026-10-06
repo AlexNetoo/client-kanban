@@ -4,7 +4,8 @@ import "./index.css";
 import { App } from "./App";
 import { Providers } from "./theme";
 import { ToastProvider } from "./ui";
+import { ErrorBoundary } from "./ErrorBoundary";
 
 createRoot(document.getElementById("root")!).render(
-  <StrictMode><Providers><ToastProvider><App /></ToastProvider></Providers></StrictMode>,
+  <StrictMode><Providers><ErrorBoundary><ToastProvider><App /></ToastProvider></ErrorBoundary></Providers></StrictMode>,
 );
