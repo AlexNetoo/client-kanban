@@ -55,7 +55,7 @@ A single JSON file (`DATA_FILE`), written atomically (temp file + rename). The s
 
 ```
 server/   index.js (routes, static, auth guard) · auth.js · store.js · validate.js · seed.js · config.js
-public/   login.html · index.html · css/styles.css · js/{app,dashboard,board,client,dialogs,dom,api,login}.js
+web/      login.html · index.html · css/styles.css · js/{app,dashboard,board,client,dialogs,dom,api,login}.js
 scripts/  setup.js      test/  api.test.js
 ```
 

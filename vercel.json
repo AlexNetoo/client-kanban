@@ -1,4 +1,4 @@
 {
-  "functions": { "api/index.js": { "includeFiles": "{public/**,server/**}", "maxDuration": 10 } },
+  "functions": { "api/index.js": { "includeFiles": "{web/**,server/**}", "maxDuration": 10 } },
   "rewrites": [{ "source": "/(.*)", "destination": "/api/index.js" }]
 }

@@ -7,7 +7,7 @@ const { verifyPassword, signSession, readSession, parseCookies } = require('./au
 const { Store } = require('./store');
 const { COLUMNS, HttpError, cleanProject, cleanTask } = require('./validate');
 
-const PUBLIC_DIR = path.join(ROOT, 'public');
+const PUBLIC_DIR = path.join(ROOT, 'web');
 const COOKIE = 'sid';
 const MAX_BODY = 64 * 1024;
 const MIME = {
