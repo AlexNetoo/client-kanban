@@ -842,48 +842,6 @@ test('AI assistant: proposes validated changes, hides private data, respects rol
   } finally { s2.close(); fake.close(); fs.rmSync(dir2, { recursive: true, force: true }); }
 });
 
-test('Figma previews: only for links inside a task the caller can open; token stays server-side', async () => {
-  const owner = (await login(OWNER_PW)).cookie;
-  const url = 'https://www.figma.com/design/hRxEFmzD6nIXxZmyhesbHo/Getting-Started---MSA-Creation?node-id=8127-14516&m=dev';
-  const P = (await call('POST', '/api/projects', { cookie: owner, body: { name: 'Fig P', client: 'X' } })).json;
-  const T = (await call('POST', `/api/projects/${P.id}/tasks`, { cookie: owner, body: { title: 'Has link', description: url } })).json;
-  const q = (u, t) => `/api/figma-preview?task=${t}&url=${encodeURIComponent(u)}`;
-  assert.strictEqual((await call('GET', q('https://evil.example/design/hRxEFmzD6nIXxZmyhesbHo/x', T.id), { cookie: owner })).res.status, 400);
-  assert.strictEqual((await call('GET', q(url, T.id))).res.status, 401);
-  assert.deepStrictEqual((await call('GET', q(url, T.id), { cookie: owner })).json, { configured: false }); // no token on the shared test app
-
-  const http = require('http');
-  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAfbLI3wAAAABJRU5ErkJggg==', 'base64');
-  const seen = [];
-  const fake = http.createServer((req, res) => {
-    seen.push({ url: req.url, token: req.headers['x-figma-token'] });
-    if (req.url.startsWith('/v1/files/')) { res.setHeader('content-type', 'application/json'); return res.end(JSON.stringify({ name: 'Getting Started / MSA Creation', lastModified: '2026-09-17T10:00:00Z', thumbnailUrl: '' })); }
-    if (req.url.startsWith('/v1/images/')) { res.setHeader('content-type', 'application/json'); return res.end(JSON.stringify({ images: { '8127:14516': `http://localhost:${fake.address().port}/img.png` } })); }
-    res.setHeader('content-type', 'image/png'); res.end(png);
-  });
-  await new Promise((r) => fake.listen(0, r));
-  const dir3 = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-fig-'));
-  const { server: s3 } = createApp({ ownerHash: hashPassword(OWNER_PW), secret: 'w'.repeat(40), sessionMs: 3600_000, dataFile: path.join(dir3, 'db.json'), secureCookies: false, trustProxy: false, seedDemo: false,
-    figmaToken: 'figd_test_token', figmaBaseUrl: `http://localhost:${fake.address().port}` });
-  await new Promise((r) => s3.listen(0, r));
-  const b3 = `http://localhost:${s3.address().port}`;
-  const c3 = async (m, u, { body, cookie } = {}) => { const r = await fetch(b3 + u, { method: m, headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), ...(cookie ? { Cookie: cookie } : {}) }, body: body ? JSON.stringify(body) : undefined }); const t = await r.text(); let j; try { j = JSON.parse(t); } catch { /* */ } return { status: r.status, json: j, headers: r.headers }; };
-  try {
-    const ck = (await c3('POST', '/api/login', { body: { password: OWNER_PW } })).headers.get('set-cookie').split(';')[0];
-    const P3 = (await c3('POST', '/api/projects', { cookie: ck, body: { name: 'F', client: 'X' } })).json;
-    const T3 = (await c3('POST', `/api/projects/${P3.id}/tasks`, { cookie: ck, body: { title: 'L', description: `see ${url}` } })).json;
-    const Tn = (await c3('POST', `/api/projects/${P3.id}/tasks`, { cookie: ck, body: { title: 'No link', description: 'nothing' } })).json;
-    const r = await c3('GET', q(url, T3.id), { cookie: ck });
-    assert.strictEqual(r.status, 200, JSON.stringify(r.json));
-    assert.strictEqual(r.json.name, 'Getting Started / MSA Creation');
-    assert.ok(r.json.image.startsWith('data:image/png;base64,'));
-    assert.ok(seen.every((s) => s.url.startsWith('/img.png') || s.token === 'figd_test_token'));
-    assert.ok(!JSON.stringify(r.json).includes('figd_test_token'));
-    assert.strictEqual((await c3('GET', q(url, Tn.id), { cookie: ck })).status, 404); // link not in that task: can't use the endpoint to probe files
-    assert.strictEqual((await c3('GET', q('https://www.figma.com/design/AAAAAAAAAAAAAAAAAAAAAA/other', T3.id), { cookie: ck })).status, 404);
-  } finally { s3.close(); fake.close(); fs.rmSync(dir3, { recursive: true, force: true }); }
-});
-
 test('admin sign-in locks out after 5 wrong passwords, even for the right one', async () => {
   const bad = async () => (await call('POST', '/api/login', { body: { password: 'definitely-wrong-1' } })).res.status;
   for (let i = 0; i < 5; i += 1) assert.strictEqual(await bad(), 401);

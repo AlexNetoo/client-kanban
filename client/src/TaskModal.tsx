@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { DateField } from "./fields";
-import { Linkify, LinkTaskContext } from "./Linkify";
+import { Linkify } from "./Linkify";
 import { Button, Checkbox, Select, TextArea, Text } from "./halaska-kit";
 import { api } from "./api";
 import { assigneeOptions } from "./dialogs";
@@ -60,7 +60,6 @@ export function TaskModal({ task: t, projectName, designers, onClose, onChange, 
   );
 
   return (
-    <LinkTaskContext.Provider value={t.id}>
     <WideModal open onClose={onClose} label={`Task: ${t.title}`} header={<span>{projectName} <span aria-hidden="true">/</span> <span style={{ color: pal.text, fontWeight: 600 }}>Task</span></span>}>
       <div className="task-modal">
         <div className="task-main">
@@ -152,6 +151,5 @@ export function TaskModal({ task: t, projectName, designers, onClose, onChange, 
         </aside>
       </div>
     </WideModal>
-    </LinkTaskContext.Provider>
   );
 }

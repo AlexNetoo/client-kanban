@@ -34,7 +34,6 @@ npm run dev:web     # optional Vite dev server on :5173 (proxies /api to :3000)
 | `BLOB_DB_PATH` / `STORAGE` | no | blob pathname (default `client-kanban/db.json`) / `file` to force the file backend |
 | `COOKIE_SECURE` | no | defaults to true when `NODE_ENV=production`; keep it on behind HTTPS |
 | `ANTHROPIC_API_KEY` | no | Turns on the **AI assistant** for the admin and designers. Leave unset to keep it off. Optional: `AI_MODEL` (default `claude-sonnet-5-5`) |
-| `FIGMA_ACCESS_TOKEN` | no | Adds thumbnails, file names and update dates to Figma link previews (a Figma personal access token with file read access). Without it, Figma links still get a preview card built from the link itself |
 | `TRUST_PROXY` | no | `true` if behind a proxy that sets `X-Forwarded-For` (used for login rate limiting) |
 
 `.env` and `data/` are git-ignored. Never commit them.
@@ -154,6 +153,6 @@ scripts/  setup.js      test/  api.test.js
 
 Admins and designers get an **AI assistant** button on every project board. It can break a project into tasks, write task descriptions, tidy titles and priorities, and edit existing tasks. It only *proposes* changes: each one is shown with a checkbox, and the browser applies the ticked ones through the normal task API, so a designer's limits (no private notes, no client updates) still hold. The assistant is sent the project, its tasks and the designer names. It is never sent private notes, client updates, comments or attachments. Requests run on the server (`server/ai.js`) after the data transaction ends, are limited to 30 an hour per person, and are switched off until `ANTHROPIC_API_KEY` is set.
 
-## Links and Figma previews
+## Links
 
-URLs in task descriptions, client updates and comments become clickable links. **Figma links** (design, prototype, FigJam, slides) become a chip with the file name and a hover/focus **preview card** (type, frame, *Open in Figma*, *Copy link*). With `FIGMA_ACCESS_TOKEN` set, the card also shows a thumbnail of the linked frame and the last update date. The token never leaves the server, and the server only fetches previews for links that appear in a task the signed-in person can open.
+URLs in task descriptions, client updates and comments become clickable links that open in a new tab (Figma links included).
