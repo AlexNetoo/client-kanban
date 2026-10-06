@@ -17,6 +17,27 @@ function loadDotEnv(file = path.join(ROOT, '.env')) {
 
 const bool = (v, fallback) => (v === undefined || v === '' ? fallback : /^(1|true|yes)$/i.test(v));
 
+/**
+ * AI assistant (optional). Provider "anthropic" needs ANTHROPIC_API_KEY. Provider "ollama" talks to a model on this computer:
+ * set OLLAMA_MODEL (and OLLAMA_BASE_URL if it isn't http://localhost:11434). Ollama is only allowed on a loopback address,
+ * so a deployed site can never be pointed at an open Ollama server by mistake. With neither set the assistant is off.
+ */
+function aiConfig(env) {
+  const off = { provider: '', enabled: false };
+  const provider = env.AI_PROVIDER || (env.ANTHROPIC_API_KEY ? 'anthropic' : env.OLLAMA_MODEL ? 'ollama' : '');
+  if (provider === 'anthropic') {
+    return { provider, enabled: !!env.ANTHROPIC_API_KEY, key: env.ANTHROPIC_API_KEY || '', model: env.AI_MODEL || 'claude-sonnet-5-5', baseUrl: (env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com').replace(/\/+$/, '') };
+  }
+  if (provider === 'ollama') {
+    const baseUrl = (env.OLLAMA_BASE_URL || 'http://localhost:11434').replace(/\/+$/, '');
+    let host = '';
+    try { host = new URL(baseUrl).hostname; } catch { /* invalid */ }
+    if (!['localhost', '127.0.0.1', '[::1]', '::1'].includes(host)) { console.warn('OLLAMA_BASE_URL must point at this computer (localhost). The AI assistant is off.'); return off; }
+    return { provider, enabled: !!env.OLLAMA_MODEL, model: env.OLLAMA_MODEL || '', baseUrl };
+  }
+  return off;
+}
+
 function loadConfig(env = process.env) {
   const missing = [];
   if (!env.APP_PASSWORD_HASH) missing.push('APP_PASSWORD_HASH');
@@ -39,11 +60,8 @@ function loadConfig(env = process.env) {
     blobPath: env.BLOB_DB_PATH || 'client-kanban/db.json',
     secureCookies: bool(env.COOKIE_SECURE, env.NODE_ENV === 'production'),
     trustProxy: bool(env.TRUST_PROXY, false),
-    // AI assistant (optional): leave ANTHROPIC_API_KEY unset to switch it off.
-    aiKey: env.ANTHROPIC_API_KEY || '',
-    aiModel: env.AI_MODEL || 'claude-sonnet-5-5',
-    aiBaseUrl: (env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com').replace(/\/+$/, ''),
+    ai: aiConfig(env),
   };
 }
 
-module.exports = { loadConfig, loadDotEnv, ROOT };
+module.exports = { aiConfig, loadConfig, loadDotEnv, ROOT };

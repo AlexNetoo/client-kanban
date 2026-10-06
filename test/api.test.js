@@ -800,7 +800,7 @@ test('AI assistant: proposes validated changes, hides private data, respects rol
   await new Promise((r) => fake.listen(0, r));
   const dir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-ai-'));
   const { server: s2 } = createApp({ ownerHash: hashPassword(OWNER_PW), secret: 'y'.repeat(40), sessionMs: 3600_000, dataFile: path.join(dir2, 'db.json'), secureCookies: false, trustProxy: false, seedDemo: false,
-    aiKey: 'test-key', aiModel: 'test-model', aiBaseUrl: `http://localhost:${fake.address().port}` });
+    ai: { provider: 'anthropic', enabled: true, key: 'test-key', model: 'test-model', baseUrl: `http://localhost:${fake.address().port}` } });
   await new Promise((r) => s2.listen(0, r));
   const b2 = `http://localhost:${s2.address().port}`;
   const c2 = async (m, u, { body, cookie } = {}) => { const r = await fetch(b2 + u, { method: m, headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), ...(cookie ? { Cookie: cookie } : {}) }, body: body ? JSON.stringify(body) : undefined }); const t = await r.text(); let j; try { j = JSON.parse(t); } catch { /* */ } return { status: r.status, json: j, headers: r.headers }; };
@@ -840,6 +840,61 @@ test('AI assistant: proposes validated changes, hides private data, respects rol
     const dc = (await c2('POST', '/api/login', { body: { email: 'ai-d@example.com', password: 'designer-pass-ai-1', as: 'designer' } })).headers.get('set-cookie').split(';')[0];
     assert.strictEqual((await c2('POST', '/api/ai/assist', { cookie: dc, body: { projectId: P.id, message: 'hi' } })).status, 404); // not their project
   } finally { s2.close(); fake.close(); fs.rmSync(dir2, { recursive: true, force: true }); }
+});
+
+test('AI assistant with Ollama: local only, structured request, same validation', async () => {
+  const { aiConfig } = require('../server/config');
+  assert.strictEqual(aiConfig({}).enabled, false);
+  assert.deepStrictEqual([aiConfig({ OLLAMA_MODEL: 'llama3.1' }).provider, aiConfig({ OLLAMA_MODEL: 'llama3.1' }).baseUrl], ['ollama', 'http://localhost:11434']);
+  assert.strictEqual(aiConfig({ ANTHROPIC_API_KEY: 'k', OLLAMA_MODEL: 'm' }).provider, 'anthropic'); // a key wins unless AI_PROVIDER says otherwise
+  assert.strictEqual(aiConfig({ AI_PROVIDER: 'ollama', ANTHROPIC_API_KEY: 'k', OLLAMA_MODEL: 'm' }).provider, 'ollama');
+  const warn = console.warn; console.warn = () => {};
+  try { assert.strictEqual(aiConfig({ OLLAMA_MODEL: 'm', OLLAMA_BASE_URL: 'http://10.0.0.5:11434' }).enabled, false); // never a remote host
+        assert.strictEqual(aiConfig({ OLLAMA_MODEL: 'm', OLLAMA_BASE_URL: 'http://evil.example' }).enabled, false); } finally { console.warn = warn; }
+
+  const http = require('http');
+  let seen; let mode = 'ok';
+  const fake = http.createServer((req, res) => {
+    let b = ''; req.on('data', (c) => { b += c; }); req.on('end', () => {
+      seen = { url: req.url, body: JSON.parse(b) }; res.setHeader('content-type', 'application/json');
+      if (mode === 'nomodel') { res.statusCode = 404; return res.end(JSON.stringify({ error: 'model "m" not found' })); }
+      if (mode === 'junk') return res.end(JSON.stringify({ message: { content: 'sorry, I cannot do that' } }));
+      res.end(JSON.stringify({ message: { content: '```json\n' + JSON.stringify({ reply: 'Local plan', actions: [{ type: 'create_task', title: 'From Ollama', priority: 'high' }, { type: 'create_task', title: 'Bad', status: 'zzz' }] }) + '\n```' } }));
+    });
+  });
+  await new Promise((r) => fake.listen(0, r));
+  const dir4 = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-ollama-'));
+  const { server: s4 } = createApp({ ownerHash: hashPassword(OWNER_PW), secret: 'v'.repeat(40), sessionMs: 3600_000, dataFile: path.join(dir4, 'db.json'), secureCookies: false, trustProxy: false, seedDemo: false,
+    ai: { provider: 'ollama', enabled: true, model: 'm', baseUrl: `http://localhost:${fake.address().port}` } });
+  await new Promise((r) => s4.listen(0, r));
+  const b4 = `http://localhost:${s4.address().port}`;
+  const c4 = async (m, u, { body, cookie } = {}) => { const r = await fetch(b4 + u, { method: m, headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), ...(cookie ? { Cookie: cookie } : {}) }, body: body ? JSON.stringify(body) : undefined }); const t = await r.text(); let j; try { j = JSON.parse(t); } catch { /* */ } return { status: r.status, json: j, headers: r.headers }; };
+  try {
+    const ck = (await c4('POST', '/api/login', { body: { password: OWNER_PW } })).headers.get('set-cookie').split(';')[0];
+    assert.strictEqual((await c4('GET', '/api/session', { cookie: ck })).json.ai, true);
+    const P = (await c4('POST', '/api/projects', { cookie: ck, body: { name: 'Local', client: 'X' } })).json;
+    const ask = () => c4('POST', '/api/ai/assist', { cookie: ck, body: { projectId: P.id, message: 'Plan it' } });
+    const r = await ask();
+    assert.strictEqual(r.status, 200, JSON.stringify(r.json));
+    assert.strictEqual(seen.url, '/api/chat');
+    assert.strictEqual(seen.body.model, 'm'); assert.strictEqual(seen.body.stream, false);
+    assert.ok(seen.body.format && seen.body.format.properties.actions, 'schema sent as the structured output format');
+    assert.deepStrictEqual(r.json.actions.map((a) => a.fields.title), ['From Ollama']); // the invalid proposal is dropped, fenced JSON is accepted
+    mode = 'nomodel'; const nm = await ask(); assert.strictEqual(nm.status, 502); assert.ok(/ollama pull m/.test(nm.json.error));
+    mode = 'junk'; assert.strictEqual((await ask()).status, 502);
+  } finally { s4.close(); fake.close(); fs.rmSync(dir4, { recursive: true, force: true }); }
+  // not running at all
+  const { server: s5 } = createApp({ ownerHash: hashPassword(OWNER_PW), secret: 'u'.repeat(40), sessionMs: 3600_000, dataFile: path.join(os.tmpdir(), `kanban-o-${process.pid}.json`), secureCookies: false, trustProxy: false, seedDemo: false,
+    ai: { provider: 'ollama', enabled: true, model: 'm', baseUrl: 'http://localhost:1' } });
+  await new Promise((r) => s5.listen(0, r));
+  try {
+    const base5 = `http://localhost:${s5.address().port}`;
+    const l = await fetch(base5 + '/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: OWNER_PW }) });
+    const ck = l.headers.get('set-cookie').split(';')[0];
+    const p = await (await fetch(base5 + '/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: ck }, body: JSON.stringify({ name: 'P', client: 'X' }) })).json();
+    const a = await fetch(base5 + '/api/ai/assist', { method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: ck }, body: JSON.stringify({ projectId: p.id, message: 'hi' }) });
+    assert.strictEqual(a.status, 502); assert.ok(/Is it running/.test((await a.json()).error));
+  } finally { s5.close(); fs.rmSync(path.join(os.tmpdir(), `kanban-o-${process.pid}.json`), { force: true }); }
 });
 
 test('admin sign-in locks out after 5 wrong passwords, even for the right one', async () => {

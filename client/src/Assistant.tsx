@@ -75,7 +75,7 @@ export function Assistant({ projectId, designers, enabled, isAdmin, onClose, onA
           {!enabled ? (
             <div style={{ border: `1px dashed ${pal.border}`, borderRadius: 14, padding: 16 }}>
               <div style={{ fontWeight: 600, marginBottom: 6 }}>Not set up yet</div>
-              <Text size="sm" secondary>{isAdmin ? "Add your Anthropic API key as the ANTHROPIC_API_KEY environment variable (Vercel project settings), then redeploy. The assistant turns on automatically." : "The admin hasn’t switched the assistant on yet."}</Text>
+              <Text size="sm" secondary>{isAdmin ? "Add your Anthropic API key as ANTHROPIC_API_KEY (Vercel project settings, then redeploy). To use a model on your own computer instead, install Ollama and set OLLAMA_MODEL in the .env file (README: AI assistant). It turns on automatically." : "The admin hasn’t switched the assistant on yet."}</Text>
             </div>
           ) : msgs.length === 0 ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>

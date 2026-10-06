@@ -56,7 +56,7 @@ function buildContext({ project, tasks, designers, today }) {
   });
 }
 
-async function callModel(cfg, system, userText) {
+async function callAnthropic(cfg, system, userText) {
   const res = await fetch(`${cfg.baseUrl}/v1/messages`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-api-key': cfg.key, 'anthropic-version': '2023-06-01' },
@@ -72,6 +72,29 @@ async function callModel(cfg, system, userText) {
   if (!block || !block.input) throw new HttpError(502, 'The assistant gave no usable answer. Try rephrasing.');
   return block.input;
 }
+
+// Ollama (a model running on this computer). Its structured-output mode forces the reply to match the same schema.
+async function callOllama(cfg, system, userText) {
+  const res = await fetch(`${cfg.baseUrl}/api/chat`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      model: cfg.model, stream: false, format: TOOL.input_schema, options: { temperature: 0.3 },
+      messages: [{ role: 'system', content: `${system}\n\nReply with a single JSON object with the keys "reply" and "actions", and nothing else.` }, { role: 'user', content: userText }],
+    }),
+    signal: AbortSignal.timeout(180_000), // local models can be slow, especially the first request while the model loads
+  }).catch((e) => { throw new HttpError(502, e.name === 'TimeoutError' ? 'The local model took too long. Try a smaller request or a smaller model.' : `Could not reach Ollama at ${cfg.baseUrl}. Is it running? (start it with "ollama serve")`); });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const msg = String((json && json.error) || '');
+    console.error('Ollama request failed', res.status, msg);
+    throw new HttpError(502, res.status === 404 ? `Ollama doesn’t have the model “${cfg.model}”. Install it with: ollama pull ${cfg.model}` : 'Ollama returned an error.');
+  }
+  let text = String((json.message && json.message.content) || '').trim().replace(/^```(?:json)?\s*|\s*```$/g, '');
+  try { return JSON.parse(text); } catch { throw new HttpError(502, 'The local model didn’t return a usable answer. Try again or use a larger model.'); }
+}
+
+const callModel = (cfg, system, userText) => (cfg.provider === 'ollama' ? callOllama : callAnthropic)(cfg, system, userText);
 
 // Only fields the assistant really set; it never writes private notes or client updates.
 const tidy = (f) => Object.fromEntries(Object.entries(f).filter(([k, v]) => v !== '' && k !== 'privateNotes' && k !== 'clientUpdate'));
