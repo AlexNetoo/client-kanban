@@ -42,7 +42,7 @@ function Login() {
     <main className="login-wrap hero">
       <HeroBackground />
       <form onSubmit={submit} style={{ width: "min(100%, 380px)", display: "flex", flexDirection: "column", gap: 18 }} noValidate>
-        <div style={{ marginBottom: 18 }}><Brand href="/login" /></div>
+        <div style={{ marginBottom: 18 }}><Brand href="/login" portalOnly /></div>
         <div>
           <Heading level={1}>{ADMIN ? "Admin sign in" : "Sign in"}</Heading>
           <Text secondary>{ADMIN ? "Enter the admin password to manage accounts and projects." : COPY[tab]}</Text>

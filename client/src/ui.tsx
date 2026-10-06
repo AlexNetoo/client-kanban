@@ -135,12 +135,13 @@ export function Person({ name, size = 28 }: { name: string; size?: number }) {
 }
 
 /** The alexneto.com logo (circle + name) with "Client Portal" as a quiet label underneath. */
-export function Brand({ href = "#/" }: { href?: string }) {
+/** `portalOnly` shows just "Client Portal" next to the mark (used on the sign-in page). */
+export function Brand({ href = "#/", portalOnly = false }: { href?: string; portalOnly?: boolean }) {
   const pal = usePalette();
   return (
     <div>
-      <a href={href} className="nav__brand" aria-label="Alex Neto - Client Portal, home"><span className="nav__mark" /><span className="nav__word">Alex Neto</span></a>
-      <span className="brand-sub" style={{ color: pal.textTertiary }}>Client Portal</span>
+      <a href={href} className="nav__brand" aria-label="Alex Neto - Client Portal, home"><span className="nav__mark" /><span className="nav__word">{portalOnly ? "Client Portal" : "Alex Neto"}</span></a>
+      {!portalOnly && <span className="brand-sub" style={{ color: pal.textTertiary }}>Client Portal</span>}
     </div>
   );
 }
