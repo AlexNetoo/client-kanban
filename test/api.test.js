@@ -49,7 +49,7 @@ test('pages redirect to login without a session; login assets are public', async
   const r = await call('GET', '/');
   assert.strictEqual(r.res.status, 302);
   assert.strictEqual(r.res.headers.get('location'), '/login');
-  assert.strictEqual((await call('GET', '/js/app.js')).res.status, 302);
+  assert.strictEqual((await call('GET', '/index.html')).res.status, 302);
   assert.strictEqual((await call('GET', '/login')).res.status, 200);
 });
 

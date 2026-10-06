@@ -12,13 +12,15 @@ const COOKIE = 'sid';
 const MAX_BODY = 64 * 1024;
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
-  '.svg': 'image/svg+xml', '.json': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.json': 'application/json; charset=utf-8',
 };
 // Reachable without a session: only what the login page needs. No data lives in these files.
-const PUBLIC_FILES = new Set(['/login.html', '/css/styles.css', '/js/login.js', '/favicon.svg']);
+// Built bundles under /assets are public too (static code, no data); the app shell (index.html) is not.
+const PUBLIC_FILES = new Set(['/login.html', '/favicon.svg']);
+const isPublic = (rel) => PUBLIC_FILES.has(rel) || rel.startsWith('/assets/');
 
 const SECURITY_HEADERS = {
-  'Content-Security-Policy': "default-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+  'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'no-referrer',
   'X-Frame-Options': 'DENY',
@@ -158,12 +160,12 @@ function createApp(config) {
     let rel = pathname === '/' ? '/index.html' : pathname;
     if (rel === '/login') rel = '/login.html';
     const file = path.normalize(path.join(PUBLIC_DIR, rel));
-    const isPublic = PUBLIC_FILES.has(rel);
+    const open = isPublic(rel);
     if (!file.startsWith(PUBLIC_DIR + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
       res.writeHead(404, { 'Content-Type': 'text/plain', ...SECURITY_HEADERS });
       return res.end('Not found');
     }
-    if (!isPublic && !session) {
+    if (!open && !session) {
       // Fragment (#/c/token) is preserved by browsers across this redirect.
       res.writeHead(302, { Location: '/login', ...SECURITY_HEADERS });
       return res.end();

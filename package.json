@@ -3,11 +3,15 @@
   "version": "1.0.0",
   "description": "Password-protected kanban for sharing project progress with clients",
   "private": true,
-  "engines": { "node": ">=18.11" },
+  "engines": {
+    "node": ">=18.11"
+  },
   "scripts": {
     "setup": "node scripts/setup.js",
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
-    "test": "node --test test/"
+    "test": "node --test test/",
+    "build:web": "npm --prefix client install && npm --prefix client run build",
+    "dev:web": "npm --prefix client run dev"
   }
 }
