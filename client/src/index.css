@@ -1,14 +1,14 @@
-@font-face {
-  font-family: "Manrope";
-  src: url("./assets/fonts/manrope.woff2") format("woff2");
-  font-weight: 200 800;
-  font-display: swap;
-}
-/* Halaska reads --halaska-sans; point it at the bundled Manrope instead of Geist. */
-:root { --halaska-sans: "Manrope"; }
+/* Suisse Int'l (Swiss Typefaces), self-hosted. The licensed WOFF2 files live in src/assets/fonts and are not committed to git. */
+@font-face { font-family: "Suisse Intl"; src: url("./assets/fonts/suisse-intl-400.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Suisse Intl"; src: url("./assets/fonts/suisse-intl-500.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: "Suisse Intl"; src: url("./assets/fonts/suisse-intl-600.woff2") format("woff2"); font-weight: 600; font-style: normal; font-display: swap; }
+/* Bold also serves the extra-bold (800) headings, since the family has no 800 cut. */
+@font-face { font-family: "Suisse Intl"; src: url("./assets/fonts/suisse-intl-700.woff2") format("woff2"); font-weight: 700 800; font-style: normal; font-display: swap; }
+/* Halaska reads --halaska-sans; point it at Suisse Int'l instead of Geist. */
+:root { --halaska-sans: "Suisse Intl"; }
 *, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
-body { margin: 0; font-family: "Manrope", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+body { margin: 0; font-family: "Suisse Intl", system-ui, -apple-system, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
 h1, h2, h3, p, ul { margin: 0; padding: 0; }
 ul { list-style: none; }
 a { color: inherit; }

@@ -19,7 +19,7 @@ function useHash() {
 
 const Brand = ({ href = "#/" }: { href?: string }) => (
   <a href={href} style={{ display: "inline-flex", alignItems: "center", gap: 10, fontWeight: 800, letterSpacing: "-0.02em", textDecoration: "none" }}>
-    <img src="/favicon.svg" alt="" width={24} height={24} /> Project Hub
+    <img src="/favicon.svg" alt="" width={24} height={24} /> NetoDesign
   </a>
 );
 

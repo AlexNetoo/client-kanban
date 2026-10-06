@@ -6,3 +6,7 @@ data/
 credentials.local.txt
 .vercel
 .env*
+
+# Licensed font files (Suisse Int'l): served by the site, not published in the repo
+client/src/assets/fonts/suisse-*
+web/assets/fonts/

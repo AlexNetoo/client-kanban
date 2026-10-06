@@ -1,0 +1,12 @@
+# What `vercel deploy` must NOT upload. (Having this file means .gitignore is not used for deploys,
+# so the licensed font in web/assets/fonts IS uploaded even though it is not in git.)
+.env
+.env.*
+credentials.local.txt
+data/
+.vercel/
+node_modules/
+client/node_modules/
+client/src/
+test/
+.DS_Store

@@ -1,4 +1,4 @@
-# Project Hub — client kanban
+# NetoDesign — client kanban
 
 A small, password-protected kanban for an admin (freelancer) to manage projects and share progress with designers and clients.
 
@@ -8,7 +8,7 @@ A small, password-protected kanban for an admin (freelancer) to manage projects 
 - **Private notes vs client updates**: each task has a *Client-visible update* (blue, eye icon) and *Private notes* (dashed amber, lock icon, owner only).
 - Seeded with four realistic sample projects on first launch.
 
-The server has zero npm dependencies. The UI is React + TypeScript built with Vite and styled with [Halaska UI](https://ui.halaska.com) (`client/src/halaska-kit.jsx`, grayscale accent, Manrope font bundled locally). The built UI is committed in `web/`, so you only need Node to run it. Requires Node 18.11+ (developed on Node 19).
+The server has zero npm dependencies. The UI is React + TypeScript built with Vite and styled with [Halaska UI](https://ui.halaska.com) (`client/src/halaska-kit.jsx`, grayscale accent) set in **Suisse Int'l**. The built UI is committed in `web/`, so you only need Node to run it. Requires Node 18.11+ (developed on Node 19).
 
 ## Setup
 
@@ -36,6 +36,13 @@ npm run dev:web     # optional Vite dev server on :5173 (proxies /api to :3000)
 | `TRUST_PROXY` | no | `true` if behind a proxy that sets `X-Forwarded-For` (used for login rate limiting) |
 
 `.env` and `data/` are git-ignored. Never commit them.
+
+## Font (Suisse Int'l)
+
+The interface is set in Suisse Int'l (Swiss Typefaces), self-hosted as four WOFF2 weights (400, 500, 600, 700) in `client/src/assets/fonts/suisse-intl-<weight>.woff2`. **These licensed files are deliberately not in git** (they are git-ignored), so the public repo doesn't redistribute them; the build copies them to `web/assets/fonts/`, which is also git-ignored but is uploaded when you deploy. A few decorative symbols (▲ ◆ ▼ ✕ ☰) aren't in the font and use the system's. Check that your Suisse licence covers web use before publishing the site.
+
+- **Rebuilding on a machine without the files:** copy the four WOFF2 files into `client/src/assets/fonts/` first (they were made by subsetting the licensed OTFs to Latin + the symbols the UI uses). Without them the build fails.
+- **Deploying:** pushes to GitHub do **not** deploy automatically (`vercel.json` turns that off), because a build from git wouldn't contain the font. Deploy with `vercel deploy --prod`; `.vercelignore` makes sure the font is uploaded and secrets are not.
 
 ## Accounts and signing in
 

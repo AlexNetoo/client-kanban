@@ -8,7 +8,11 @@ export default defineConfig({
   build: {
     outDir: "../web",
     emptyOutDir: true,
-    rollupOptions: { input: { index: resolve(__dirname, "index.html"), login: resolve(__dirname, "login.html") } },
+    rollupOptions: {
+      input: { index: resolve(__dirname, "index.html"), login: resolve(__dirname, "login.html") },
+      // Keep the licensed font files together so they can be left out of git.
+      output: { assetFileNames: (a) => (/\.woff2?$/.test(a.name ?? "") ? "assets/fonts/[name]-[hash][extname]" : "assets/[name]-[hash][extname]") },
+    },
   },
   server: { port: 5173, proxy: { "/api": "http://localhost:3000" } },
 });

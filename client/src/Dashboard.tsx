@@ -75,7 +75,7 @@ export function Dashboard() {
     setError("");
     try { setProjects(await api.listProjects()); nav.reload(); } catch (e) { setError((e as Error).message); }
   }, []);
-  useEffect(() => { document.title = "Projects · Project Hub"; load(); }, [load]);
+  useEffect(() => { document.title = "Projects · NetoDesign"; load(); }, [load]);
 
   if (error) return <StateBlock title="Couldn’t load projects" description={error} action={<Button onClick={() => { setProjects(null); load(); }}>Try again</Button>} />;
   if (!projects) return <Loading />;
