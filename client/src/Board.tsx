@@ -181,7 +181,7 @@ export function Board({ id, taskId }: { id: string; taskId?: string }) {
         })}
       </div>
 
-      {assistantOpen && <Assistant projectId={id} designers={designers} enabled={!!me.ai} isAdmin={owner} onClose={() => setAssistantOpen(false)} onApplied={() => load()} />}
+      {assistantOpen && <Assistant projectId={id} projectName={project.name} tasks={tasks} designers={designers} enabled={!!me.ai} isAdmin={owner} onClose={() => setAssistantOpen(false)} onApplied={() => load()} />}
       {editing && (
         <TaskDialog projectId={id} task={editing.task} designers={designers} defaultStatus={editing.status} onClose={() => setEditing(null)}
           onSaved={(t) => load(t.id)} onDelete={(t) => { setEditing(null); setDeleting(t); }} />
