@@ -65,8 +65,10 @@ async function callAnthropic(cfg, system, userText) {
   }).catch((e) => { throw new HttpError(502, e.name === 'TimeoutError' ? 'The assistant took too long. Try a smaller request.' : 'Could not reach the AI service.'); });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
-    console.error('AI request failed', res.status, json && json.error && json.error.type);
-    throw new HttpError(502, res.status === 401 || res.status === 403 ? 'The AI key was rejected. Check ANTHROPIC_API_KEY.' : res.status === 429 ? 'The AI service is busy. Try again in a moment.' : 'The AI service returned an error.');
+    const detail = String((json && json.error && json.error.message) || '').slice(0, 300); // Anthropic's own explanation; it never contains our key
+    console.error('AI request failed', res.status, json && json.error && json.error.type, detail);
+    if (/credit balance/i.test(detail)) throw new HttpError(502, 'The Anthropic account is out of credit. Add credit at console.anthropic.com (Plans & Billing), then try again.');
+    throw new HttpError(502, res.status === 401 || res.status === 403 ? 'The AI key was rejected. Check ANTHROPIC_API_KEY.' : res.status === 429 ? 'The AI service is busy. Try again in a moment.' : `The AI service returned an error${detail ? `: ${detail}` : '.'}`);
   }
   const block = (json.content || []).find((b) => b.type === 'tool_use' && b.name === 'respond');
   if (!block || !block.input) throw new HttpError(502, 'The assistant gave no usable answer. Try rephrasing.');
