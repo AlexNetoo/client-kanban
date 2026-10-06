@@ -3,15 +3,12 @@ import { Button, IconButton, Sheet } from "./halaska-kit";
 import { api } from "./api";
 import { AdminConsole } from "./AdminConsole";
 import { Board } from "./Board";
-import { ClientHome } from "./ClientHome";
 import { ClientView } from "./ClientView";
 import { Dashboard } from "./Dashboard";
 import { ProjectsProvider } from "./nav";
-import { PasswordDialog } from "./PasswordDialog";
 import { Nav } from "./Sidebar";
 import { Settings } from "./Settings";
 import { SessionProvider, type Me } from "./session";
-import { StateBlock } from "./ui";
 import { usePalette } from "./theme";
 
 function useHash() {
@@ -33,7 +30,6 @@ export function App() {
   const pal = usePalette();
   const [me, setMe] = useState<Me | null>(null);
   const [menu, setMenu] = useState(false);
-  const [pw, setPw] = useState(false);
   const route = useHash();
   const main = useRef<HTMLElement>(null);
   useEffect(() => { api.session().then((s) => setMe({ role: s.role, designer: s.designer, client: s.client, expiresAt: s.expiresAt, maxUploadBytes: s.maxUploadBytes })).catch(() => {}); }, []);
@@ -42,38 +38,14 @@ export function App() {
   const skip = <a className="skip-link" href="#main" onClick={(e) => { e.preventDefault(); main.current?.focus(); }}>Skip to content</a>;
   const [, kind, param, sub, subParam] = route.split("/");
 
-  // Clients: their own projects only, no menu.
-  if (role === "client") {
-    const view = kind === "c" && param
-      ? <ClientView key={param} token={decodeURIComponent(param)} role={role} />
-      : <ClientHome />;
-    return (
-      <SessionProvider value={me}>
-        {skip}
-        <header style={{ borderBottom: `1px solid ${pal.border}` }}>
-          <div className="wrap" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, paddingTop: 14, paddingBottom: 14 }}>
-            <Brand />
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              {me.client && <span style={{ fontSize: 13, color: pal.textSecondary }}>{me.client.name}</span>}
-              <Button variant="ghost" size="sm" onClick={() => setPw(true)}>Change password</Button>
-              <Button variant="secondary" size="sm" onClick={signOut}>Sign out</Button>
-            </div>
-          </div>
-        </header>
-        <main id="main" ref={main} tabIndex={-1} className="wrap page">{view}</main>
-        {pw && <PasswordDialog onClose={() => setPw(false)} />}
-      </SessionProvider>
-    );
-  }
-
-  // Admin and designers: sidebar shell.
+  // Everyone gets the same layout; what they can do differs (admin: everything, designer: their tasks, client: read and comment).
   const admin = role === "owner" && isAdminPath();
   let view;
   if (admin) view = <AdminConsole />;
-  else if (kind === "c" && param && role !== "designer") view = <ClientView key={param} token={decodeURIComponent(param)} role={role} />;
+  else if (kind === "c" && param && role === "owner") view = <ClientView key={param} token={decodeURIComponent(param)} role={role} />;
   else if (kind === "settings") view = <Settings />;
   else if (kind === "p" && param) view = <Board key={param} id={decodeURIComponent(param)} taskId={sub === "t" && subParam ? decodeURIComponent(subParam) : undefined} />;
-  else view = role === "owner" || role === "designer" ? <Dashboard /> : <StateBlock title="Nothing here" description="This page doesn’t exist." />;
+  else view = <Dashboard />;
 
   return (
     <SessionProvider value={me}>

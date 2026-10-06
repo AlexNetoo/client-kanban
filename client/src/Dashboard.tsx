@@ -63,7 +63,8 @@ export function ProjectMenu({ project, onChange, afterDelete }: { project: Proje
 
 export function Dashboard() {
   const pal = usePalette();
-  const owner = useMe().role === "owner";
+  const me = useMe();
+  const owner = me.role === "owner";
   const [projects, setProjects] = useState<Project[] | null>(null);
   const [error, setError] = useState("");
   const [tab, setTab] = useState<"Active" | "Archived">("Active");
@@ -90,7 +91,7 @@ export function Dashboard() {
       <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-start", gap: 16, marginBottom: 28 }}>
         <div>
           <Heading level={1}>{owner ? "Projects" : "My projects"}</Heading>
-          <Text secondary>{owner ? "Everything in flight, and how it looks to each client." : "Projects with tasks assigned to you."}</Text>
+          <Text secondary>{owner ? "Everything in flight, and how it looks to each client." : me.role === "client" ? "Projects shared with you. Open one to follow the work and leave comments." : "Projects with tasks assigned to you."}</Text>
         </div>
         {owner && <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <Button variant="secondary" onClick={() => { location.href = "/admin"; }}>Admin console</Button>
@@ -111,7 +112,7 @@ export function Dashboard() {
       </div>}
 
       {shown.length === 0 ? (
-        !owner ? <StateBlock title="No projects yet" description="You’ll see a project here once a task is assigned to you." />
+        !owner ? <StateBlock title="No projects yet" description={me.role === "client" ? "Projects will appear here as soon as they are shared with you." : "You’ll see a project here once a task is assigned to you."} />
         : tab === "Active"
           ? <StateBlock title="No projects yet" description="Create your first project to start a board and share progress with a client." action={<Button onClick={() => setCreating(true)}>New project</Button>} />
           : <StateBlock title="Nothing archived" description="Archived projects are kept here, hidden from clients." />

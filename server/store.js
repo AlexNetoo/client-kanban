@@ -79,6 +79,8 @@ class Store {
     }
     for (const t of this.data.tasks) for (const c of t.comments || []) {
       if (c.authorId === 'owner' && c.authorName === 'Freelancer') { c.authorName = 'Admin'; changed = true; } // the account is called Admin now
+      if (!c.visibility) { c.visibility = 'internal'; changed = true; } // older comments were team-only
+      if (!c.authorRole) { c.authorRole = c.authorId === 'owner' ? 'owner' : 'designer'; changed = true; }
     }
     for (const t of this.data.tasks) {
       if (!Array.isArray(t.comments)) { t.comments = []; changed = true; }
@@ -315,15 +317,20 @@ class Store {
   }
 
   // ---- comments (internal: never exposed through the client view) ----
-  addComment(taskId, { text, authorId }) {
+  /** visibility: 'internal' (admin and designers) or 'client' (also visible to the client accounts of that project). */
+  addComment(taskId, { text, authorId, authorRole = 'designer', visibility = 'internal' }) {
     const task = this.getTask(taskId);
     let authorName = 'Admin';
-    if (authorId !== 'owner') {
+    if (authorRole === 'designer') {
       const d = this.data.designers.find((x) => x.id === authorId);
       if (!d) throw new HttpError(400, 'Unknown author');
       authorName = d.name;
+    } else if (authorRole === 'client') {
+      const c = this.getClient(authorId);
+      if (!c) throw new HttpError(400, 'Unknown author');
+      authorName = c.name;
     }
-    task.comments.push({ id: crypto.randomUUID(), authorId, authorName, text, createdAt: new Date().toISOString() });
+    task.comments.push({ id: crypto.randomUUID(), authorId, authorRole, authorName, visibility, text, createdAt: new Date().toISOString() });
     this.save();
     return task;
   }

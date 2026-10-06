@@ -1,4 +1,4 @@
-import type { ClientAccount, MyProject, ClientProject, ClientTask, Designer, Project, ProjectInput, Task, TaskInput, TaskLink, TaskSearchResult } from "./types";
+import type { ClientAccount, ClientProject, ClientTask, Designer, Project, ProjectInput, Task, TaskInput, TaskLink, TaskSearchResult } from "./types";
 
 export interface UploadTarget { url: string; method: string; headers: Record<string, string> }
 
@@ -43,7 +43,7 @@ export const api = {
   updateDesigner: (id: string, d: { name?: string; role?: string; email?: string; password?: string; removeLogin?: boolean }) => request<Designer>("PATCH", `/api/designers/${id}`, d),
   changePassword: (current: string, next: string) => request<{ ok: true }>("POST", "/api/me/password", { current, next }),
   deleteDesigner: (id: string) => request<{ ok: true }>("DELETE", `/api/designers/${id}`),
-  addComment: (taskId: string, d: { text: string }) => request<Task>("POST", `/api/tasks/${taskId}/comments`, d),
+  addComment: (taskId: string, d: { text: string; shared?: boolean }) => request<Task>("POST", `/api/tasks/${taskId}/comments`, d),
   deleteComment: (taskId: string, commentId: string) => request<Task>("DELETE", `/api/tasks/${taskId}/comments/${commentId}`),
   addLink: (taskId: string, d: { targetId: string; type: TaskLink["type"]; inverse?: boolean }) => request<Task>("POST", `/api/tasks/${taskId}/links`, d),
   deleteLink: (taskId: string, linkId: string) => request<Task>("DELETE", `/api/tasks/${taskId}/links/${linkId}`),
@@ -55,7 +55,6 @@ export const api = {
   createClient: (d: { name: string; company?: string; email: string; password: string; projectIds: string[] }) => request<ClientAccount>("POST", "/api/clients", d),
   updateClient: (id: string, d: { name?: string; company?: string; email?: string; password?: string; projectIds?: string[] }) => request<ClientAccount>("PATCH", `/api/clients/${id}`, d),
   deleteClient: (id: string) => request<{ ok: true }>("DELETE", `/api/clients/${id}`),
-  myProjects: () => request<MyProject[]>("GET", "/api/my/projects"),
   clientView: (token: string) => request<{ project: ClientProject; tasks: ClientTask[] }>("GET", `/api/client/${encodeURIComponent(token)}`),
 };
 

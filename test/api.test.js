@@ -79,12 +79,17 @@ test('owner can list projects and sees private notes; seed present', async () =>
   assert.ok(json.tasks.some((t) => t.privateNotes));
 });
 
-test('client session cannot reach owner routes and never receives private notes', async () => {
+test('client sessions see assigned projects read-only and never receive private notes', async () => {
   const owner = await login(OWNER_PW);
   const { json: projects } = await call('GET', '/api/projects', { cookie: owner.cookie });
   const client = await newClient(owner.cookie, [projects[0].id]);
-  assert.strictEqual((await call('GET', '/api/projects', { cookie: client.cookie })).res.status, 403);
-  assert.strictEqual((await call('GET', `/api/projects/${projects[0].id}`, { cookie: client.cookie })).res.status, 403);
+  const mineList = await call('GET', '/api/projects', { cookie: client.cookie });
+  assert.deepStrictEqual(mineList.json.map((p) => p.id), [projects[0].id]); // only the assigned project
+  assert.ok(!mineList.text.includes('shareToken'));
+  const board = await call('GET', `/api/projects/${projects[0].id}`, { cookie: client.cookie });
+  assert.strictEqual(board.res.status, 200);
+  assert.ok(board.json.tasks.length > 0 && board.json.tasks.every((x) => !('privateNotes' in x)));
+  assert.strictEqual((await call('GET', `/api/projects/${projects[1].id}`, { cookie: client.cookie })).res.status, 404);
   assert.strictEqual((await call('PATCH', `/api/projects/${projects[0].id}`, { cookie: client.cookie, body: { name: 'x' } })).res.status, 403);
   const view = await call('GET', `/api/client/${projects[0].shareToken}`, { cookie: client.cookie });
   assert.strictEqual(view.res.status, 200);
@@ -121,7 +126,9 @@ test('designers, assignment and comments are owner-only and never reach clients'
   const client = await newClient(cookie, []);
   const designers = (await call('GET', '/api/designers', { cookie })).json;
   assert.ok(designers.length >= 3);
-  assert.strictEqual((await call('GET', '/api/designers', { cookie: client.cookie })).res.status, 403);
+  const namesForClient = await call('GET', '/api/designers', { cookie: client.cookie });
+  assert.strictEqual(namesForClient.res.status, 200); // names only, so assignees can be shown
+  assert.ok(namesForClient.json.every((d) => !('email' in d) && !('hasLogin' in d)));
   const projects = (await call('GET', '/api/projects', { cookie })).json;
   await assignClient(cookie, client.id, [projects[0].id]);
   const board = (await call('GET', `/api/projects/${projects[0].id}`, { cookie })).json;
@@ -136,7 +143,8 @@ test('designers, assignment and comments are owner-only and never reach clients'
   const c = added.json.comments.at(-1);
   assert.strictEqual(c.authorName, 'Admin'); // a spoofed authorId in the body is ignored
   assert.strictEqual((await call('POST', `/api/tasks/${task.id}/comments`, { cookie, body: { text: '' } })).res.status, 400);
-  assert.strictEqual((await call('POST', `/api/tasks/${task.id}/comments`, { cookie: client.cookie, body: { text: 'x' } })).res.status, 403);
+  const clientSees = await call('GET', `/api/projects/${projects[0].id}`, { cookie: client.cookie });
+  assert.ok(!clientSees.text.includes('SECRET-COMMENT-TEXT')); // the admin's comment is internal
   const view = await call('GET', `/api/client/${projects[0].shareToken}`, { cookie: client.cookie });
   assert.ok(!view.text.includes('SECRET-COMMENT-TEXT'));
   assert.ok(view.json.tasks.every((x) => !('comments' in x) && !('assigneeId' in x) && !('privateNotes' in x)));
@@ -279,22 +287,23 @@ test('client accounts: scoped to assigned projects, admin-managed, revoked immed
   const c = await newClient(owner.cookie, [A.id]); const C = { cookie: c.cookie };
 
   // only assigned projects, with the token needed to open them
-  const mine = (await call('GET', '/api/my/projects', C)).json;
-  assert.deepStrictEqual(mine.map((p) => [p.name, p.token]), [['Acct A', A.shareToken]]);
-  assert.ok(!JSON.stringify(mine).includes('privateNotes') && mine.every((p) => !('id' in p)));
+  const mine = (await call('GET', '/api/projects', C)).json;
+  assert.deepStrictEqual(mine.map((p) => p.name), ['Acct A']);
+  assert.ok(!JSON.stringify(mine).includes('shareToken'));
   assert.strictEqual((await call('GET', `/api/client/${A.shareToken}`, C)).res.status, 200);
   assert.strictEqual((await call('GET', `/api/client/${B.shareToken}`, C)).res.status, 404); // exists, but not theirs
-  for (const [m, u] of [['GET', '/api/projects'], ['GET', '/api/clients'], ['GET', '/api/designers'], ['GET', '/api/task-search?q=a']]) {
+  for (const [m, u] of [['GET', '/api/clients'], ['GET', '/api/task-search?q=a']]) {
     assert.strictEqual((await call(m, u, C)).res.status, 403, `${m} ${u}`);
   }
+  assert.strictEqual((await call('POST', '/api/projects', { ...C, body: { name: 'x', client: 'y' } })).res.status, 403);
   assert.strictEqual((await call('POST', '/api/clients', { ...C, body: { name: 'x', email: 'x@example.com', password: 'xxxxxxxxxxxx' } })).res.status, 403);
 
   // the admin changes access: assign another project, archive, delete
   await assignClient(owner.cookie, c.id, [A.id, B.id]);
-  assert.strictEqual((await call('GET', '/api/my/projects', C)).json.length, 2);
+  assert.strictEqual((await call('GET', '/api/projects', C)).json.length, 2);
   assert.strictEqual((await call('GET', `/api/client/${B.shareToken}`, C)).res.status, 200);
   await call('PATCH', `/api/projects/${B.id}`, { ...O, body: { archived: true } });
-  assert.strictEqual((await call('GET', '/api/my/projects', C)).json.length, 1);
+  assert.strictEqual((await call('GET', '/api/projects', C)).json.length, 1);
   await call('DELETE', `/api/projects/${B.id}`, O);
   assert.deepStrictEqual((await call('GET', '/api/clients', O)).json.find((x) => x.id === c.id).projectIds, [A.id]);
   assert.strictEqual((await assignClient(owner.cookie, c.id, ['no-such-project'])).res.status, 400);
@@ -311,17 +320,17 @@ test('client accounts: scoped to assigned projects, admin-managed, revoked immed
   const chg = await fetch(`${base}/api/me/password`, { method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: c.cookie }, body: JSON.stringify({ current: c.password, next: 'a-new-client-pass-1' }) });
   assert.strictEqual(chg.status, 200);
   const fresh = { cookie: chg.headers.get('set-cookie').split(';')[0] };
-  assert.strictEqual((await call('GET', '/api/my/projects', fresh)).res.status, 200);
-  assert.strictEqual((await call('GET', '/api/my/projects', C)).res.status, 401);
+  assert.strictEqual((await call('GET', '/api/projects', fresh)).res.status, 200);
+  assert.strictEqual((await call('GET', '/api/projects', C)).res.status, 401);
 
   // admin reset signs the client out at once; the old password stops working; removing the login or the account does too
   assert.strictEqual((await call('PATCH', `/api/clients/${c.id}`, { ...O, body: { password: 'admin-reset-pass-9' } })).res.status, 200);
-  assert.strictEqual((await call('GET', '/api/my/projects', fresh)).res.status, 401);
+  assert.strictEqual((await call('GET', '/api/projects', fresh)).res.status, 401);
   assert.strictEqual((await login('a-new-client-pass-1', c.email, 'client')).status, 401);
   const again = await login('admin-reset-pass-9', c.email, 'client');
   assert.strictEqual(again.status, 200);
   assert.strictEqual((await call('DELETE', `/api/clients/${c.id}`, O)).res.status, 200);
-  assert.strictEqual((await call('GET', '/api/my/projects', { cookie: again.cookie })).res.status, 401);
+  assert.strictEqual((await call('GET', '/api/projects', { cookie: again.cookie })).res.status, 401);
   assert.strictEqual((await login('admin-reset-pass-9', c.email, 'client')).status, 401);
   await call('DELETE', `/api/projects/${A.id}`, O);
 });
@@ -477,6 +486,78 @@ test('cross-origin writes are blocked', async () => {
   const { cookie } = await login(OWNER_PW);
   const res = await fetch(base + '/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: cookie, Origin: 'https://evil.example' }, body: '{}' });
   assert.strictEqual(res.status, 403);
+});
+
+test('clients: read-only board, shared comments only, no private notes or attachments', async () => {
+  const owner = await login(OWNER_PW); const O = { cookie: owner.cookie };
+  const mkP = async (name) => (await call('POST', '/api/projects', { ...O, body: { name, client: 'RO Co', status: 'active' } })).json;
+  const P = await mkP('RO Board'); const Q = await mkP('RO Hidden');
+  const T = (await call('POST', `/api/projects/${P.id}/tasks`, { ...O, body: { title: 'Visible task', description: 'Shown to all', status: 'in_progress', priority: 'high', privateNotes: 'PRIVATE-NOTE-XYZ', clientUpdate: 'Update for the client' } })).json;
+  const QT = (await call('POST', `/api/projects/${Q.id}/tasks`, { ...O, body: { title: 'Hidden task', status: 'todo', priority: 'low' } })).json;
+  const des = (await call('POST', '/api/designers', { ...O, body: { name: 'Ro Des', email: 'rodes@example.com', password: 'rodes-password-123' } })).json;
+  await call('PATCH', `/api/tasks/${T.id}`, { ...O, body: { assigneeId: des.id } });
+  const D = { cookie: (await login('rodes-password-123', 'rodes@example.com', 'designer')).cookie };
+  const c = await newClient(owner.cookie, [P.id]); const C = { cookie: c.cookie };
+  const comment = (cookie, body, id = T.id) => call('POST', `/api/tasks/${id}/comments`, { cookie, body });
+  const clientTask = async () => (await call('GET', `/api/projects/${P.id}`, C)).json.tasks.find((x) => x.id === T.id);
+
+  // admin and designer comments are internal unless explicitly shared
+  await comment(owner.cookie, { text: 'INTERNAL-ADMIN' });
+  await comment(owner.cookie, { text: 'SHARED-ADMIN', shared: true });
+  await comment(D.cookie, { text: 'INTERNAL-DESIGNER' });
+  await comment(D.cookie, { text: 'SHARED-DESIGNER', shared: true });
+  let seen = await clientTask();
+  assert.deepStrictEqual(seen.comments.map((x) => x.text), ['SHARED-ADMIN', 'SHARED-DESIGNER']);
+  assert.ok(seen.comments.every((x) => x.visibility === 'client'));
+  const teamView = (await tasksOf2(O.cookie)).comments.map((x) => [x.text, x.visibility]);
+  assert.deepStrictEqual(teamView, [['INTERNAL-ADMIN', 'internal'], ['SHARED-ADMIN', 'client'], ['INTERNAL-DESIGNER', 'internal'], ['SHARED-DESIGNER', 'client']]);
+  async function tasksOf2(cookie) { return (await call('GET', `/api/projects/${P.id}`, { cookie })).json.tasks.find((x) => x.id === T.id); }
+
+  // what a client does and doesn't get on the task
+  assert.strictEqual(seen.privateNotes, undefined);
+  assert.ok(!JSON.stringify(seen).includes('PRIVATE-NOTE-XYZ'));
+  assert.deepStrictEqual([seen.title, seen.description, seen.clientUpdate, seen.priority, seen.status], ['Visible task', 'Shown to all', 'Update for the client', 'high', 'in_progress']);
+  assert.strictEqual((await call('GET', `/api/projects/${Q.id}`, C)).res.status, 404);
+  assert.strictEqual((await comment(C.cookie, { text: 'nope' }, QT.id)).res.status, 404);
+
+  // attachments are hidden from clients and can't be fetched
+  const up = await call('POST', `/api/tasks/${T.id}/attachments`, { ...O, body: { name: 'secret.pdf', size: 3, type: 'application/pdf' } });
+  await fetch(base + up.json.upload.url, { method: 'PUT', headers: { Cookie: owner.cookie, 'Content-Type': 'application/octet-stream' }, body: Buffer.from('abc') });
+  await call('POST', `/api/tasks/${T.id}/attachments/${up.json.attachmentId}/complete`, { ...O, body: {} });
+  assert.strictEqual((await tasksOf2(O.cookie)).attachments.length, 1);
+  seen = await clientTask();
+  assert.deepStrictEqual(seen.attachments, []);
+  assert.strictEqual((await fetch(`${base}/api/attachments/${up.json.attachmentId}/file`, { headers: { Cookie: c.cookie } })).status, 403);
+
+  // links: only to projects the client can open
+  await call('POST', `/api/tasks/${T.id}/links`, { ...O, body: { targetId: QT.id, type: 'relates' } });
+  assert.strictEqual((await tasksOf2(O.cookie)).links.length, 1);
+  assert.deepStrictEqual((await clientTask()).links, []);
+
+  // a client can comment (always shared, whatever they send); the team sees it, authored by their account
+  const mine = await comment(C.cookie, { text: 'Question from the client', shared: false, authorId: 'owner' });
+  assert.strictEqual(mine.res.status, 201);
+  const mc = mine.json.comments.find((x) => x.text === 'Question from the client');
+  assert.deepStrictEqual([mc.authorName, mc.authorRole, mc.visibility, mc.authorId], [c.email && 'Client ' + clientSeq, 'client', 'client', c.id]);
+  assert.ok((await tasksOf2(D.cookie)).comments.some((x) => x.text === 'Question from the client' && x.authorRole === 'client'));
+  assert.ok((await tasksOf2(O.cookie)).comments.some((x) => x.text === 'Question from the client'));
+  assert.strictEqual((await comment(C.cookie, { text: '' })).res.status, 400);
+
+  // everything else is read-only
+  const adminCommentId = (await tasksOf2(O.cookie)).comments.find((x) => x.text === 'SHARED-ADMIN').id;
+  const internalId = (await tasksOf2(O.cookie)).comments.find((x) => x.text === 'INTERNAL-ADMIN').id;
+  for (const [m, u, b] of [['PATCH', `/api/tasks/${T.id}`, { status: 'done' }], ['POST', `/api/projects/${P.id}/tasks`, { title: 'x' }], ['DELETE', `/api/tasks/${T.id}`], ['POST', `/api/tasks/${T.id}/links`, { targetId: QT.id, type: 'relates' }],
+    ['POST', `/api/tasks/${T.id}/attachments`, { name: 'a.txt', size: 1, type: 'text/plain' }], ['PATCH', `/api/projects/${P.id}`, { name: 'x' }], ['DELETE', `/api/projects/${P.id}`], ['GET', '/api/task-search?q=a'], ['GET', '/api/clients']]) {
+    assert.strictEqual((await call(m, u, { ...C, body: b })).res.status, 403, `${m} ${u}`);
+  }
+  assert.strictEqual((await call('DELETE', `/api/tasks/${T.id}/comments/${adminCommentId}`, C)).res.status, 403); // someone else's
+  assert.strictEqual((await call('DELETE', `/api/tasks/${T.id}/comments/${internalId}`, C)).res.status, 403); // internal, not theirs
+  assert.strictEqual((await call('DELETE', `/api/tasks/${T.id}/comments/${mc.id}`, C)).res.status, 200); // their own
+  assert.ok(!(await clientTask()).comments.some((x) => x.id === mc.id));
+  assert.strictEqual((await tasksOf2(O.cookie)).comments.length, 4);
+
+  await call('DELETE', `/api/projects/${P.id}`, O); await call('DELETE', `/api/projects/${Q.id}`, O);
+  await call('DELETE', `/api/designers/${des.id}`, O); await call('DELETE', `/api/clients/${c.id}`, O);
 });
 
 test('changing the admin password signs out every existing admin session', async () => {

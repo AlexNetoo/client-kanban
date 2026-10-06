@@ -12,7 +12,6 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
   const me = useMe();
   const [projects, setProjects] = useState<Project[]>([]);
   const reload = useCallback(() => {
-    if (me.role === "client") return;
     api.listProjects().then((p) => setProjects(p.filter((x) => !x.archived))).catch(() => {});
   }, [me.role]);
   useEffect(() => { reload(); }, [reload]);

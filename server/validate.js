@@ -77,7 +77,7 @@ function cleanTask(body, partial = false) {
 function cleanComment(body) {
   if (!body || typeof body !== 'object') throw new HttpError(400, 'Invalid body');
   // The author is never taken from the request: it comes from the signed-in session.
-  return { text: str(body, 'text', { max: 1000, required: true }) };
+  return { text: str(body, 'text', { max: 1000, required: true }), shared: body.shared === true };
 }
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

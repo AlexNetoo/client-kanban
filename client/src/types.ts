@@ -18,7 +18,7 @@ export interface Project {
   archived: boolean; createdAt: string; updatedAt: string; counts: Record<Column, number>; total: number; progress: number;
 }
 export interface Designer { id: string; name: string; role: string; email?: string; hasLogin?: boolean }
-export interface Comment { id: string; authorId: string; authorName: string; text: string; createdAt: string }
+export interface Comment { id: string; authorId: string; authorName: string; authorRole: "owner" | "designer" | "client"; visibility: "internal" | "client"; text: string; createdAt: string }
 export interface TaskLink {
   id: string; type: "relates" | "blocks" | "duplicates"; label: string;
   task: { id: string; title: string; status: Column; projectId: string; projectName: string };
@@ -40,4 +40,3 @@ export type ProjectInput = Pick<Project, "name" | "client" | "status" | "dueDate
 export type TaskInput = Pick<Task, "title" | "description" | "status" | "priority" | "dueDate" | "clientUpdate" | "privateNotes" | "assigneeId">;
 
 export interface ClientAccount { id: string; name: string; company: string; email: string; hasLogin: boolean; projectIds: string[] }
-export interface MyProject { token: string; name: string; client: string; status: ProjectStatus; dueDate: string; recurring: boolean; summary: string; progress: number; counts: Record<Column, number>; total: number }

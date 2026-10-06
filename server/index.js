@@ -130,10 +130,13 @@ function createApp(config) {
   route('GET', '/api/session', 'any', ({ session }) => ({ role: session.role, designer: session.designer, client: session.client, expiresAt: session.exp, columns: COLUMNS, maxUploadBytes: maxBytes }));
 
   const isDesigner = (s) => s.role === 'designer';
-  // A designer can reach a project only if they have a task in it; anything else looks like it doesn't exist.
+  const isClient = (s) => s.role === 'client';
+  const restricted = (s) => s.role !== 'owner';
+  // Projects a restricted account can open: a designer's are the ones with a task assigned to them,
+  // a client's are the ones the admin assigned. Anything else looks like it doesn't exist.
+  const visibleIds = (s) => (isDesigner(s) ? store.projectIdsFor(s.uid) : isClient(s) ? new Set(store.projectsForClient(s.uid).map((p) => p.id)) : null);
   const visibleProject = (s, projectId) => {
-    if (!isDesigner(s)) return store.getProject(projectId);
-    if (!store.projectIdsFor(s.uid).has(projectId)) throw new HttpError(404, 'Project not found');
+    if (restricted(s) && !visibleIds(s).has(projectId)) throw new HttpError(404, 'Project not found');
     return store.getProject(projectId);
   };
   const taskFor = (s, taskId) => {
@@ -141,27 +144,30 @@ function createApp(config) {
     visibleProject(s, t.projectId);
     return t;
   };
-  // Every task leaves the server through here: designers lose private notes, and links include only tasks the caller may see.
+  // Every task leaves the server through here. Designers and clients never get private notes; links only
+  // point at tasks in projects they can open. Clients also never get attachments, and see only the comments
+  // that were shared with them.
   const outTask = (s, t) => {
-    const seen = isDesigner(s) ? store.projectIdsFor(s.uid) : null;
+    const seen = visibleIds(s);
     const links = store.linksFor(t.id).filter((l) => !seen || seen.has(l.task.projectId));
-    const attachments = (t.attachments || []).filter((a) => a.status === 'ready')
+    const attachments = isClient(s) ? [] : (t.attachments || []).filter((a) => a.status === 'ready')
       .map(({ id, name, size, type, uploadedById, uploadedByName, uploadedAt }) => ({ id, name, size, type, uploadedById, uploadedByName, uploadedAt }));
-    return { ...(isDesigner(s) ? staffTask(t) : t), links, attachments };
+    const comments = isClient(s) ? t.comments.filter((c) => c.visibility === 'client') : t.comments;
+    return { ...(restricted(s) ? staffTask(t) : t), links, attachments, comments };
   };
 
   // ---- Projects: owner sees all; a designer sees only their own, without private notes or share links ----
-  route('GET', '/api/projects', 'staff', ({ session }) => {
-    if (!isDesigner(session)) return store.listProjects();
-    const ids = store.projectIdsFor(session.uid);
+  route('GET', '/api/projects', 'any', ({ session }) => {
+    if (!restricted(session)) return store.listProjects();
+    const ids = visibleIds(session);
     return store.listProjects().filter((p) => ids.has(p.id)).map(staffProject);
   });
   route('POST', '/api/projects', 'owner', ({ body }) => ({ status: 201, body: store.createProject(cleanProject(body)) }));
-  route('GET', '/api/projects/:id', 'staff', ({ params, session }) => {
+  route('GET', '/api/projects/:id', 'any', ({ params, session }) => {
     const p = visibleProject(session, params.id);
     const tasks = store.tasksFor(p.id);
     return {
-      project: isDesigner(session) ? staffProject(store.withStats(p)) : store.withStats(p),
+      project: restricted(session) ? staffProject(store.withStats(p)) : store.withStats(p),
       tasks: tasks.map((t) => outTask(session, t)),
     };
   });
@@ -280,7 +286,7 @@ function createApp(config) {
   });
 
   // ---- Designers (accounts). Everyone signed in as staff can list names; only the owner manages logins. ----
-  route('GET', '/api/designers', 'staff', ({ session }) => store.listDesigners({ full: !isDesigner(session) }));
+  route('GET', '/api/designers', 'any', ({ session }) => store.listDesigners({ full: !restricted(session) }));
   route('POST', '/api/designers', 'owner', ({ body }) => {
     const { password, ...fields } = cleanDesigner(body);
     return { status: 201, body: store.createDesigner({ ...fields, passwordHash: password ? hashPassword(password) : '' }) };
@@ -305,10 +311,6 @@ function createApp(config) {
   });
   route('DELETE', '/api/clients/:id', 'owner', ({ params }) => { store.deleteClient(params.id); return { ok: true }; });
 
-  // A client's home: only the active projects assigned to them, each with the link token for its progress view.
-  route('GET', '/api/my/projects', 'client', ({ session }) =>
-    store.projectsForClient(session.uid).map((p) => ({ token: p.shareToken, ...clientProject(store.withStats(p)) })));
-
   // Designers and clients change their own password (the admin's lives in the environment). Other sessions are revoked.
   route('POST', '/api/me/password', 'any', ({ res, body, session }) => {
     if (session.role === 'owner') throw new HttpError(403, 'The admin password is changed in the server environment settings');
@@ -327,15 +329,18 @@ function createApp(config) {
   });
 
   // ---- Comments: internal, authored by whoever is signed in (never taken from the request) ----
-  route('POST', '/api/tasks/:id/comments', 'staff', ({ params, body, session }) => {
+  route('POST', '/api/tasks/:id/comments', 'any', ({ params, body, session }) => {
     taskFor(session, params.id);
-    const { text } = cleanComment(body);
-    return { status: 201, body: outTask(session, store.addComment(params.id, { text, authorId: isDesigner(session) ? session.uid : 'owner' })) };
+    const { text, shared } = cleanComment(body);
+    // Clients' comments are always shared; admin and designers choose (internal unless they tick "share").
+    const visibility = isClient(session) || shared ? 'client' : 'internal';
+    const authorId = restricted(session) ? session.uid : 'owner';
+    return { status: 201, body: outTask(session, store.addComment(params.id, { text, authorId, authorRole: session.role === 'owner' ? 'owner' : session.role, visibility })) };
   });
-  route('DELETE', '/api/tasks/:id/comments/:cid', 'staff', ({ params, session }) => {
+  route('DELETE', '/api/tasks/:id/comments/:cid', 'any', ({ params, session }) => {
     const task = taskFor(session, params.id);
     const comment = task.comments.find((c) => c.id === params.cid);
-    if (comment && isDesigner(session) && comment.authorId !== session.uid) throw new HttpError(403, 'You can only delete your own comments');
+    if (comment && restricted(session) && comment.authorId !== session.uid) throw new HttpError(403, 'You can only delete your own comments');
     return outTask(session, store.deleteComment(params.id, params.cid));
   });
 

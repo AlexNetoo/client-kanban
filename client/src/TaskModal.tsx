@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Select, TextArea, Text } from "./halaska-kit";
+import { Button, Checkbox, Select, TextArea, Text } from "./halaska-kit";
 import { api } from "./api";
 import { assigneeOptions } from "./dialogs";
 import { LinkedTasks } from "./LinkedTasks";
@@ -23,8 +23,11 @@ export function TaskModal({ task: t, projectName, designers, onClose, onChange, 
   const toast = useToast();
   const me = useMe();
   const owner = me.role === "owner";
+  const isClient = me.role === "client";
+  const who = owner ? "Admin" : me.designer?.name ?? me.client?.name ?? "you";
   const mine = t.assigneeId === me.designer?.id;
   const [text, setText] = useState("");
+  const [shared, setShared] = useState(false); // admin/designers: share this comment with the client
   const [posting, setPosting] = useState(false);
   const assignee = designers.find((d) => d.id === t.assigneeId);
 
@@ -38,7 +41,7 @@ export function TaskModal({ task: t, projectName, designers, onClose, onChange, 
   const post = async () => {
     if (!text.trim()) return;
     setPosting(true);
-    try { onChange(await api.addComment(t.id, { text })); setText(""); toast("Comment posted"); }
+    try { onChange(await api.addComment(t.id, { text, shared })); setText(""); setShared(false); toast("Comment posted"); }
     catch (e) { toast((e as Error).message, "error"); } finally { setPosting(false); }
   };
   const removeComment = async (id: string) => {
@@ -92,10 +95,12 @@ export function TaskModal({ task: t, projectName, designers, onClose, onChange, 
           <section aria-label="Comments">
             {h(`Comments (${t.comments.length})`)}
             <div style={{ display: "flex", gap: 12 }}>
-              <Person name={owner ? "Admin" : me.designer?.name ?? "You"} size={32} />
+              <Person name={who} size={32} />
               <form onSubmit={(e) => { e.preventDefault(); post(); }} style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
-                <TextArea label={`Add a comment as ${owner ? "Admin" : me.designer?.name ?? "you"}`} rows={3} value={text} onChange={(e: never) => setText(val(e))}
-                  aria-label={`Add a comment as ${owner ? "Admin" : me.designer?.name ?? "you"}`} caption="Internal only. Clients never see comments." />
+                <TextArea label={`Add a comment as ${who}`} rows={3} value={text} onChange={(e: never) => setText(val(e))}
+                  aria-label={`Add a comment as ${who}`}
+                  caption={isClient ? "Your comment is visible to the project team." : shared ? "Visible to the team and to the client." : "Internal: only the team sees this. Tick “Share with client” to include them."} />
+                {!isClient && <Checkbox checked={shared} onChange={(c: boolean) => setShared(c)} label="Share with client" aria-label="Share this comment with the client" />}
                 <div><Button type="button" size="sm" loading={posting} onClick={post}>Post comment</Button></div>
               </form>
             </div>
@@ -107,8 +112,11 @@ export function TaskModal({ task: t, projectName, designers, onClose, onChange, 
                     <Person name={c.authorName} size={32} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
-                        <span style={{ fontWeight: 600, fontSize: 14 }}>{c.authorName} <time dateTime={c.createdAt} style={{ fontWeight: 400, color: pal.textTertiary, fontSize: 12 }}>· {formatDateTime(c.createdAt)}</time></span>
-                        {(owner || c.authorId === me.designer?.id) && <Button variant="ghost" size="sm" aria-label={`Delete comment by ${c.authorName}`} onClick={() => removeComment(c.id)}>Delete</Button>}
+                        <span style={{ fontWeight: 600, fontSize: 14 }}>{c.authorName}{c.authorRole !== "owner" && <span style={{ fontWeight: 500, color: pal.textSecondary, fontSize: 12 }}> · {c.authorRole === "client" ? "Client" : "Designer"}</span>} <time dateTime={c.createdAt} style={{ fontWeight: 400, color: pal.textTertiary, fontSize: 12 }}>· {formatDateTime(c.createdAt)}</time></span>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                          {!isClient && <span title={c.visibility === "client" ? "The client can see this comment" : "Only the team can see this comment"} style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, border: `1px ${c.visibility === "client" ? "solid" : "dashed"} ${pal.textTertiary}`, borderRadius: 999, padding: "1px 8px", color: pal.textSecondary }}>{c.visibility === "client" ? "Shared with client" : "Internal"}</span>}
+                          {(owner || c.authorId === me.designer?.id || c.authorId === me.client?.id) && <Button variant="ghost" size="sm" aria-label={`Delete comment by ${c.authorName}`} onClick={() => removeComment(c.id)}>Delete</Button>}
+                        </span>
                       </div>
                       <p style={{ margin: "4px 0 0", fontSize: 15, lineHeight: 1.6, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{c.text}</p>
                     </div>

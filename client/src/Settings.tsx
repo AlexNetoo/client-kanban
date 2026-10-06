@@ -28,7 +28,7 @@ export function Settings() {
 
       <Section title="Account">
         <dl style={{ margin: 0, display: "grid", gridTemplateColumns: "140px 1fr", gap: "8px 12px", fontSize: 14 }}>
-          <dt style={{ color: pal.textSecondary }}>Signed in as</dt><dd style={{ margin: 0, fontWeight: 600 }}>{me.designer?.name ?? ROLE[me.role]}</dd>
+          <dt style={{ color: pal.textSecondary }}>Signed in as</dt><dd style={{ margin: 0, fontWeight: 600 }}>{me.designer?.name ?? me.client?.name ?? ROLE[me.role]}</dd>
           <dt style={{ color: pal.textSecondary }}>Account type</dt><dd style={{ margin: 0 }}>{ROLE[me.role]}</dd>
           {me.expiresAt && <><dt style={{ color: pal.textSecondary }}>Session ends</dt><dd style={{ margin: 0 }}>{formatDateTime(new Date(me.expiresAt).toISOString())}</dd></>}
         </dl>

@@ -43,7 +43,7 @@ There are three kinds of user, each with its own way in:
 
 - **Admin** signs in at **`/admin`** with the admin password (`APP_PASSWORD_HASH`). The admin console lets you create **designer** and **client** accounts, reset their passwords (with a password generator and a one-time reveal), edit which projects a client can see, delete users, and archive or delete any project (deleting asks you to type the project name). The admin also uses the whole app: dashboard, boards, task view, comments, links and attachments.
 - **Designers** sign in at `/login` on the **Designer** tab with an email and password.
-- **Clients** sign in at `/login` on the **Client** tab with an email and password and see only the projects the admin assigned to them (a "Your projects" home, then each project's progress view).
+- **Clients** sign in at `/login` on the **Client** tab with an email and password. They get the same layout as designers (side menu, project dashboard, boards, the full task view) for **only the projects the admin assigned to them**, but **read-only**: they can look at the board and tasks and **add comments**, nothing else.
 
 An account only works on its own tab, emails are unique across designers and clients, and a client can't open a project that isn't assigned to them. There is no public way to reach the admin sign-in other than knowing `/admin`.
 
@@ -53,9 +53,13 @@ After signing in, admins and designers get a side menu (all projects, a list of 
 
 Clicking a task opens a wide scrollable view with the description, attachments, linked tasks, client update, private notes (admin only), comments and a details panel (status, assignee, priority, due date) that the admin can edit in place.
 
+## Comments: internal or shared with the client
+
+Every comment is either **Internal** (admin and designers only) or **Shared with client**. Admin and designers choose with the **Share with client** checkbox when they post (off by default, so nothing is shared by accident); each comment shows a badge saying which it is. A client's own comments are always shared. Clients see only shared comments, plus the task's description, status, priority, due date, assignee, the client-visible update and links to tasks in their projects. They never see **private notes**, **internal comments** or **attachments**, and can't change anything. Authors come from the signed-in account, never from the request. Everyone can delete only their own comments; the admin can delete any.
+
 ## Linked tasks
 
-Open a task and use **Link a task** to relate it to any other task, in this or another project: *relates to*, *blocks* / *is blocked by*, *duplicates* / *is duplicated by*. A link is stored once and shown on both tasks with the matching wording. Each open task has its own address (`#/p/<project>/t/<task>`), so links open that task, Back closes it, and **Copy link** shares it. Only the admin can add or remove links. Designers see links only to tasks in projects they can open, and clients never see links. Deleting a task or project removes its links.
+Open a task and use **Link a task** to relate it to any other task, in this or another project: *relates to*, *blocks* / *is blocked by*, *duplicates* / *is duplicated by*. A link is stored once and shown on both tasks with the matching wording. Each open task has its own address (`#/p/<project>/t/<task>`), so links open that task, Back closes it, and **Copy link** shares it. Only the admin can add or remove links. Designers and clients see links only to tasks in projects they can open. Deleting a task or project removes its links.
 
 ## Attachments
 
@@ -80,9 +84,9 @@ What they never get: private notes, client share links, the client view, or any 
 
 Changing a designer's password or email, removing their login, or deleting them signs them out immediately (sessions are re-checked on every request). Passwords are scrypt hashes; failed sign-ins are rate limited per IP and per email.
 
-## Client accounts and project links
+## Client accounts
 
-Create a client in **Admin console → Clients**: name, company, login email, a password (or **Generate**), and tick the projects they may see. Edit the ticked projects any time; access changes immediately. Each project still has an unguessable link token (used in the address of the progress view); a link only works for a signed-in client who is assigned to that project, or for the admin (preview). **More → Reset client link** invalidates old links; archiving a project hides it from clients.
+Create a client in **Admin console → Clients**: name, company, login email, a password (or **Generate**), and tick the projects they may see. Edit the ticked projects any time; access changes immediately, archiving a project hides it from its clients, and deleting a client or resetting their password signs them out at once. Each project also still has an unguessable link token used by the admin's **Client view** preview (the old summary page); **More → Reset client link** invalidates it.
 
 Upgrading from the old shared client password: that password (`CLIENT_PASSWORD_HASH`) is no longer used. Create a client account for each client instead.
 

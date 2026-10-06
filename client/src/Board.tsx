@@ -93,7 +93,7 @@ export function Board({ id, taskId }: { id: string; taskId?: string }) {
   return (
     <div ref={root}>
       <a href="#/" style={{ display: "inline-block", marginBottom: 14, color: pal.textSecondary, fontSize: 14 }}>← {owner ? "All projects" : "My projects"}</a>
-      {!owner && <p style={{ marginBottom: 14, fontSize: 14, color: pal.textSecondary }}>You can move your own tasks between columns and comment on any task here.</p>}
+      {!owner && <p style={{ marginBottom: 14, fontSize: 14, color: pal.textSecondary }}>{me.role === "client" ? "You’re viewing this board. Open a task to read the details and leave a comment." : "You can move your own tasks between columns and comment on any task here."}</p>}
       <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-start", gap: 16, marginBottom: 20 }}>
         <div>
           <Heading level={1}>{project.name}</Heading>

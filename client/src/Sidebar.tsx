@@ -56,8 +56,8 @@ export function Nav({ route, admin = false, onNavigate }: { route: string; admin
 
       <div style={{ marginTop: "auto", paddingTop: 16, display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ padding: "0 12px", fontSize: 13, color: pal.textSecondary }}>
-          <div style={{ fontWeight: 600, color: pal.text }}>{me.designer?.name ?? (owner ? "Admin" : "Client")}</div>
-          <div>{owner ? "Admin account" : "Designer account"}</div>
+          <div style={{ fontWeight: 600, color: pal.text }}>{me.designer?.name ?? me.client?.name ?? "Admin"}</div>
+          <div>{owner ? "Admin account" : me.role === "client" ? "Client account" : "Designer account"}</div>
         </div>
         <Button variant="secondary" size="sm" fullWidth onClick={async () => { try { await api.logout(); } finally { location.replace("/login"); } }}>Sign out</Button>
       </div>
