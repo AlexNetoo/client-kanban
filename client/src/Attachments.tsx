@@ -1,5 +1,5 @@
 import { useRef, useState, type DragEvent } from "react";
-import { Button, Text } from "./halaska-kit";
+import { Button, Checkbox, Text } from "./halaska-kit";
 import { api, uploadFile } from "./api";
 import { useToast } from "./ui";
 import { useMe } from "./session";
@@ -12,17 +12,22 @@ const fileUrl = (a: Attachment) => `/api/attachments/${a.id}/file`;
 
 type Upload = { key: number; name: string; size: number; progress: number; error?: string };
 
-/** Files on a task. Admin: any task. Designer: tasks assigned to them. Never shown to clients. */
+/**
+ * Files on a task. Admin: any task. Designer: tasks assigned to them. Files are internal unless shared:
+ * clients see (read-only) just the files marked "shared with client".
+ */
 export function Attachments({ task, onChange }: { task: Task; onChange: (t: Task) => void }) {
   const pal = usePalette();
   const toast = useToast();
   const me = useMe();
   const owner = me.role === "owner";
+  const isClient = me.role === "client";
   const canAttach = owner || task.assigneeId === me.designer?.id;
   const max = me.maxUploadBytes ?? 25 * 1024 * 1024;
   const input = useRef<HTMLInputElement>(null);
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [over, setOver] = useState(false);
+  const [shareNew, setShareNew] = useState(false); // new files are internal unless this is ticked
   const counter = useRef(0);
   const items = task.attachments ?? [];
 
@@ -34,7 +39,7 @@ export function Attachments({ task, onChange }: { task: Task; onChange: (t: Task
     if (file.size > max) { patch(key, { error: `Too large (limit ${formatBytes(max)})` }); return; }
     if (file.size === 0) { patch(key, { error: "That file is empty" }); return; }
     try {
-      const { attachmentId, upload } = await api.requestAttachment(task.id, { name: file.name, size: file.size, type: file.type || "application/octet-stream" });
+      const { attachmentId, upload } = await api.requestAttachment(task.id, { name: file.name, size: file.size, type: file.type || "application/octet-stream", shared: shareNew });
       await uploadFile(upload, file, (p) => patch(key, { progress: p }));
       onChange(await api.completeAttachment(task.id, attachmentId));
       setUploads((s) => s.filter((u) => u.key !== key));
@@ -47,6 +52,11 @@ export function Attachments({ task, onChange }: { task: Task; onChange: (t: Task
   }
   const onDrop = (e: DragEvent) => { e.preventDefault(); setOver(false); if (canAttach && e.dataTransfer.files.length) addFiles(e.dataTransfer.files); };
 
+  const toggleShare = async (a: Attachment) => {
+    const share = a.visibility !== "client";
+    try { onChange(await api.updateAttachment(task.id, a.id, { shared: share })); toast(share ? `${a.name} is now shared with the client` : `${a.name} is now internal`); }
+    catch (e) { toast((e as Error).message, "error"); }
+  };
   const remove = async (a: Attachment) => {
     try { onChange(await api.deleteAttachment(task.id, a.id)); toast(`Removed ${a.name}`); } catch (e) { toast((e as Error).message, "error"); }
   };
@@ -63,10 +73,14 @@ export function Attachments({ task, onChange }: { task: Task; onChange: (t: Task
         </>}
       </div>
 
+      {isClient && <div style={{ marginBottom: 10 }}><Text size="sm" secondary>Files your team shared with you.</Text></div>}
       {canAttach && (
         <div onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={onDrop}
           style={{ border: `2px dashed ${over ? pal.text : pal.border}`, borderRadius: 14, padding: "14px 16px", textAlign: "center", marginBottom: items.length || uploads.length ? 12 : 0, background: over ? pal.bgMuted : "transparent" }}>
-          <Text size="sm" secondary>Drop files here or use “Add files”. Up to {formatBytes(max)} each. Only your team can see them.</Text>
+          <Text size="sm" secondary>Drop files here or use “Add files”. Up to {formatBytes(max)} each. Files are internal unless you share them with the client.</Text>
+          <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
+            <Checkbox checked={shareNew} onChange={(c: boolean) => setShareNew(c)} label="Share new files with the client" aria-label="Share new files with the client" />
+          </div>
         </div>
       )}
 
@@ -98,9 +112,14 @@ export function Attachments({ task, onChange }: { task: Task; onChange: (t: Task
                 <div style={{ flex: "1 1 180px", minWidth: 0 }}>
                   <a href={fileUrl(a)} download={a.name} style={{ color: pal.text, fontWeight: 600, fontSize: 14, textDecoration: "none", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={`Download ${a.name}`}>{a.name}</a>
                   <span style={{ fontSize: 12, color: pal.textSecondary }}>{formatBytes(a.size)} · {a.uploadedByName} · {formatDateTime(a.uploadedAt)}</span>
+                  {!isClient && <br />}
+                  {!isClient && <span title={a.visibility === "client" ? "The client can see and download this file" : "Only the team can see this file"} style={{ display: "inline-block", marginTop: 4, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, border: `1px ${a.visibility === "client" ? "solid" : "dashed"} ${pal.textTertiary}`, borderRadius: 999, padding: "1px 8px", color: pal.textSecondary }}>{a.visibility === "client" ? "Shared with client" : "Internal"}</span>}
                 </div>
                 <a href={fileUrl(a)} download={a.name} aria-label={`Download ${a.name}`} style={{ fontSize: 13, color: pal.text, fontWeight: 600 }}>Download</a>
-                {(owner || a.uploadedById === me.designer?.id) && <Button variant="ghost" size="sm" aria-label={`Remove ${a.name}`} onClick={() => remove(a)}>Remove</Button>}
+                {(owner || a.uploadedById === me.designer?.id) && <>
+                  <Button variant="ghost" size="sm" aria-label={a.visibility === "client" ? `Make ${a.name} internal` : `Share ${a.name} with the client`} onClick={() => toggleShare(a)}>{a.visibility === "client" ? "Make internal" : "Share with client"}</Button>
+                  <Button variant="ghost" size="sm" aria-label={`Remove ${a.name}`} onClick={() => remove(a)}>Remove</Button>
+                </>}
               </li>
             );
           })}

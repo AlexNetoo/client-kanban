@@ -448,7 +448,7 @@ test('attachments: upload, download, limits, permissions, cleanup', async () => 
   // permissions
   assert.strictEqual((await call('GET', `/api/attachments/${r.json.attachmentId}/file`, {})).res.status, 401);
   assert.strictEqual((await req(task.id, { name: 'x.txt', size: 1, type: 'text/plain' }, client.cookie)).res.status, 403);
-  assert.strictEqual((await call('GET', `/api/attachments/${r.json.attachmentId}/file`, { cookie: client.cookie })).res.status, 403);
+  assert.strictEqual((await call('GET', `/api/attachments/${r.json.attachmentId}/file`, { cookie: client.cookie })).res.status, 404); // internal: doesn't exist for clients
   const kim = (await call('POST', '/api/designers', { ...O, body: { name: 'Kim', email: 'kim@example.com', password: 'kim-password-123' } })).json;
   await call('PATCH', `/api/tasks/${task.id}`, { ...O, body: { assigneeId: kim.id } });
   const kl = await login('kim-password-123', 'kim@example.com'); const K = { cookie: kl.cookie };
@@ -462,7 +462,7 @@ test('attachments: upload, download, limits, permissions, cleanup', async () => 
   assert.deepStrictEqual(mineDone.json.attachments.find((a) => a.name === 'comp.png').uploadedByName, 'Kim');
   assert.strictEqual((await call('DELETE', `/api/tasks/${task.id}/attachments/${r.json.attachmentId}`, K)).res.status, 403); // not hers
   assert.strictEqual((await put(`/api/uploads/${r.json.attachmentId}`, file, kl.cookie)).status, 404); // already complete
-  // the client view carries no attachments
+  // the old summary view carries no attachments either
   const view = await call('GET', `/api/client/${P.shareToken}`, { cookie: client.cookie });
   assert.ok(view.json.tasks.every((t) => !('attachments' in t)) && !view.text.includes('brief.pdf'));
 
@@ -527,7 +527,7 @@ test('clients: read-only board, shared comments only, no private notes or attach
   assert.strictEqual((await tasksOf2(O.cookie)).attachments.length, 1);
   seen = await clientTask();
   assert.deepStrictEqual(seen.attachments, []);
-  assert.strictEqual((await fetch(`${base}/api/attachments/${up.json.attachmentId}/file`, { headers: { Cookie: c.cookie } })).status, 403);
+  assert.strictEqual((await fetch(`${base}/api/attachments/${up.json.attachmentId}/file`, { headers: { Cookie: c.cookie } })).status, 404);
 
   // links: only to projects the client can open
   await call('POST', `/api/tasks/${T.id}/links`, { ...O, body: { targetId: QT.id, type: 'relates' } });
@@ -558,6 +558,96 @@ test('clients: read-only board, shared comments only, no private notes or attach
 
   await call('DELETE', `/api/projects/${P.id}`, O); await call('DELETE', `/api/projects/${Q.id}`, O);
   await call('DELETE', `/api/designers/${des.id}`, O); await call('DELETE', `/api/clients/${c.id}`, O);
+});
+
+test('attachments can be shared with clients, file by file', async () => {
+  const owner = await login(OWNER_PW); const O = { cookie: owner.cookie };
+  const mk = async (name) => (await call('POST', '/api/projects', { ...O, body: { name, client: 'Share Co', status: 'active' } })).json;
+  const P = await mk('Share P'); const Q = await mk('Share Q');
+  const T = (await call('POST', `/api/projects/${P.id}/tasks`, { ...O, body: { title: 'Has shared files', status: 'todo', priority: 'low' } })).json;
+  const QT = (await call('POST', `/api/projects/${Q.id}/tasks`, { ...O, body: { title: 'Other project', status: 'todo', priority: 'low' } })).json;
+  const des = (await call('POST', '/api/designers', { ...O, body: { name: 'Share Des', email: 'sharedes@example.com', password: 'sharedes-pass-123' } })).json;
+  await call('PATCH', `/api/tasks/${T.id}`, { ...O, body: { assigneeId: des.id } });
+  const D = { cookie: (await login('sharedes-pass-123', 'sharedes@example.com', 'designer')).cookie };
+  const c = await newClient(owner.cookie, [P.id]); const C = { cookie: c.cookie };
+  const attach = async (cookie, taskId, name, content, shared) => {
+    const r = await call('POST', `/api/tasks/${taskId}/attachments`, { cookie, body: { name, size: content.length, type: 'text/plain', ...(shared === undefined ? {} : { shared }) } });
+    assert.strictEqual(r.res.status, 201, r.text);
+    await fetch(base + r.json.upload.url, { method: 'PUT', headers: { Cookie: cookie, 'Content-Type': 'application/octet-stream' }, body: Buffer.from(content) });
+    const done = await call('POST', `/api/tasks/${taskId}/attachments/${r.json.attachmentId}/complete`, { cookie, body: {} });
+    assert.strictEqual(done.res.status, 200, done.text);
+    return { id: r.json.attachmentId, task: done.json };
+  };
+  const clientFiles = async () => (await call('GET', `/api/projects/${P.id}`, C)).json.tasks.find((x) => x.id === T.id).attachments;
+  const file = (cookie, id) => fetch(`${base}/api/attachments/${id}/file`, { headers: { Cookie: cookie } });
+
+  // default is internal: clients can't list or fetch it
+  const internal = await attach(owner.cookie, T.id, 'internal.txt', 'team only');
+  assert.strictEqual(internal.task.attachments.find((a) => a.id === internal.id).visibility, 'internal');
+  assert.deepStrictEqual(await clientFiles(), []);
+  assert.strictEqual((await file(C.cookie, internal.id)).status, 404);
+
+  // shared at upload time: visible and downloadable by the client, byte for byte
+  const shared = await attach(owner.cookie, T.id, 'deliverable.txt', 'for the client', true);
+  assert.deepStrictEqual((await clientFiles()).map((a) => [a.name, a.visibility]), [['deliverable.txt', 'client']]);
+  const dl = await file(C.cookie, shared.id);
+  assert.strictEqual(dl.status, 200);
+  assert.strictEqual(await dl.text(), 'for the client');
+  assert.match(dl.headers.get('content-disposition'), /^attachment/);
+  assert.strictEqual((await file(C.cookie, internal.id)).status, 404); // still hidden
+
+  // clients can't change anything about files
+  for (const [m, u, b] of [['PATCH', `/api/tasks/${T.id}/attachments/${internal.id}`, { shared: true }], ['DELETE', `/api/tasks/${T.id}/attachments/${shared.id}`], ['POST', `/api/tasks/${T.id}/attachments`, { name: 'x.txt', size: 1, type: 'text/plain' }]]) {
+    assert.strictEqual((await call(m, u, { ...C, body: b })).res.status, 403, `${m} ${u}`);
+  }
+
+  // toggling: share an internal file, then take it back
+  const on = await call('PATCH', `/api/tasks/${T.id}/attachments/${internal.id}`, { ...O, body: { shared: true } });
+  assert.strictEqual(on.res.status, 200);
+  assert.strictEqual((await clientFiles()).length, 2);
+  assert.strictEqual((await file(C.cookie, internal.id)).status, 200);
+  await call('PATCH', `/api/tasks/${T.id}/attachments/${internal.id}`, { ...O, body: { shared: false } });
+  assert.strictEqual((await clientFiles()).length, 1);
+  assert.strictEqual((await file(C.cookie, internal.id)).status, 404);
+  assert.strictEqual((await call('PATCH', `/api/tasks/${T.id}/attachments/${internal.id}`, { ...O, body: { shared: 'yes' } })).res.status, 400);
+
+  // designers can share only what they uploaded
+  const mine = await attach(D.cookie, T.id, 'design.txt', 'by the designer');
+  assert.strictEqual((await call('PATCH', `/api/tasks/${T.id}/attachments/${mine.id}`, { ...D, body: { shared: true } })).res.status, 200);
+  assert.ok((await clientFiles()).some((a) => a.name === 'design.txt'));
+  assert.strictEqual((await call('PATCH', `/api/tasks/${T.id}/attachments/${internal.id}`, { ...D, body: { shared: true } })).res.status, 403);
+  assert.strictEqual((await call('PATCH', `/api/tasks/${T.id}/attachments/${shared.id}`, { ...D, body: { shared: false } })).res.status, 403);
+
+  // a client can't reach shared files in projects that aren't theirs
+  const other = await attach(owner.cookie, QT.id, 'other.txt', 'not yours', true);
+  assert.strictEqual((await file(C.cookie, other.id)).status, 404);
+  assert.strictEqual((await call('GET', `/api/projects/${Q.id}`, C)).res.status, 404);
+
+  // unassigning the client's project removes access to its shared files
+  await assignClient(owner.cookie, c.id, []);
+  assert.strictEqual((await file(C.cookie, shared.id)).status, 404);
+
+  for (const id of [P.id, Q.id]) await call('DELETE', `/api/projects/${id}`, O);
+  await call('DELETE', `/api/designers/${des.id}`, O); await call('DELETE', `/api/clients/${c.id}`, O);
+});
+
+test('only the admin can create, edit or delete projects (not designers, clients or anonymous visitors)', async () => {
+  const owner = await login(OWNER_PW); const O = { cookie: owner.cookie };
+  const des = (await call('POST', '/api/designers', { ...O, body: { name: 'No Projects', email: 'noproj@example.com', password: 'noproj-pass-123' } })).json;
+  const D = { cookie: (await login('noproj-pass-123', 'noproj@example.com', 'designer')).cookie };
+  const own = (await call('POST', '/api/projects', { ...O, body: { name: 'Admin made', client: 'Acme', status: 'active' } })).json;
+  assert.strictEqual(own.name, 'Admin made'); // the admin can
+  await call('PATCH', `/api/tasks/${(await call('POST', `/api/projects/${own.id}/tasks`, { ...O, body: { title: 't', status: 'todo', priority: 'low' } })).json.id}`, { ...O, body: { assigneeId: des.id } });
+  const c = await newClient(owner.cookie, [own.id]);
+  const body = { name: 'Sneaky project', client: 'x', status: 'active' };
+  for (const [who, cookie, expected] of [['designer', D.cookie, 403], ['client', c.cookie, 403], ['anonymous', undefined, 401]]) {
+    assert.strictEqual((await call('POST', '/api/projects', { cookie, body })).res.status, expected, `${who} create`);
+    assert.strictEqual((await call('PATCH', `/api/projects/${own.id}`, { cookie, body: { name: 'hacked' } })).res.status, expected, `${who} edit`);
+    assert.strictEqual((await call('DELETE', `/api/projects/${own.id}`, { cookie })).res.status, expected, `${who} delete`);
+  }
+  const names = (await call('GET', '/api/projects', O)).json.map((p) => p.name);
+  assert.ok(!names.includes('Sneaky project') && names.includes('Admin made')); // nothing leaked in, nothing was changed
+  await call('DELETE', `/api/projects/${own.id}`, O); await call('DELETE', `/api/designers/${des.id}`, O); await call('DELETE', `/api/clients/${c.id}`, O);
 });
 
 test('changing the admin password signs out every existing admin session', async () => {

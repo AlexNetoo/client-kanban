@@ -145,13 +145,13 @@ function createApp(config) {
     return t;
   };
   // Every task leaves the server through here. Designers and clients never get private notes; links only
-  // point at tasks in projects they can open. Clients also never get attachments, and see only the comments
-  // that were shared with them.
+  // point at tasks in projects they can open. Clients see only the comments
+  // that were shared with them. Files are internal unless shared: clients get only the files marked for them.
   const outTask = (s, t) => {
     const seen = visibleIds(s);
     const links = store.linksFor(t.id).filter((l) => !seen || seen.has(l.task.projectId));
-    const attachments = isClient(s) ? [] : (t.attachments || []).filter((a) => a.status === 'ready')
-      .map(({ id, name, size, type, uploadedById, uploadedByName, uploadedAt }) => ({ id, name, size, type, uploadedById, uploadedByName, uploadedAt }));
+    const attachments = (t.attachments || []).filter((a) => a.status === 'ready' && (!isClient(s) || a.visibility === 'client'))
+      .map(({ id, name, size, type, uploadedById, uploadedByName, uploadedAt, visibility }) => ({ id, name, size, type, uploadedById, uploadedByName, uploadedAt, visibility }));
     const comments = isClient(s) ? t.comments.filter((c) => c.visibility === 'client') : t.comments;
     return { ...(restricted(s) ? staffTask(t) : t), links, attachments, comments };
   };
@@ -214,7 +214,8 @@ function createApp(config) {
     const info = cleanAttachment(body, maxBytes);
     const stale = store.purgeStaleAttachments();
     defer(() => Promise.all(stale.map((a) => files.remove(a))));
-    const { att } = store.addPendingAttachment(task.id, { ...info, uploadedById: uploaderId(session), uploadedByName: uploaderName(session) });
+    const { shared, ...meta } = info;
+    const { att } = store.addPendingAttachment(task.id, { ...meta, visibility: shared ? 'client' : 'internal', uploadedById: uploaderId(session), uploadedByName: uploaderName(session) });
     return { status: 201, body: { attachmentId: att.id, upload: await files.createUpload(att, maxBytes) } };
   });
 
@@ -234,10 +235,11 @@ function createApp(config) {
   });
 
   // Authorise here, then hand the browser a short-lived signed URL (Blob) or stream from disk (local).
-  route('GET', '/api/attachments/:aid/file', 'staff', async ({ params, session }) => {
+  route('GET', '/api/attachments/:aid/file', 'any', async ({ params, session }) => {
     const found = store.findAttachment(params.aid);
     if (!found || found.att.status !== 'ready') throw new HttpError(404, 'Attachment not found');
-    visibleProject(session, found.task.projectId); // designers get a 404 for projects they can't open
+    visibleProject(session, found.task.projectId); // designers and clients get a 404 for projects they can't open
+    if (isClient(session) && found.att.visibility !== 'client') throw new HttpError(404, 'Attachment not found'); // internal files don't exist for clients
     const { att } = found;
     if (files.kind === 'blob') {
       const url = await files.downloadUrl(att);
@@ -261,6 +263,15 @@ function createApp(config) {
       },
     };
   }, { raw: true });
+
+  // Share a file with the client (or make it internal again). Admin: any file. Designer: only files they uploaded.
+  route('PATCH', '/api/tasks/:id/attachments/:aid', 'staff', ({ params, body, session }) => {
+    const task = taskFor(session, params.id);
+    const att = attachmentOf(task, params.aid);
+    if (isDesigner(session) && att.uploadedById !== session.uid) throw new HttpError(403, 'You can only change sharing on files you uploaded');
+    if (typeof body.shared !== 'boolean') throw new HttpError(400, 'shared must be true or false');
+    return outTask(session, store.setAttachmentVisibility(task.id, att.id, body.shared ? 'client' : 'internal'));
+  });
 
   route('DELETE', '/api/tasks/:id/attachments/:aid', 'staff', ({ params, session, defer }) => {
     const task = taskFor(session, params.id);

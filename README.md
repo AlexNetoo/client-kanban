@@ -39,6 +39,8 @@ npm run dev:web     # optional Vite dev server on :5173 (proxies /api to :3000)
 
 ## Accounts and signing in
 
+Creating, editing, archiving and deleting **projects is admin-only**: designers and clients get a 403 from the server, and the buttons aren't shown to them.
+
 There are three kinds of user, each with its own way in:
 
 - **Admin** signs in at **`/admin`** with the admin password (`APP_PASSWORD_HASH`). The admin console lets you create **designer** and **client** accounts, reset their passwords (with a password generator and a one-time reveal), edit which projects a client can see, delete users, and archive or delete any project (deleting asks you to type the project name). The admin also uses the whole app: dashboard, boards, task view, comments, links and attachments.
@@ -55,7 +57,7 @@ Clicking a task opens a wide scrollable view with the description, attachments, 
 
 ## Comments: internal or shared with the client
 
-Every comment is either **Internal** (admin and designers only) or **Shared with client**. Admin and designers choose with the **Share with client** checkbox when they post (off by default, so nothing is shared by accident); each comment shows a badge saying which it is. A client's own comments are always shared. Clients see only shared comments, plus the task's description, status, priority, due date, assignee, the client-visible update and links to tasks in their projects. They never see **private notes**, **internal comments** or **attachments**, and can't change anything. Authors come from the signed-in account, never from the request. Everyone can delete only their own comments; the admin can delete any.
+Every comment is either **Internal** (admin and designers only) or **Shared with client**. Admin and designers choose with the **Share with client** checkbox when they post (off by default, so nothing is shared by accident); each comment shows a badge saying which it is. A client's own comments are always shared. Clients see only shared comments, plus the task's description, status, priority, due date, assignee, the client-visible update and links to tasks in their projects. They never see **private notes**, **internal comments** or **internal attachments** (files are internal unless shared), and can't change anything. Authors come from the signed-in account, never from the request. Everyone can delete only their own comments; the admin can delete any.
 
 ## Linked tasks
 
@@ -65,7 +67,8 @@ Open a task and use **Link a task** to relate it to any other task, in this or a
 
 Open a task and use **Add files** (or drop files) in the Attachments section. Up to 20 files per task, 25 MB each (`ATTACH_MAX_MB`). Executable types (`.exe`, `.bat`, `.cmd`, `.com`, `.scr`, `.msi`, `.dll`, `.vbs`, `.ps1`, `.jar`) are refused.
 
-- **Who:** the admin on any task; a designer on tasks assigned to them. Designers can remove only their own uploads and can open files only in projects they can access. **Clients never see attachments.**
+- **Who:** the admin on any task; a designer on tasks assigned to them. Designers can remove only their own uploads and can open files only in projects they can access.
+- **Sharing with clients:** every file is **internal** unless shared. Tick **Share new files with the client** before uploading, or use **Share with client / Make internal** on any file. The admin can change any file; a designer only files they uploaded. Clients see (read-only) just the shared files on tasks in their projects and can download them; an internal file doesn't exist for them (404). Clients can't upload, share or delete. Each file shows an *Internal* or *Shared with client* badge to the team.
 - **On Vercel** the browser uploads straight to the private Blob store with a short-lived URL signed for exactly one path and size limit, so large files don't pass through (or hit the size cap of) a serverless function. Downloads are authorised by the app and then redirected to a signed URL that expires in 2 minutes. Files are always served as downloads.
 - **Locally** files are stored under `data/uploads/` and streamed through the server.
 - Uploads that never finish are dropped after an hour; deleting a task or project deletes its files.

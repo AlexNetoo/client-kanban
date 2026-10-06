@@ -126,7 +126,7 @@ function cleanAttachment(body, maxBytes) {
   if (!Number.isInteger(size) || size < 1) throw new HttpError(400, 'That file is empty');
   if (size > maxBytes) throw new HttpError(413, `Files can be at most ${Math.round(maxBytes / 1048576)} MB`);
   const type = typeof body.type === 'string' && /^[\w.+-]+\/[\w.+-]+$/.test(body.type) ? body.type.slice(0, 100) : 'application/octet-stream';
-  return { name, size, type };
+  return { name, size, type, shared: body.shared === true };
 }
 
 // partial=true (PATCH): only validate fields that are present.

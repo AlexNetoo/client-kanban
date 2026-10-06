@@ -76,6 +76,7 @@ class Store {
     if (!this.data.clients) { this.data.clients = []; changed = true; }
     for (const t of this.data.tasks) for (const a of t.attachments || []) {
       if (a.uploadedById === 'owner' && a.uploadedByName === 'Freelancer') { a.uploadedByName = 'Admin'; changed = true; }
+      if (!a.visibility) { a.visibility = 'internal'; changed = true; } // files were team-only until sharing existed
     }
     for (const t of this.data.tasks) for (const c of t.comments || []) {
       if (c.authorId === 'owner' && c.authorName === 'Freelancer') { c.authorName = 'Admin'; changed = true; } // the account is called Admin now
@@ -265,11 +266,11 @@ class Store {
   }
 
   // ---- attachments (metadata here; the bytes live in a files driver) ----
-  addPendingAttachment(taskId, { name, size, type, uploadedById, uploadedByName }) {
+  addPendingAttachment(taskId, { name, size, type, uploadedById, uploadedByName, visibility = 'internal' }) {
     const task = this.getTask(taskId);
     if (task.attachments.length >= 20) throw new HttpError(400, 'A task can have at most 20 attachments');
     const id = crypto.randomUUID();
-    const att = { id, name, size, type, uploadedById, uploadedByName, uploadedAt: new Date().toISOString(), status: 'pending', pathname: `client-kanban/attachments/${id}/${name}` };
+    const att = { id, name, size, type, uploadedById, uploadedByName, uploadedAt: new Date().toISOString(), status: 'pending', visibility, pathname: `client-kanban/attachments/${id}/${name}` };
     task.attachments.push(att);
     this.save();
     return { task, att };
@@ -288,6 +289,15 @@ class Store {
     found.att.status = 'ready'; found.att.size = size; found.att.uploadedAt = new Date().toISOString();
     this.save();
     return found.task;
+  }
+
+  setAttachmentVisibility(taskId, attId, visibility) {
+    const task = this.getTask(taskId);
+    const att = task.attachments.find((a) => a.id === attId);
+    if (!att) throw new HttpError(404, 'Attachment not found');
+    att.visibility = visibility;
+    this.save();
+    return task;
   }
 
   removeAttachment(taskId, attId) {
