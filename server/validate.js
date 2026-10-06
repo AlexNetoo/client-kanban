@@ -129,4 +129,31 @@ function cleanAttachment(body, maxBytes) {
   return { name, size, type };
 }
 
-module.exports = { cleanAttachment, LINK_TYPES, cleanLink, cleanComment, cleanDesigner, COLUMNS, STATUSES, PROJECT_STATUSES, PRIORITIES, HttpError, cleanProject, cleanTask };
+// partial=true (PATCH): only validate fields that are present.
+function cleanClient(body, partial = false) {
+  if (!body || typeof body !== 'object') throw new HttpError(400, 'Invalid body');
+  const has = (k) => !partial || k in body;
+  const out = {};
+  if (has('name')) out.name = str(body, 'name', { max: 80, required: true });
+  if (has('company')) out.company = str(body, 'company', { max: 80 });
+  if (has('email')) {
+    const email = str(body, 'email', { max: 120, required: !partial }).toLowerCase();
+    if (email && !EMAIL.test(email)) throw new HttpError(400, 'Enter a valid email address');
+    out.email = email;
+  }
+  if ('password' in body && body.password !== '' && body.password !== undefined) {
+    if (typeof body.password !== 'string' || body.password.length < MIN_PASSWORD || body.password.length > 200) {
+      throw new HttpError(400, `Password must be at least ${MIN_PASSWORD} characters`);
+    }
+    out.password = body.password;
+  }
+  if ('projectIds' in body) {
+    if (!Array.isArray(body.projectIds) || body.projectIds.length > 200 || body.projectIds.some((x) => typeof x !== 'string' || x.length > 64)) {
+      throw new HttpError(400, 'projectIds must be a list of project ids');
+    }
+    out.projectIds = [...new Set(body.projectIds)];
+  }
+  return out;
+}
+
+module.exports = { cleanClient, cleanAttachment, LINK_TYPES, cleanLink, cleanComment, cleanDesigner, COLUMNS, STATUSES, PROJECT_STATUSES, PRIORITIES, HttpError, cleanProject, cleanTask };

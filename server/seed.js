@@ -33,7 +33,7 @@ function seed() {
     return p.id;
   };
   // [title, status, priority, dueOffset|null, description, clientUpdate, privateNotes]
-  const nameOf = (id) => (id === OWNER_ID ? 'Freelancer' : designers.find((d) => d.id === id).name);
+  const nameOf = (id) => (id === OWNER_ID ? 'Admin' : designers.find((d) => d.id === id).name);
   const add = (projectId, rows) => rows.forEach(([title, status, priority, due, description = '', clientUpdate = '', privateNotes = '', assigneeId = '', comments = []]) => {
     tasks.push({
       id: crypto.randomUUID(), projectId, title, status, priority, dueDate: due === null ? '' : iso(due),

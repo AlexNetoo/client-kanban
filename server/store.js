@@ -73,6 +73,13 @@ class Store {
       if (d.tokenVersion === undefined) { d.tokenVersion = 0; changed = true; }
     }
     if (!this.data.links) { this.data.links = []; changed = true; }
+    if (!this.data.clients) { this.data.clients = []; changed = true; }
+    for (const t of this.data.tasks) for (const a of t.attachments || []) {
+      if (a.uploadedById === 'owner' && a.uploadedByName === 'Freelancer') { a.uploadedByName = 'Admin'; changed = true; }
+    }
+    for (const t of this.data.tasks) for (const c of t.comments || []) {
+      if (c.authorId === 'owner' && c.authorName === 'Freelancer') { c.authorName = 'Admin'; changed = true; } // the account is called Admin now
+    }
     for (const t of this.data.tasks) {
       if (!Array.isArray(t.comments)) { t.comments = []; changed = true; }
       if (!Array.isArray(t.attachments)) { t.attachments = []; changed = true; }
@@ -101,8 +108,71 @@ class Store {
 
   listDesigners(opts) { return this.data.designers.map((d) => this.publicDesigner(d, opts)); }
 
+  /** Emails are unique across designers and clients so a sign-in always finds exactly one account. */
   assertEmailFree(email, exceptId) {
-    if (email && this.data.designers.some((d) => d.email === email && d.id !== exceptId)) throw new HttpError(409, 'Another designer already uses that email');
+    if (email && [...this.data.designers, ...this.data.clients].some((a) => a.email === email && a.id !== exceptId)) {
+      throw new HttpError(409, 'Another account already uses that email');
+    }
+  }
+
+  // ---- clients (accounts that can view the projects they are assigned) ----
+  getClient(id) { return this.data.clients.find((c) => c.id === id); }
+
+  findClientByEmail(email) {
+    const e = String(email || '').trim().toLowerCase();
+    return e ? this.data.clients.find((c) => c.email === e) : undefined;
+  }
+
+  publicClient(c) {
+    return { id: c.id, name: c.name, company: c.company, email: c.email, hasLogin: !!(c.email && c.passwordHash), projectIds: c.projectIds };
+  }
+
+  listClients() { return this.data.clients.map((c) => this.publicClient(c)); }
+
+  validProjectIds(ids = []) {
+    const known = new Set(this.data.projects.map((p) => p.id));
+    if (ids.some((id) => !known.has(id))) throw new HttpError(400, 'Unknown project');
+    return ids;
+  }
+
+  createClient({ name, company = '', email, passwordHash, projectIds = [] }) {
+    if (!email || !passwordHash) throw new HttpError(400, 'A client needs an email and a password');
+    this.assertEmailFree(email);
+    const c = { id: crypto.randomUUID(), name, company, email, passwordHash, tokenVersion: 0, projectIds: this.validProjectIds(projectIds), createdAt: new Date().toISOString() };
+    this.data.clients.push(c);
+    this.save();
+    return this.publicClient(c);
+  }
+
+  /** Changing the email or password bumps tokenVersion, which signs the client out everywhere. */
+  updateClient(id, { name, company, email, passwordHash, projectIds }) {
+    const c = this.getClient(id);
+    if (!c) throw new HttpError(404, 'Client not found');
+    const nextEmail = email !== undefined ? email : c.email;
+    const nextHash = passwordHash !== undefined ? passwordHash : c.passwordHash;
+    if (nextEmail && !nextHash) throw new HttpError(400, 'Set a password for this login');
+    if (nextHash && !nextEmail) throw new HttpError(400, 'Add an email for this login');
+    this.assertEmailFree(nextEmail, id);
+    if (projectIds !== undefined) c.projectIds = this.validProjectIds(projectIds);
+    if (name !== undefined) c.name = name;
+    if (company !== undefined) c.company = company;
+    if (nextEmail !== c.email || nextHash !== c.passwordHash) c.tokenVersion += 1;
+    c.email = nextEmail; c.passwordHash = nextHash;
+    this.save();
+    return this.publicClient(c);
+  }
+
+  deleteClient(id) {
+    if (!this.getClient(id)) throw new HttpError(404, 'Client not found');
+    this.data.clients = this.data.clients.filter((c) => c.id !== id); // their sessions stop validating immediately
+    this.save();
+  }
+
+  /** Active projects a client account is assigned to. */
+  projectsForClient(clientId) {
+    const c = this.getClient(clientId);
+    if (!c) return [];
+    return this.data.projects.filter((p) => !p.archived && c.projectIds.includes(p.id));
   }
 
   createDesigner({ name, role = '', email = '', passwordHash = '' }) {
@@ -247,7 +317,7 @@ class Store {
   // ---- comments (internal: never exposed through the client view) ----
   addComment(taskId, { text, authorId }) {
     const task = this.getTask(taskId);
-    let authorName = 'Freelancer';
+    let authorName = 'Admin';
     if (authorId !== 'owner') {
       const d = this.data.designers.find((x) => x.id === authorId);
       if (!d) throw new HttpError(400, 'Unknown author');
@@ -312,6 +382,7 @@ class Store {
     this.data.projects = this.data.projects.filter((p) => p.id !== id);
     this.data.tasks = this.data.tasks.filter((t) => t.projectId !== id);
     this.data.links = this.data.links.filter((l) => !gone.has(l.fromId) && !gone.has(l.toId));
+    this.data.clients.forEach((c) => { c.projectIds = c.projectIds.filter((pid) => pid !== id); });
     this.save();
   }
 

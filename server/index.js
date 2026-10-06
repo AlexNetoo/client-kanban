@@ -7,8 +7,9 @@ const { hashPassword, verifyPassword, signSession, readSession, parseCookies } =
 const { Store } = require('./store');
 const { FilePersistence, BlobPersistence } = require('./persist');
 const { LocalFiles, BlobFiles } = require('./files');
-const { COLUMNS, HttpError, cleanProject, cleanTask, cleanComment, cleanDesigner, cleanLink, cleanAttachment } = require('./validate');
+const { COLUMNS, HttpError, cleanProject, cleanTask, cleanComment, cleanDesigner, cleanLink, cleanAttachment, cleanClient } = require('./validate');
 
+const crypto = require('crypto');
 const PUBLIC_DIR = path.join(ROOT, 'web');
 const COOKIE = 'sid';
 const MAX_BODY = 64 * 1024;
@@ -47,6 +48,8 @@ const DESIGNER_TASK_FIELDS = new Set(['status', 'position']);
 
 function createApp(config) {
   const store = new Store(config.storage === 'blob' ? new BlobPersistence(config.blobPath) : new FilePersistence(config.dataFile));
+  // Admin sessions carry a fingerprint of the current admin password hash: change the password and every old admin session dies.
+  const ownerVersion = crypto.createHash('sha256').update(config.ownerHash).digest('base64url').slice(0, 16);
   const maxBytes = config.attachMaxBytes || 25 * 1024 * 1024;
   const files = config.storage === 'blob' ? new BlobFiles() : new LocalFiles(path.join(path.dirname(config.dataFile), 'uploads'));
   const attempts = new Map(); // limiter key (ip, or email) -> { n, reset }
@@ -66,15 +69,16 @@ function createApp(config) {
   // password/email revokes access immediately instead of waiting for the cookie to expire.
   const sessionOf = (req) => {
     const s = readSession(parseCookies(req.headers.cookie)[COOKIE], config.secret);
-    if (s && s.role === 'designer') {
-      const d = store.getDesigner(s.uid);
-      if (!d || !d.passwordHash || d.tokenVersion !== s.v) return null;
-      return { ...s, designer: { id: d.id, name: d.name } };
+    if (s && (s.role === 'designer' || s.role === 'client')) {
+      const acct = s.role === 'designer' ? store.getDesigner(s.uid) : store.getClient(s.uid);
+      if (!acct || !acct.passwordHash || acct.tokenVersion !== s.v) return null;
+      return { ...s, [s.role]: { id: acct.id, name: acct.name } };
     }
+    if (s && s.role === 'owner' && s.v !== ownerVersion) return null;
     return s;
   };
 
-  const tooMany = (key) => { const r = attempts.get(key); return r && r.reset > Date.now() && r.n >= 10; };
+  const tooMany = (key, limit = 10) => { const r = attempts.get(key); return !!r && r.reset > Date.now() && r.n >= limit; };
   const fail = (key) => {
     const now = Date.now(); const r = attempts.get(key);
     attempts.set(key, { n: (r && r.reset > now ? r.n : 0) + 1, reset: r && r.reset > now ? r.reset : now + 15 * 60 * 1000 });
@@ -86,29 +90,35 @@ function createApp(config) {
   ].filter(Boolean).join('; ');
 
   // ---- Auth ----
+  const ADMIN_LIMIT = 5; // the admin sign-in locks much sooner than ordinary accounts
   route('POST', '/api/login', 'public', ({ req, res, body }) => {
     const ip = clientIp(req);
     const password = typeof body.password === 'string' ? body.password : '';
     const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
-    const keys = email ? [ip, `email:${email}`] : [ip];
-    if (keys.some(tooMany)) throw new HttpError(429, 'Too many attempts. Try again in a few minutes.');
+    const as = ['owner', 'designer', 'client'].includes(body.as) ? body.as : null;
+    const admin = !email; // no email = the admin password
+    const keys = admin ? [`admin:${ip}`, 'admin:any'] : [ip, `email:${email}`];
+    if (admin ? (tooMany(keys[0], ADMIN_LIMIT) || tooMany(keys[1], ADMIN_LIMIT * 5)) : keys.some((k) => tooMany(k))) {
+      throw new HttpError(429, 'Too many attempts. Try again in 15 minutes.');
+    }
     let session = null;
-    if (email) {
-      const d = store.findDesignerByEmail(email);
-      const ok = verifyPassword(password, d && d.passwordHash ? d.passwordHash : DUMMY_HASH);
-      if (d && d.passwordHash && ok) session = { role: 'designer', uid: d.id, v: d.tokenVersion };
+    if (admin) {
+      if (as && as !== 'owner') throw new HttpError(400, 'Designers and clients sign in with their email');
+      if (verifyPassword(password, config.ownerHash)) session = { role: 'owner', v: ownerVersion };
     } else {
-      // The sign-in tab says which account type is being claimed; a password only works on its own tab.
-      const as = body.as === 'owner' || body.as === 'client' ? body.as : null;
-      if ((!as || as === 'owner') && verifyPassword(password, config.ownerHash)) session = { role: 'owner' };
-      else if ((!as || as === 'client') && config.clientHash && verifyPassword(password, config.clientHash)) session = { role: 'client' };
+      // Designers and clients each have their own tab: an account only works on its own.
+      const designer = store.findDesignerByEmail(email);
+      const client = designer ? null : store.findClientByEmail(email);
+      const acct = designer || client;
+      const kind = designer ? 'designer' : 'client';
+      const ok = verifyPassword(password, acct && acct.passwordHash ? acct.passwordHash : DUMMY_HASH);
+      if (acct && acct.passwordHash && ok && (!as || as === kind)) session = { role: kind, uid: acct.id, v: acct.tokenVersion };
     }
     if (!session) {
       keys.forEach(fail);
-      throw new HttpError(401, email ? 'That email or password isn’t right.' : 'That password isn’t right.');
+      throw new HttpError(401, admin ? 'That password isn’t right.' : 'That email or password isn’t right.');
     }
-    attempts.delete(ip);
-    if (email) attempts.delete(`email:${email}`);
+    keys.forEach((k) => attempts.delete(k));
     const exp = Date.now() + config.sessionMs;
     res.setHeader('Set-Cookie', cookie(signSession({ ...session, exp }, config.secret), Math.floor(config.sessionMs / 1000)));
     return { role: session.role };
@@ -117,7 +127,7 @@ function createApp(config) {
     res.setHeader('Set-Cookie', cookie('', 0));
     return { ok: true };
   });
-  route('GET', '/api/session', 'any', ({ session }) => ({ role: session.role, designer: session.designer, expiresAt: session.exp, columns: COLUMNS, maxUploadBytes: maxBytes }));
+  route('GET', '/api/session', 'any', ({ session }) => ({ role: session.role, designer: session.designer, client: session.client, expiresAt: session.exp, columns: COLUMNS, maxUploadBytes: maxBytes }));
 
   const isDesigner = (s) => s.role === 'designer';
   // A designer can reach a project only if they have a task in it; anything else looks like it doesn't exist.
@@ -185,7 +195,7 @@ function createApp(config) {
   // ---- Attachments. Owner: any task. Designer: attach to tasks assigned to them, remove only their own uploads.
   //      Clients never see attachments. Bytes go straight to storage (Blob) or through /api/uploads (local dev). ----
   const uploaderId = (s) => (isDesigner(s) ? s.uid : 'owner');
-  const uploaderName = (s) => (isDesigner(s) ? s.designer.name : 'Freelancer');
+  const uploaderName = (s) => (isDesigner(s) ? s.designer.name : 'Admin');
   const attachmentOf = (task, attId) => {
     const att = task.attachments.find((a) => a.id === attId);
     if (!att) throw new HttpError(404, 'Attachment not found');
@@ -194,7 +204,7 @@ function createApp(config) {
 
   route('POST', '/api/tasks/:id/attachments', 'staff', async ({ params, body, session, defer }) => {
     const task = taskFor(session, params.id);
-    if (isDesigner(session) && task.assigneeId !== session.uid) throw new HttpError(403, 'Only the freelancer or the assigned designer can attach files');
+    if (isDesigner(session) && task.assigneeId !== session.uid) throw new HttpError(403, 'Only the admin or the assigned designer can attach files');
     const info = cleanAttachment(body, maxBytes);
     const stale = store.purgeStaleAttachments();
     defer(() => Promise.all(stale.map((a) => files.remove(a))));
@@ -282,18 +292,37 @@ function createApp(config) {
   });
   route('DELETE', '/api/designers/:id', 'owner', ({ params }) => { store.deleteDesigner(params.id); return { ok: true }; });
 
-  // A designer changes their own password (the owner's lives in the environment). Other sessions are revoked.
-  route('POST', '/api/me/password', 'staff', ({ res, body, session }) => {
-    if (!isDesigner(session)) throw new HttpError(403, 'The freelancer password is changed in the server environment settings');
-    const d = store.getDesigner(session.uid);
+  // ---- Client accounts (admin only): each client has their own login and sees only the projects assigned to them ----
+  route('GET', '/api/clients', 'owner', () => store.listClients());
+  route('POST', '/api/clients', 'owner', ({ body }) => {
+    const { password, ...fields } = cleanClient(body);
+    if (!password) throw new HttpError(400, 'Set a password for this client');
+    return { status: 201, body: store.createClient({ ...fields, passwordHash: hashPassword(password) }) };
+  });
+  route('PATCH', '/api/clients/:id', 'owner', ({ params, body }) => {
+    const { password, ...fields } = cleanClient(body, true);
+    return store.updateClient(params.id, { ...fields, ...(password ? { passwordHash: hashPassword(password) } : {}) });
+  });
+  route('DELETE', '/api/clients/:id', 'owner', ({ params }) => { store.deleteClient(params.id); return { ok: true }; });
+
+  // A client's home: only the active projects assigned to them, each with the link token for its progress view.
+  route('GET', '/api/my/projects', 'client', ({ session }) =>
+    store.projectsForClient(session.uid).map((p) => ({ token: p.shareToken, ...clientProject(store.withStats(p)) })));
+
+  // Designers and clients change their own password (the admin's lives in the environment). Other sessions are revoked.
+  route('POST', '/api/me/password', 'any', ({ res, body, session }) => {
+    if (session.role === 'owner') throw new HttpError(403, 'The admin password is changed in the server environment settings');
+    const get = session.role === 'designer' ? (id) => store.getDesigner(id) : (id) => store.getClient(id);
+    const update = session.role === 'designer' ? (id, h) => store.updateDesigner(id, { passwordHash: h }) : (id, h) => store.updateClient(id, { passwordHash: h });
+    const acct = get(session.uid);
     const current = typeof body.current === 'string' ? body.current : '';
-    if (tooMany(`pw:${d.id}`)) throw new HttpError(429, 'Too many attempts. Try again in a few minutes.');
-    if (!verifyPassword(current, d.passwordHash)) { fail(`pw:${d.id}`); throw new HttpError(401, 'Your current password isn’t right.'); }
+    if (tooMany(`pw:${acct.id}`)) throw new HttpError(429, 'Too many attempts. Try again in a few minutes.');
+    if (!verifyPassword(current, acct.passwordHash)) { fail(`pw:${acct.id}`); throw new HttpError(401, 'Your current password isn’t right.'); }
     const { password } = cleanDesigner({ password: body.next }, true);
     if (!password) throw new HttpError(400, 'Password must be at least 10 characters');
-    store.updateDesigner(d.id, { passwordHash: hashPassword(password) });
+    update(acct.id, hashPassword(password));
     const exp = Date.now() + config.sessionMs;
-    res.setHeader('Set-Cookie', cookie(signSession({ role: 'designer', uid: d.id, v: store.getDesigner(d.id).tokenVersion, exp }, config.secret), Math.floor(config.sessionMs / 1000)));
+    res.setHeader('Set-Cookie', cookie(signSession({ role: session.role, uid: acct.id, v: get(acct.id).tokenVersion, exp }, config.secret), Math.floor(config.sessionMs / 1000)));
     return { ok: true };
   });
 
@@ -310,9 +339,12 @@ function createApp(config) {
     return outTask(session, store.deleteComment(params.id, params.cid));
   });
 
-  // ---- Client view (owner or client session). Addressed by unguessable share token. ----
-  route('GET', '/api/client/:token', 'viewer', ({ params }) => {
-    const p = store.withStats(store.getProjectByToken(params.token));
+  // ---- Client view (admin preview, or a client account assigned to the project). Addressed by unguessable share token. ----
+  route('GET', '/api/client/:token', 'viewer', ({ params, session }) => {
+    const raw = store.getProjectByToken(params.token);
+    // A client account can open only the projects assigned to it; anything else looks like it doesn't exist.
+    if (session.role === 'client' && !store.projectsForClient(session.uid).some((x) => x.id === raw.id)) throw new HttpError(404, 'Project not found');
+    const p = store.withStats(raw);
     return { project: clientProject(p), tasks: store.tasksFor(p.id).map(clientTask) };
   });
 
@@ -366,7 +398,7 @@ function createApp(config) {
       if (route_.access !== 'public') {
         if (!session) throw new HttpError(401, 'Please sign in');
         const allowed = {
-          any: ['owner', 'client', 'designer'], staff: ['owner', 'designer'], owner: ['owner'], viewer: ['owner', 'client'],
+          any: ['owner', 'client', 'designer'], staff: ['owner', 'designer'], owner: ['owner'], viewer: ['owner', 'client'], client: ['client'],
         }[route_.access];
         if (!allowed.includes(session.role)) throw new HttpError(403, 'Not allowed');
       }
@@ -383,25 +415,28 @@ function createApp(config) {
   async function sessionForPage(req) {
     const raw = readSession(parseCookies(req.headers.cookie)[COOKIE], config.secret);
     if (!raw) return null;
-    return raw.role === 'designer' ? store.transact(() => sessionOf(req)) : raw;
+    return raw.role === 'owner' ? (raw.v === ownerVersion ? raw : null) : store.transact(() => sessionOf(req));
   }
 
   async function serveStatic(req, res, pathname) {
     const session = await sessionForPage(req);
     let rel = pathname === '/' ? '/index.html' : pathname;
     if (rel === '/login') rel = '/login.html';
+    // /admin: the admin console for a signed-in admin, otherwise the admin sign-in (same page as /login, admin mode).
+    const adminPage = pathname === '/admin' || pathname === '/admin/';
+    if (adminPage) rel = session && session.role === 'owner' ? '/index.html' : '/login.html';
     const file = path.normalize(path.join(PUBLIC_DIR, rel));
     const open = isPublic(rel);
     if (!file.startsWith(PUBLIC_DIR + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
       res.writeHead(404, { 'Content-Type': 'text/plain', ...SECURITY_HEADERS });
       return res.end('Not found');
     }
-    if (!open && !session) {
+    if (!open && !session && !adminPage) {
       // Fragment (#/c/token) is preserved by browsers across this redirect.
       res.writeHead(302, { Location: '/login', ...SECURITY_HEADERS });
       return res.end();
     }
-    if (rel === '/login.html' && session) {
+    if (rel === '/login.html' && session && !adminPage) {
       res.writeHead(302, { Location: '/', ...SECURITY_HEADERS });
       return res.end();
     }

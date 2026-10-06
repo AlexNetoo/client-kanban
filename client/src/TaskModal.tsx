@@ -92,10 +92,10 @@ export function TaskModal({ task: t, projectName, designers, onClose, onChange, 
           <section aria-label="Comments">
             {h(`Comments (${t.comments.length})`)}
             <div style={{ display: "flex", gap: 12 }}>
-              <Person name={owner ? "Freelancer" : me.designer?.name ?? "You"} size={32} />
+              <Person name={owner ? "Admin" : me.designer?.name ?? "You"} size={32} />
               <form onSubmit={(e) => { e.preventDefault(); post(); }} style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
-                <TextArea label={`Add a comment as ${owner ? "Freelancer" : me.designer?.name ?? "you"}`} rows={3} value={text} onChange={(e: never) => setText(val(e))}
-                  aria-label={`Add a comment as ${owner ? "Freelancer" : me.designer?.name ?? "you"}`} caption="Internal only. Clients never see comments." />
+                <TextArea label={`Add a comment as ${owner ? "Admin" : me.designer?.name ?? "you"}`} rows={3} value={text} onChange={(e: never) => setText(val(e))}
+                  aria-label={`Add a comment as ${owner ? "Admin" : me.designer?.name ?? "you"}`} caption="Internal only. Clients never see comments." />
                 <div><Button type="button" size="sm" loading={posting} onClick={post}>Post comment</Button></div>
               </form>
             </div>

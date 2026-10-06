@@ -7,7 +7,7 @@ import { formatDateTime } from "./lib/format";
 import { useEffect } from "react";
 
 const LABEL: Record<ThemePref, string> = { system: "System", light: "Light", dark: "Dark" };
-const ROLE: Record<string, string> = { owner: "Freelancer", designer: "Designer", client: "Client" };
+const ROLE: Record<string, string> = { owner: "Admin", designer: "Designer", client: "Client" };
 
 export function Settings() {
   const pal = usePalette();
@@ -40,10 +40,10 @@ export function Settings() {
       </Section>
 
       <Section title="Security">
-        {me.role === "designer" ? (
+        {me.role !== "owner" ? (
           <><Text size="sm" secondary>Change the password you use to sign in. Other devices are signed out.</Text><div><Button variant="secondary" onClick={() => setPw(true)}>Change password</Button></div></>
         ) : (
-          <Text size="sm" secondary>The freelancer and client passwords are set in the server’s environment settings (APP_PASSWORD_HASH, CLIENT_PASSWORD_HASH). Designer passwords are managed on the Team page.</Text>
+          <Text size="sm" secondary>The admin password is set in the server’s environment settings (APP_PASSWORD_HASH). Designer and client passwords are managed in the Admin console.</Text>
         )}
       </Section>
       {pw && <PasswordDialog onClose={() => setPw(false)} />}

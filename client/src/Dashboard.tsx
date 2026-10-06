@@ -93,7 +93,7 @@ export function Dashboard() {
           <Text secondary>{owner ? "Everything in flight, and how it looks to each client." : "Projects with tasks assigned to you."}</Text>
         </div>
         {owner && <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <Button variant="secondary" onClick={() => { location.hash = "#/team"; }}>Team</Button>
+          <Button variant="secondary" onClick={() => { location.href = "/admin"; }}>Admin console</Button>
           <Button icon={<PlusIcon />} onClick={() => setCreating(true)}>New project</Button>
         </div>}
       </div>

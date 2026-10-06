@@ -8,13 +8,12 @@ const { createApp } = require('../server/index');
 const { hashPassword } = require('../server/auth');
 
 const OWNER_PW = 'owner-test-password';
-const CLIENT_PW = 'client-test-password';
 let server, base, dir;
 
 const ready = (async () => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-'));
   ({ server } = createApp({
-    ownerHash: hashPassword(OWNER_PW), clientHash: hashPassword(CLIENT_PW), secret: 'x'.repeat(40),
+    ownerHash: hashPassword(OWNER_PW), secret: 'x'.repeat(40),
     sessionMs: 3600_000, dataFile: path.join(dir, 'db.json'), secureCookies: false, trustProxy: false,
   }));
   await new Promise((r) => server.listen(0, r));
@@ -33,10 +32,23 @@ async function call(method, url, { body, cookie } = {}) {
   let json; try { json = JSON.parse(text); } catch { /* not json */ }
   return { res, json, text };
 }
-async function login(password, email) {
-  const { res, json } = await call('POST', '/api/login', { body: email ? { email, password } : { password } });
+async function login(password, email, as) {
+  const { res, json } = await call('POST', '/api/login', { body: email ? { email, password, ...(as ? { as } : {}) } : { password } });
   return { status: res.status, json, cookie: (res.headers.get('set-cookie') || '').split(';')[0] };
 }
+
+let clientSeq = 0;
+/** A real client account (admin-created) with its own login, assigned to the given projects. */
+async function newClient(ownerCookie, projectIds = []) {
+  clientSeq += 1;
+  const email = `client${clientSeq}@example.com`; const password = `client-pass-${clientSeq}-xyz`;
+  const r = await call('POST', '/api/clients', { cookie: ownerCookie, body: { name: `Client ${clientSeq}`, company: 'TestCo', email, password, projectIds } });
+  assert.strictEqual(r.res.status, 201, r.text);
+  const l = await login(password, email, 'client');
+  assert.strictEqual(l.status, 200);
+  return { id: r.json.id, email, password, cookie: l.cookie };
+}
+const assignClient = (ownerCookie, clientId, projectIds) => call('PATCH', `/api/clients/${clientId}`, { cookie: ownerCookie, body: { projectIds } });
 
 test('data routes reject unauthenticated requests', async () => {
   for (const [m, u] of [['GET', '/api/projects'], ['POST', '/api/projects'], ['GET', '/api/session'], ['PATCH', '/api/tasks/x'], ['DELETE', '/api/tasks/x'], ['GET', '/api/client/abc']]) {
@@ -70,8 +82,7 @@ test('owner can list projects and sees private notes; seed present', async () =>
 test('client session cannot reach owner routes and never receives private notes', async () => {
   const owner = await login(OWNER_PW);
   const { json: projects } = await call('GET', '/api/projects', { cookie: owner.cookie });
-  const client = await login(CLIENT_PW);
-  assert.strictEqual(client.json.role, 'client');
+  const client = await newClient(owner.cookie, [projects[0].id]);
   assert.strictEqual((await call('GET', '/api/projects', { cookie: client.cookie })).res.status, 403);
   assert.strictEqual((await call('GET', `/api/projects/${projects[0].id}`, { cookie: client.cookie })).res.status, 403);
   assert.strictEqual((await call('PATCH', `/api/projects/${projects[0].id}`, { cookie: client.cookie, body: { name: 'x' } })).res.status, 403);
@@ -97,7 +108,7 @@ test('project + task CRUD, move, archive hides from client, delete cascades', as
   assert.ok(board.tasks.find((t) => t.id === t1.id).clientUpdateAt);
   assert.strictEqual((await call('POST', `/api/projects/${created.id}/tasks`, { cookie, body: { title: '' } })).res.status, 400);
   assert.strictEqual((await call('PATCH', `/api/tasks/${t1.id}`, { cookie, body: { status: 'bogus' } })).res.status, 400);
-  const client = await login(CLIENT_PW);
+  const client = await newClient(cookie, [created.id]);
   assert.strictEqual((await call('GET', `/api/client/${created.shareToken}`, { cookie: client.cookie })).res.status, 200);
   await call('PATCH', `/api/projects/${created.id}`, { cookie, body: { archived: true } });
   assert.strictEqual((await call('GET', `/api/client/${created.shareToken}`, { cookie: client.cookie })).res.status, 404);
@@ -107,11 +118,12 @@ test('project + task CRUD, move, archive hides from client, delete cascades', as
 
 test('designers, assignment and comments are owner-only and never reach clients', async () => {
   const { cookie } = await login(OWNER_PW);
-  const client = await login(CLIENT_PW);
+  const client = await newClient(cookie, []);
   const designers = (await call('GET', '/api/designers', { cookie })).json;
   assert.ok(designers.length >= 3);
   assert.strictEqual((await call('GET', '/api/designers', { cookie: client.cookie })).res.status, 403);
   const projects = (await call('GET', '/api/projects', { cookie })).json;
+  await assignClient(cookie, client.id, [projects[0].id]);
   const board = (await call('GET', `/api/projects/${projects[0].id}`, { cookie })).json;
   const task = board.tasks[0];
   // assign, reject unknown designer
@@ -122,7 +134,7 @@ test('designers, assignment and comments are owner-only and never reach clients'
   const added = await call('POST', `/api/tasks/${task.id}/comments`, { cookie, body: { text: 'SECRET-COMMENT-TEXT', authorId: designers[1].id } });
   assert.strictEqual(added.res.status, 201);
   const c = added.json.comments.at(-1);
-  assert.strictEqual(c.authorName, 'Freelancer'); // a spoofed authorId in the body is ignored
+  assert.strictEqual(c.authorName, 'Admin'); // a spoofed authorId in the body is ignored
   assert.strictEqual((await call('POST', `/api/tasks/${task.id}/comments`, { cookie, body: { text: '' } })).res.status, 400);
   assert.strictEqual((await call('POST', `/api/tasks/${task.id}/comments`, { cookie: client.cookie, body: { text: 'x' } })).res.status, 403);
   const view = await call('GET', `/api/client/${projects[0].shareToken}`, { cookie: client.cookie });
@@ -139,10 +151,11 @@ test('designers, assignment and comments are owner-only and never reach clients'
 
 test('recurring projects have no due date and show as recurring to clients', async () => {
   const { cookie } = await login(OWNER_PW);
-  const client = await login(CLIENT_PW);
+  const client = await newClient(cookie, []);
   const p = (await call('POST', '/api/projects', { cookie, body: { name: 'Retainer', client: 'Acme', status: 'active', dueDate: '2030-05-05', recurring: true } })).json;
   assert.strictEqual(p.recurring, true);
   assert.strictEqual(p.dueDate, '');
+  await assignClient(cookie, client.id, [p.id]);
   const view = await call('GET', `/api/client/${p.shareToken}`, { cookie: client.cookie });
   assert.strictEqual(view.json.project.recurring, true);
   const back = (await call('PATCH', `/api/projects/${p.id}`, { cookie, body: { recurring: false, dueDate: '2031-01-01' } })).json;
@@ -243,12 +256,74 @@ test('designer logins: scoped access, forced authorship, immediate revocation', 
   await call('PATCH', `/api/tasks/${mine.id}`, { ...O, body: { status: mine.status } });
 });
 
-test('sign-in tabs: a password only works on its own account type', async () => {
-  const as = async (password, which) => (await call('POST', '/api/login', { body: { password, as: which } })).res.status;
-  assert.strictEqual(await as(OWNER_PW, 'owner'), 200);
-  assert.strictEqual(await as(CLIENT_PW, 'client'), 200);
-  assert.strictEqual(await as(CLIENT_PW, 'owner'), 401);
-  assert.strictEqual(await as(OWNER_PW, 'client'), 401);
+test('sign-in: designers and clients use email on their own tab; the admin password never works as an account', async () => {
+  const owner = await login(OWNER_PW); const O = { cookie: owner.cookie };
+  const c = await newClient(owner.cookie, []);
+  const d = (await call('POST', '/api/designers', { ...O, body: { name: 'Tab Test', email: 'tab@example.com', password: 'tab-password-123' } })).json;
+  const post = async (body) => (await call('POST', '/api/login', { body })).res.status;
+  assert.strictEqual(await post({ email: c.email, password: c.password, as: 'client' }), 200);
+  assert.strictEqual(await post({ email: c.email, password: c.password, as: 'designer' }), 401); // a client can't use the Designer tab
+  assert.strictEqual(await post({ email: 'tab@example.com', password: 'tab-password-123', as: 'designer' }), 200);
+  assert.strictEqual(await post({ email: 'tab@example.com', password: 'tab-password-123', as: 'client' }), 401);
+  assert.strictEqual(await post({ email: c.email, password: OWNER_PW, as: 'client' }), 401); // admin password is not an account password
+  assert.strictEqual(await post({ password: c.password }), 401); // password alone is admin-only now
+  assert.strictEqual(await post({ password: 'tab-password-123' }), 401);
+  assert.strictEqual(await post({ password: OWNER_PW, as: 'designer' }), 400);
+  await call('DELETE', `/api/designers/${d.id}`, O); await call('DELETE', `/api/clients/${c.id}`, O);
+});
+
+test('client accounts: scoped to assigned projects, admin-managed, revoked immediately', async () => {
+  const owner = await login(OWNER_PW); const O = { cookie: owner.cookie };
+  const mk = async (name) => (await call('POST', '/api/projects', { ...O, body: { name, client: 'Acme', status: 'active' } })).json;
+  const A = await mk('Acct A'); const B = await mk('Acct B');
+  const c = await newClient(owner.cookie, [A.id]); const C = { cookie: c.cookie };
+
+  // only assigned projects, with the token needed to open them
+  const mine = (await call('GET', '/api/my/projects', C)).json;
+  assert.deepStrictEqual(mine.map((p) => [p.name, p.token]), [['Acct A', A.shareToken]]);
+  assert.ok(!JSON.stringify(mine).includes('privateNotes') && mine.every((p) => !('id' in p)));
+  assert.strictEqual((await call('GET', `/api/client/${A.shareToken}`, C)).res.status, 200);
+  assert.strictEqual((await call('GET', `/api/client/${B.shareToken}`, C)).res.status, 404); // exists, but not theirs
+  for (const [m, u] of [['GET', '/api/projects'], ['GET', '/api/clients'], ['GET', '/api/designers'], ['GET', '/api/task-search?q=a']]) {
+    assert.strictEqual((await call(m, u, C)).res.status, 403, `${m} ${u}`);
+  }
+  assert.strictEqual((await call('POST', '/api/clients', { ...C, body: { name: 'x', email: 'x@example.com', password: 'xxxxxxxxxxxx' } })).res.status, 403);
+
+  // the admin changes access: assign another project, archive, delete
+  await assignClient(owner.cookie, c.id, [A.id, B.id]);
+  assert.strictEqual((await call('GET', '/api/my/projects', C)).json.length, 2);
+  assert.strictEqual((await call('GET', `/api/client/${B.shareToken}`, C)).res.status, 200);
+  await call('PATCH', `/api/projects/${B.id}`, { ...O, body: { archived: true } });
+  assert.strictEqual((await call('GET', '/api/my/projects', C)).json.length, 1);
+  await call('DELETE', `/api/projects/${B.id}`, O);
+  assert.deepStrictEqual((await call('GET', '/api/clients', O)).json.find((x) => x.id === c.id).projectIds, [A.id]);
+  assert.strictEqual((await assignClient(owner.cookie, c.id, ['no-such-project'])).res.status, 400);
+
+  // validation and uniqueness (across designers AND clients)
+  assert.strictEqual((await call('POST', '/api/clients', { ...O, body: { name: 'Dup', email: c.email.toUpperCase(), password: 'dup-password-123' } })).res.status, 409);
+  assert.strictEqual((await call('POST', '/api/designers', { ...O, body: { name: 'Dup', email: c.email, password: 'dup-password-123' } })).res.status, 409);
+  assert.strictEqual((await call('POST', '/api/clients', { ...O, body: { name: 'Short', email: 's@example.com', password: 'short' } })).res.status, 400);
+  assert.strictEqual((await call('POST', '/api/clients', { ...O, body: { name: 'NoPw', email: 'n@example.com' } })).res.status, 400);
+  assert.ok(!(await call('GET', '/api/clients', O)).text.includes('scrypt'));
+
+  // a client changes their own password: wrong current rejected, fresh session issued, old one revoked
+  assert.strictEqual((await call('POST', '/api/me/password', { ...C, body: { current: 'nope-nope-nope', next: 'a-new-client-pass-1' } })).res.status, 401);
+  const chg = await fetch(`${base}/api/me/password`, { method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: c.cookie }, body: JSON.stringify({ current: c.password, next: 'a-new-client-pass-1' }) });
+  assert.strictEqual(chg.status, 200);
+  const fresh = { cookie: chg.headers.get('set-cookie').split(';')[0] };
+  assert.strictEqual((await call('GET', '/api/my/projects', fresh)).res.status, 200);
+  assert.strictEqual((await call('GET', '/api/my/projects', C)).res.status, 401);
+
+  // admin reset signs the client out at once; the old password stops working; removing the login or the account does too
+  assert.strictEqual((await call('PATCH', `/api/clients/${c.id}`, { ...O, body: { password: 'admin-reset-pass-9' } })).res.status, 200);
+  assert.strictEqual((await call('GET', '/api/my/projects', fresh)).res.status, 401);
+  assert.strictEqual((await login('a-new-client-pass-1', c.email, 'client')).status, 401);
+  const again = await login('admin-reset-pass-9', c.email, 'client');
+  assert.strictEqual(again.status, 200);
+  assert.strictEqual((await call('DELETE', `/api/clients/${c.id}`, O)).res.status, 200);
+  assert.strictEqual((await call('GET', '/api/my/projects', { cookie: again.cookie })).res.status, 401);
+  assert.strictEqual((await login('admin-reset-pass-9', c.email, 'client')).status, 401);
+  await call('DELETE', `/api/projects/${A.id}`, O);
 });
 
 test('task links: shown on both tasks, validated, scoped for designers, hidden from clients, cleaned up on delete', async () => {
@@ -286,7 +361,7 @@ test('task links: shown on both tasks, validated, scoped for designers, hidden f
   assert.ok(!(await call('GET', `/api/task-search?q=alpha&exclude=${a.id}`, O)).json.some((r) => r.id === a.id));
 
   // clients never see links
-  const client = await login(CLIENT_PW);
+  const client = await newClient(owner.cookie, [P1.id]);
   const view = await call('GET', `/api/client/${P1.shareToken}`, { cookie: client.cookie });
   assert.ok(view.json.tasks.every((t) => !('links' in t)) && !view.text.includes('Beta task\",\"links'));
   assert.strictEqual((await link(a.id, { targetId: b.id, type: 'relates' }, client.cookie)).res.status, 403);
@@ -315,8 +390,9 @@ test('task links: shown on both tasks, validated, scoped for designers, hidden f
 
 test('attachments: upload, download, limits, permissions, cleanup', async () => {
   const owner = await login(OWNER_PW); const O = { cookie: owner.cookie };
-  const client = await login(CLIENT_PW);
+  const client = await newClient(owner.cookie, []);
   const P = (await call('POST', '/api/projects', { ...O, body: { name: 'Files P', client: 'FileCo', status: 'active' } })).json;
+  await assignClient(owner.cookie, client.id, [P.id]);
   const Q = (await call('POST', '/api/projects', { ...O, body: { name: 'Files Q', client: 'FileCo', status: 'active' } })).json;
   const task = (await call('POST', `/api/projects/${P.id}/tasks`, { ...O, body: { title: 'Has files', status: 'todo', priority: 'low' } })).json;
   const other = (await call('POST', `/api/projects/${P.id}/tasks`, { ...O, body: { title: 'Someone else', status: 'todo', priority: 'low' } })).json;
@@ -336,7 +412,7 @@ test('attachments: upload, download, limits, permissions, cleanup', async () => 
   assert.strictEqual((await put(r.json.upload.url, file, owner.cookie)).status, 200);
   const completed = await done(task.id, r.json.attachmentId);
   assert.strictEqual(completed.res.status, 200);
-  assert.deepStrictEqual(completed.json.attachments.map((a) => [a.name, a.size, a.uploadedByName]), [['brief.pdf', 11, 'Freelancer']]);
+  assert.deepStrictEqual(completed.json.attachments.map((a) => [a.name, a.size, a.uploadedByName]), [['brief.pdf', 11, 'Admin']]);
   assert.ok(!completed.text.includes('pathname') && !completed.text.includes('"status":"ready"'));
   assert.ok(fs.existsSync(path.join(dir, 'uploads', r.json.attachmentId)));
 
@@ -401,6 +477,31 @@ test('cross-origin writes are blocked', async () => {
   const { cookie } = await login(OWNER_PW);
   const res = await fetch(base + '/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: cookie, Origin: 'https://evil.example' }, body: '{}' });
   assert.strictEqual(res.status, 403);
+});
+
+test('changing the admin password signs out every existing admin session', async () => {
+  const owner = await login(OWNER_PW);
+  assert.strictEqual((await call('GET', '/api/projects', { cookie: owner.cookie })).res.status, 200);
+  // the same deployment after the admin password was changed (same session secret, new hash)
+  const { server: server2 } = createApp({ ownerHash: hashPassword('a-brand-new-admin-pw'), secret: 'x'.repeat(40), sessionMs: 3600_000, dataFile: path.join(dir, 'db2.json'), secureCookies: false, trustProxy: false });
+  await new Promise((r) => server2.listen(0, r));
+  try {
+    const res = await fetch(`http://localhost:${server2.address().port}/api/projects`, { headers: { Cookie: owner.cookie } });
+    assert.strictEqual(res.status, 401); // the old admin cookie no longer works
+    const page = await fetch(`http://localhost:${server2.address().port}/admin`, { headers: { Cookie: owner.cookie }, redirect: 'manual' });
+    assert.ok((await page.text()).includes('<div id="root">') && page.status === 200); // /admin falls back to the sign-in page
+    const fresh = await fetch(`http://localhost:${server2.address().port}/api/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: 'a-brand-new-admin-pw' }) });
+    assert.strictEqual(fresh.status, 200);
+  } finally { server2.close(); }
+});
+
+test('admin sign-in locks out after 5 wrong passwords, even for the right one', async () => {
+  const bad = async () => (await call('POST', '/api/login', { body: { password: 'definitely-wrong-1' } })).res.status;
+  for (let i = 0; i < 5; i += 1) assert.strictEqual(await bad(), 401);
+  assert.strictEqual(await bad(), 429);
+  assert.strictEqual((await call('POST', '/api/login', { body: { password: OWNER_PW } })).res.status, 429); // locked
+  // designers/clients are not affected by the admin lockout (their limiter is separate)
+  assert.strictEqual((await call('POST', '/api/login', { body: { email: 'nobody@example.com', password: 'wrong-wrong-wrong' } })).res.status, 401);
 });
 
 test('teardown', () => { server.close(); fs.rmSync(dir, { recursive: true, force: true }); });

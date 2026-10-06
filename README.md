@@ -1,6 +1,6 @@
 # Project Hub — client kanban
 
-A small, password-protected kanban for a freelancer to manage projects and share progress with clients.
+A small, password-protected kanban for an admin (freelancer) to manage projects and share progress with designers and clients.
 
 - **Dashboard** of projects (client, status, due date, progress), with create / edit / archive / delete.
 - **Kanban board** per project: Backlog, To do, In progress, In review, Done. Create, edit, delete and move tasks by drag-and-drop **or** the "Move to…" select on each card (keyboard / touch friendly).
@@ -13,7 +13,7 @@ The server has zero npm dependencies. The UI is React + TypeScript built with Vi
 ## Setup
 
 ```bash
-npm run setup   # asks for passwords, writes .env (hashed) with a random SESSION_SECRET
+npm run setup   # asks for the admin password, writes .env (hashed) with a random SESSION_SECRET
 npm run dev     # http://localhost:3000   (npm start for no file-watching)
 npm test        # API/auth tests
 npm run build:web   # only after editing client/ : rebuilds the UI into web/
@@ -24,9 +24,8 @@ npm run dev:web     # optional Vite dev server on :5173 (proxies /api to :3000)
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `APP_PASSWORD_HASH` | yes | scrypt hash of the freelancer password (full access) |
+| `APP_PASSWORD_HASH` | yes | scrypt hash of the **admin** password (sign in at `/admin`) |
 | `SESSION_SECRET` | yes | 32+ random chars; signs session cookies |
-| `CLIENT_PASSWORD_HASH` | no | scrypt hash of a client password (read-only). Without it clients cannot sign in |
 | `PORT` | no | default `3000` |
 | `SESSION_HOURS` | no | session lifetime, default `12` |
 | `DATA_FILE` | no | default `./data/db.json` (file backend) |
@@ -38,21 +37,31 @@ npm run dev:web     # optional Vite dev server on :5173 (proxies /api to :3000)
 
 `.env` and `data/` are git-ignored. Never commit them.
 
-## Signing in and navigating
+## Accounts and signing in
 
-The login page has three tabs: **Freelancer** (the owner password), **Client** (the client password) and **Designer** (email + password). A password only works on its own tab. After signing in, freelancers and designers get a side menu (All projects, a list of projects, Team for the freelancer, Settings; it becomes a drawer on phones). Clients only see the project link they were given. Settings has appearance (system/light/dark, remembered in the browser), account info and, for designers, change password.
+There are three kinds of user, each with its own way in:
 
-Clicking a task opens a wide scrollable view with the description, client update, private notes (freelancer only), comments and a details panel (status, assignee, priority, due date) that the freelancer can edit in place.
+- **Admin** signs in at **`/admin`** with the admin password (`APP_PASSWORD_HASH`). The admin console lets you create **designer** and **client** accounts, reset their passwords (with a password generator and a one-time reveal), edit which projects a client can see, delete users, and archive or delete any project (deleting asks you to type the project name). The admin also uses the whole app: dashboard, boards, task view, comments, links and attachments.
+- **Designers** sign in at `/login` on the **Designer** tab with an email and password.
+- **Clients** sign in at `/login` on the **Client** tab with an email and password and see only the projects the admin assigned to them (a "Your projects" home, then each project's progress view).
+
+An account only works on its own tab, emails are unique across designers and clients, and a client can't open a project that isn't assigned to them. There is no public way to reach the admin sign-in other than knowing `/admin`.
+
+**Protecting the admin account:** the password exists only as a scrypt hash in the environment. Admin sign-in locks after 5 wrong passwords (15 minutes, also with a global limit against distributed guessing), and every admin session is tied to the current password hash, so **changing `APP_PASSWORD_HASH` signs out every existing admin session**. Resetting or deleting a designer or client signs them out immediately.
+
+After signing in, admins and designers get a side menu (all projects, a list of projects, Admin console for the admin, Settings; a drawer on phones). Settings has appearance (system/light/dark), account info and change password for designers.
+
+Clicking a task opens a wide scrollable view with the description, attachments, linked tasks, client update, private notes (admin only), comments and a details panel (status, assignee, priority, due date) that the admin can edit in place.
 
 ## Linked tasks
 
-Open a task and use **Link a task** to relate it to any other task, in this or another project: *relates to*, *blocks* / *is blocked by*, *duplicates* / *is duplicated by*. A link is stored once and shown on both tasks with the matching wording. Each open task has its own address (`#/p/<project>/t/<task>`), so links open that task, Back closes it, and **Copy link** shares it. Only the freelancer can add or remove links. Designers see links only to tasks in projects they can open, and clients never see links. Deleting a task or project removes its links.
+Open a task and use **Link a task** to relate it to any other task, in this or another project: *relates to*, *blocks* / *is blocked by*, *duplicates* / *is duplicated by*. A link is stored once and shown on both tasks with the matching wording. Each open task has its own address (`#/p/<project>/t/<task>`), so links open that task, Back closes it, and **Copy link** shares it. Only the admin can add or remove links. Designers see links only to tasks in projects they can open, and clients never see links. Deleting a task or project removes its links.
 
 ## Attachments
 
 Open a task and use **Add files** (or drop files) in the Attachments section. Up to 20 files per task, 25 MB each (`ATTACH_MAX_MB`). Executable types (`.exe`, `.bat`, `.cmd`, `.com`, `.scr`, `.msi`, `.dll`, `.vbs`, `.ps1`, `.jar`) are refused.
 
-- **Who:** the freelancer on any task; a designer on tasks assigned to them. Designers can remove only their own uploads and can open files only in projects they can access. **Clients never see attachments.**
+- **Who:** the admin on any task; a designer on tasks assigned to them. Designers can remove only their own uploads and can open files only in projects they can access. **Clients never see attachments.**
 - **On Vercel** the browser uploads straight to the private Blob store with a short-lived URL signed for exactly one path and size limit, so large files don't pass through (or hit the size cap of) a serverless function. Downloads are authorised by the app and then redirected to a signed URL that expires in 2 minutes. Files are always served as downloads.
 - **Locally** files are stored under `data/uploads/` and streamed through the server.
 - Uploads that never finish are dropped after an hour; deleting a task or project deletes its files.
@@ -60,7 +69,7 @@ Open a task and use **Add files** (or drop files) in the Attachments section. Up
 
 ## Designer logins
 
-Designers sign in on the **Designer** tab of the login page with an email and password. The freelancer creates them in **Team** (name, optional role, login email and a password of 10+ characters) and shares the password privately. A designer can then change it under **Change password**.
+Designers sign in on the **Designer** tab of the login page with an email and password. The admin creates them in the **Admin console** (name, optional role, login email and a password of 10+ characters) and shares the password privately. A designer can then change it under **Change password**.
 
 What a designer can do, enforced on the server:
 - See only projects where a task is assigned to them, never archived ones.
@@ -71,12 +80,11 @@ What they never get: private notes, client share links, the client view, or any 
 
 Changing a designer's password or email, removing their login, or deleting them signs them out immediately (sessions are re-checked on every request). Passwords are scrypt hashes; failed sign-ins are rate limited per IP and per email.
 
-## Sharing with clients
+## Client accounts and project links
 
-Open a project → **Client view** → **More → Copy client link**. Give the client the link and the client password.
-Each link carries an unguessable token for one project; a client session can open only links it is given and cannot call any owner endpoint, so clients cannot see each other's projects. **More → Reset client link** invalidates a link. Archiving a project also hides it from clients.
+Create a client in **Admin console → Clients**: name, company, login email, a password (or **Generate**), and tick the projects they may see. Edit the ticked projects any time; access changes immediately. Each project still has an unguessable link token (used in the address of the progress view); a link only works for a signed-in client who is assigned to that project, or for the admin (preview). **More → Reset client link** invalidates old links; archiving a project hides it from clients.
 
-The owner password also opens client views (shown with a preview banner).
+Upgrading from the old shared client password: that password (`CLIENT_PASSWORD_HASH`) is no longer used. Create a client account for each client instead.
 
 ## Storage
 
@@ -114,7 +122,7 @@ scripts/  setup.js      test/  api.test.js
 
 ## Limitations
 
-- Freelancer and client sessions are stateless: sign-out clears the cookie but a copied cookie stays valid until it expires (rotate `SESSION_SECRET` to revoke all). Designer sessions are revoked immediately (see above).
-- No email invites or password-reset emails: the freelancer sets and resets designer passwords.
+- Sign-out clears the cookie but a copied cookie stays valid until it expires, except that changing the admin password, or resetting/deleting a designer or client, revokes their sessions immediately.
+- No email invites or password-reset emails: the admin sets and resets passwords.
 - Rate limiting is per process and in memory, so on serverless it is per instance (best effort). The whole database is one document: fine for a freelancer-sized team, not for heavy concurrent writing.
 - No real-time sync between browser tabs, no file attachments, no per-client passwords (one client password for all clients; isolation is by link token).

@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useRef, useState, type ChangeEvent, type ReactNode, type RefObject } from "react";
-import { Button, CardDialog, EmptyState, IconButton, Skeleton, Toast, tokens, useModalFocus } from "./halaska-kit";
+import { Button, CardDialog, EmptyState, IconButton, Skeleton, TextInput, Toast, tokens, useModalFocus } from "./halaska-kit";
 import { usePalette } from "./theme";
 
 /** Halaska inputs call onChange with a value or an event depending on the control; normalise to a string. */
@@ -72,6 +72,31 @@ export function ConfirmDialog({ open, title, description, confirmLabel = "Delete
     <Modal open={open} onClose={onClose} title={title} description={description}
       actions={<><Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button><Button variant="secondary" size="sm" loading={busy} onClick={run}>{confirmLabel}</Button></>}>
       {error && <p role="alert" style={{ color: pal.text, fontWeight: 600, fontSize: 13 }}>Error: {error}</p>}
+    </Modal>
+  );
+}
+
+/** Deleting something big: the admin must type its name before the button enables. */
+export function TypedConfirmDialog({ open, title, description, expected, confirmLabel = "Delete", onConfirm, onClose }: {
+  open: boolean; title: string; description: string; expected: string; confirmLabel?: string; onConfirm: () => Promise<void>; onClose: () => void;
+}) {
+  const [typed, setTyped] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const pal = usePalette();
+  const ok = typed.trim() === expected;
+  const run = async () => {
+    setBusy(true); setError("");
+    try { await onConfirm(); setTyped(""); onClose(); } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
+  };
+  return (
+    <Modal open={open} onClose={() => { setTyped(""); onClose(); }} title={title} description={description}
+      actions={<><Button variant="ghost" size="sm" onClick={() => { setTyped(""); onClose(); }}>Cancel</Button><Button variant="secondary" size="sm" disabled={!ok} loading={busy} onClick={run}>{confirmLabel}</Button></>}>
+      <form onSubmit={(e) => { e.preventDefault(); if (ok) run(); }} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {error && <p role="alert" style={{ color: pal.text, fontWeight: 600, fontSize: 13 }}>Error: {error}</p>}
+        <TextInput label={`Type “${expected}” to confirm`} value={typed} onChange={(e: never) => setTyped(val(e))} aria-label={`Type ${expected} to confirm`} />
+        <button type="submit" hidden aria-hidden="true" tabIndex={-1} />
+      </form>
     </Modal>
   );
 }

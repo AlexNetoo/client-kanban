@@ -20,7 +20,7 @@ const Icon = ({ d }: { d: ReactNode }) => (
 );
 
 /** Primary navigation: projects, team (owner) and settings. Shown as a sidebar on desktop and inside a drawer on phones. */
-export function Nav({ route, onNavigate }: { route: string; onNavigate?: () => void }) {
+export function Nav({ route, admin = false, onNavigate }: { route: string; admin?: boolean; onNavigate?: () => void }) {
   const pal = usePalette();
   const scheme = useTheme();
   const me = useMe();
@@ -32,7 +32,7 @@ export function Nav({ route, onNavigate }: { route: string; onNavigate?: () => v
 
   return (
     <nav aria-label="Main" onClick={(e) => { if ((e.target as HTMLElement).closest("a")) onNavigate?.(); }} style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1, minHeight: 0, overflowY: "auto" }}>
-      <Item href="#/" active={route === "/" || route === ""}><Icon d={<><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></>} />{owner ? "All projects" : "My projects"}</Item>
+      <Item href="/#/" active={!admin && (route === "/" || route === "")}><Icon d={<><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></>} />{owner ? "All projects" : "My projects"}</Item>
 
       {projects.length > 0 && (
         <div style={{ margin: "10px 0 4px" }}>
@@ -40,7 +40,7 @@ export function Nav({ route, onNavigate }: { route: string; onNavigate?: () => v
           <ul aria-labelledby={listId} style={{ display: "flex", flexDirection: "column", gap: 2, maxHeight: "40vh", overflowY: "auto" }}>
             {projects.map((p) => (
               <li key={p.id}>
-                <Item href={`#/p/${p.id}`} active={kind === "p" && param === p.id} indent>
+                <Item href={`/#/p/${p.id}`} active={!admin && kind === "p" && param === p.id} indent>
                   <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: "50%", background: statusDotColor(p.status, scheme), flex: "none" }} />
                   <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
                 </Item>
@@ -51,13 +51,13 @@ export function Nav({ route, onNavigate }: { route: string; onNavigate?: () => v
       )}
 
       <div style={{ height: 1, background: pal.border, margin: "8px 4px" }} />
-      {owner && <Item href="#/team" active={kind === "team"}><Icon d={<><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16 4.5a3.5 3.5 0 0 1 0 7" /><path d="M18 14.5a6.5 6.5 0 0 1 3.5 5.5" /></>} />Team</Item>}
-      <Item href="#/settings" active={kind === "settings"}><Icon d={<><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></>} />Settings</Item>
+      {owner && <Item href="/admin" active={admin}><Icon d={<><path d="M12 3 4 6v6c0 4.5 3.2 8.2 8 9 4.8-.8 8-4.5 8-9V6l-8-3z" /><path d="m9 12 2 2 4-4" /></>} />Admin console</Item>}
+      <Item href="/#/settings" active={!admin && kind === "settings"}><Icon d={<><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></>} />Settings</Item>
 
       <div style={{ marginTop: "auto", paddingTop: 16, display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ padding: "0 12px", fontSize: 13, color: pal.textSecondary }}>
-          <div style={{ fontWeight: 600, color: pal.text }}>{me.designer?.name ?? (owner ? "Freelancer" : "Client")}</div>
-          <div>{owner ? "Freelancer account" : "Designer account"}</div>
+          <div style={{ fontWeight: 600, color: pal.text }}>{me.designer?.name ?? (owner ? "Admin" : "Client")}</div>
+          <div>{owner ? "Admin account" : "Designer account"}</div>
         </div>
         <Button variant="secondary" size="sm" fullWidth onClick={async () => { try { await api.logout(); } finally { location.replace("/login"); } }}>Sign out</Button>
       </div>

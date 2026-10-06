@@ -106,7 +106,7 @@ export function Board({ id, taskId }: { id: string; taskId?: string }) {
         {owner && <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
           <Button icon={<PlusIcon />} onClick={() => setEditing({ status: "todo" })}>Add task</Button>
           <Button variant="secondary" icon={<EyeIcon />} onClick={() => { location.hash = `#/c/${project.shareToken}`; }}>Client view</Button>
-          <Button variant="secondary" onClick={() => { location.hash = "#/team"; }}>Team</Button>
+          <Button variant="secondary" onClick={() => { location.href = "/admin"; }}>Admin console</Button>
           <ProjectMenu project={project} onChange={() => load()} afterDelete={() => { location.hash = "#/"; }} />
         </div>}
       </div>

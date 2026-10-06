@@ -6,31 +6,33 @@ import { api } from "./api";
 import { Providers, usePalette } from "./theme";
 import { val } from "./ui";
 
-const TAB_OWNER = "Freelancer";
-const TAB_CLIENT = "Client";
 const TAB_DESIGNER = "Designer";
+const TAB_CLIENT = "Client";
 const COPY: Record<string, string> = {
-  [TAB_OWNER]: "Enter the freelancer password to manage projects, tasks and your team.",
-  [TAB_CLIENT]: "Enter the password you were given to view your project’s progress.",
-  [TAB_DESIGNER]: "Use the email and password your freelancer set up for you.",
+  [TAB_DESIGNER]: "Sign in with the email and password you were given to see the tasks assigned to you.",
+  [TAB_CLIENT]: "Sign in with your email and password to follow the progress of your projects.",
 };
+// /admin shows the admin sign-in (password only); everything else is the designer / client sign-in.
+const ADMIN = location.pathname.replace(/\/+$/, "") === "/admin";
 
 function Login() {
   const pal = usePalette();
-  const [tab, setTab] = useState(TAB_OWNER);
+  const [tab, setTab] = useState(TAB_DESIGNER);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(new URLSearchParams(location.search).get("expired") ? "Your session ended. Please sign in again." : "");
   const [busy, setBusy] = useState(false);
-  const designer = tab === TAB_DESIGNER;
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (designer && !email.trim()) { setError("Please enter your email."); return; }
-    if (!password) { setError("Please enter the password."); return; }
+    if (!ADMIN && !email.trim()) { setError("Please enter your email."); return; }
+    if (!password) { setError("Please enter your password."); return; }
     setBusy(true); setError("");
-    try { await api.login(password, designer ? { email: email.trim() } : { as: tab === TAB_CLIENT ? "client" : "owner" }); location.replace("/" + location.hash); } // keeps #/c/<token> for shared client links
-    catch (ex) { setError((ex as Error).message); setBusy(false); }
+    try {
+      if (ADMIN) await api.login(password);
+      else await api.login(password, { email: email.trim(), as: tab === TAB_CLIENT ? "client" : "designer" });
+      location.replace(ADMIN ? "/admin" : "/" + location.hash); // the hash keeps #/c/<token> links working
+    } catch (ex) { setError((ex as Error).message); setPassword(""); setBusy(false); }
   };
 
   return (
@@ -39,10 +41,13 @@ function Login() {
         <div style={{ display: "inline-flex", alignItems: "center", gap: 10, fontWeight: 800, letterSpacing: "-0.02em", marginBottom: 18 }}>
           <img src="/favicon.svg" alt="" width={24} height={24} /> Project Hub
         </div>
-        <div><Heading level={1}>Sign in</Heading><Text secondary>{COPY[tab]}</Text></div>
-        <Tabs tabs={[TAB_OWNER, TAB_CLIENT, TAB_DESIGNER]} value={tab} onChange={(t: string) => { setTab(t); setError(""); setPassword(""); }} />
+        <div>
+          <Heading level={1}>{ADMIN ? "Admin sign in" : "Sign in"}</Heading>
+          <Text secondary>{ADMIN ? "Enter the admin password to manage accounts and projects." : COPY[tab]}</Text>
+        </div>
+        {!ADMIN && <Tabs tabs={[TAB_DESIGNER, TAB_CLIENT]} value={tab} onChange={(t: string) => { setTab(t); setError(""); setPassword(""); }} />}
         {error && <p role="alert" style={{ border: `1px solid ${pal.text}`, borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 600 }}>Error: {error}</p>}
-        {designer && <TextInput label="Email" type="email" value={email} onChange={(e: never) => setEmail(val(e))} aria-label="Email" />}
+        {!ADMIN && <TextInput label="Email" type="email" value={email} onChange={(e: never) => setEmail(val(e))} aria-label="Email" />}
         <TextInput label="Password" type="password" value={password} onChange={(e: never) => setPassword(val(e))} aria-label="Password" />
         <Button type="submit" loading={busy} fullWidth>Sign in</Button>
       </form>

@@ -1,4 +1,4 @@
-import type { ClientProject, ClientTask, Designer, Project, ProjectInput, Task, TaskInput, TaskLink, TaskSearchResult } from "./types";
+import type { ClientAccount, MyProject, ClientProject, ClientTask, Designer, Project, ProjectInput, Task, TaskInput, TaskLink, TaskSearchResult } from "./types";
 
 export interface UploadTarget { url: string; method: string; headers: Record<string, string> }
 
@@ -27,8 +27,8 @@ async function request<T>(method: string, url: string, body?: unknown): Promise<
 }
 
 export const api = {
-  login: (password: string, opts: { email?: string; as?: "owner" | "client" } = {}) => request<{ role: string }>("POST", "/api/login", opts.email ? { email: opts.email, password } : { password, as: opts.as }),
-  session: () => request<{ role: "owner" | "client" | "designer"; designer?: { id: string; name: string }; expiresAt?: number; maxUploadBytes?: number }>("GET", "/api/session"),
+  login: (password: string, opts: { email?: string; as?: "owner" | "designer" | "client" } = {}) => request<{ role: string }>("POST", "/api/login", opts.email ? { email: opts.email, password, as: opts.as } : { password, as: "owner" }),
+  session: () => request<{ role: "owner" | "client" | "designer"; designer?: { id: string; name: string }; client?: { id: string; name: string }; expiresAt?: number; maxUploadBytes?: number }>("GET", "/api/session"),
   logout: () => request<{ ok: true }>("POST", "/api/logout", {}),
   listProjects: () => request<Project[]>("GET", "/api/projects"),
   getProject: (id: string) => request<{ project: Project; tasks: Task[] }>("GET", `/api/projects/${id}`),
@@ -51,6 +51,11 @@ export const api = {
   requestAttachment: (taskId: string, d: { name: string; size: number; type: string }) => request<{ attachmentId: string; upload: UploadTarget }>("POST", `/api/tasks/${taskId}/attachments`, d),
   completeAttachment: (taskId: string, attId: string) => request<Task>("POST", `/api/tasks/${taskId}/attachments/${attId}/complete`, {}),
   deleteAttachment: (taskId: string, attId: string) => request<Task>("DELETE", `/api/tasks/${taskId}/attachments/${attId}`),
+  listClients: () => request<ClientAccount[]>("GET", "/api/clients"),
+  createClient: (d: { name: string; company?: string; email: string; password: string; projectIds: string[] }) => request<ClientAccount>("POST", "/api/clients", d),
+  updateClient: (id: string, d: { name?: string; company?: string; email?: string; password?: string; projectIds?: string[] }) => request<ClientAccount>("PATCH", `/api/clients/${id}`, d),
+  deleteClient: (id: string) => request<{ ok: true }>("DELETE", `/api/clients/${id}`),
+  myProjects: () => request<MyProject[]>("GET", "/api/my/projects"),
   clientView: (token: string) => request<{ project: ClientProject; tasks: ClientTask[] }>("GET", `/api/client/${encodeURIComponent(token)}`),
 };
 

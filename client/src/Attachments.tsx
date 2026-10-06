@@ -12,7 +12,7 @@ const fileUrl = (a: Attachment) => `/api/attachments/${a.id}/file`;
 
 type Upload = { key: number; name: string; size: number; progress: number; error?: string };
 
-/** Files on a task. Freelancer: any task. Designer: tasks assigned to them. Never shown to clients. */
+/** Files on a task. Admin: any task. Designer: tasks assigned to them. Never shown to clients. */
 export function Attachments({ task, onChange }: { task: Task; onChange: (t: Task) => void }) {
   const pal = usePalette();
   const toast = useToast();

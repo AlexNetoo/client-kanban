@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { Button, IconButton, Sheet } from "./halaska-kit";
 import { api } from "./api";
+import { AdminConsole } from "./AdminConsole";
 import { Board } from "./Board";
+import { ClientHome } from "./ClientHome";
 import { ClientView } from "./ClientView";
 import { Dashboard } from "./Dashboard";
 import { ProjectsProvider } from "./nav";
+import { PasswordDialog } from "./PasswordDialog";
 import { Nav } from "./Sidebar";
 import { Settings } from "./Settings";
 import { SessionProvider, type Me } from "./session";
-import { TeamPage } from "./TeamPage";
 import { StateBlock } from "./ui";
 import { usePalette } from "./theme";
 
@@ -18,48 +20,60 @@ function useHash() {
   return hash.replace(/^#/, "") || "/";
 }
 
-const Brand = () => (
-  <a href="#/" style={{ display: "inline-flex", alignItems: "center", gap: 10, fontWeight: 800, letterSpacing: "-0.02em", textDecoration: "none" }}>
+const Brand = ({ href = "#/" }: { href?: string }) => (
+  <a href={href} style={{ display: "inline-flex", alignItems: "center", gap: 10, fontWeight: 800, letterSpacing: "-0.02em", textDecoration: "none" }}>
     <img src="/favicon.svg" alt="" width={24} height={24} /> Project Hub
   </a>
 );
+
+const signOut = async () => { try { await api.logout(); } finally { location.replace("/login"); } };
+export const isAdminPath = () => location.pathname.replace(/\/+$/, "") === "/admin";
 
 export function App() {
   const pal = usePalette();
   const [me, setMe] = useState<Me | null>(null);
   const [menu, setMenu] = useState(false);
+  const [pw, setPw] = useState(false);
   const route = useHash();
   const main = useRef<HTMLElement>(null);
-  useEffect(() => { api.session().then((s) => setMe({ role: s.role, designer: s.designer, expiresAt: s.expiresAt, maxUploadBytes: s.maxUploadBytes })).catch(() => {}); }, []);
+  useEffect(() => { api.session().then((s) => setMe({ role: s.role, designer: s.designer, client: s.client, expiresAt: s.expiresAt, maxUploadBytes: s.maxUploadBytes })).catch(() => {}); }, []);
   if (!me) return null;
   const role = me.role;
-
-  const [, kind, param, sub, subParam] = route.split("/");
-  let view;
-  if (kind === "c" && param && role !== "designer") view = <ClientView key={param} token={decodeURIComponent(param)} role={role} />;
-  else if (role === "client") view = <StateBlock title="Open your project link" description="Use the link your freelancer sent you to see your project’s progress." />;
-  else if (kind === "settings") view = <Settings />;
-  else if (kind === "team" && role === "owner") view = <TeamPage />;
-  else if (kind === "p" && param) view = <Board key={param} id={decodeURIComponent(param)} taskId={sub === "t" && subParam ? decodeURIComponent(subParam) : undefined} />;
-  else view = <Dashboard />;
-
   const skip = <a className="skip-link" href="#main" onClick={(e) => { e.preventDefault(); main.current?.focus(); }}>Skip to content</a>;
+  const [, kind, param, sub, subParam] = route.split("/");
 
-  // Clients only ever see the project link they were given: no menu.
+  // Clients: their own projects only, no menu.
   if (role === "client") {
+    const view = kind === "c" && param
+      ? <ClientView key={param} token={decodeURIComponent(param)} role={role} />
+      : <ClientHome />;
     return (
       <SessionProvider value={me}>
         {skip}
         <header style={{ borderBottom: `1px solid ${pal.border}` }}>
           <div className="wrap" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, paddingTop: 14, paddingBottom: 14 }}>
             <Brand />
-            <Button variant="secondary" size="sm" onClick={async () => { try { await api.logout(); } finally { location.replace("/login"); } }}>Sign out</Button>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {me.client && <span style={{ fontSize: 13, color: pal.textSecondary }}>{me.client.name}</span>}
+              <Button variant="ghost" size="sm" onClick={() => setPw(true)}>Change password</Button>
+              <Button variant="secondary" size="sm" onClick={signOut}>Sign out</Button>
+            </div>
           </div>
         </header>
         <main id="main" ref={main} tabIndex={-1} className="wrap page">{view}</main>
+        {pw && <PasswordDialog onClose={() => setPw(false)} />}
       </SessionProvider>
     );
   }
+
+  // Admin and designers: sidebar shell.
+  const admin = role === "owner" && isAdminPath();
+  let view;
+  if (admin) view = <AdminConsole />;
+  else if (kind === "c" && param && role !== "designer") view = <ClientView key={param} token={decodeURIComponent(param)} role={role} />;
+  else if (kind === "settings") view = <Settings />;
+  else if (kind === "p" && param) view = <Board key={param} id={decodeURIComponent(param)} taskId={sub === "t" && subParam ? decodeURIComponent(subParam) : undefined} />;
+  else view = role === "owner" || role === "designer" ? <Dashboard /> : <StateBlock title="Nothing here" description="This page doesn’t exist." />;
 
   return (
     <SessionProvider value={me}>
@@ -68,7 +82,7 @@ export function App() {
         <div className="shell">
           <aside className="sidebar" style={{ borderRight: `1px solid ${pal.border}`, background: pal.bg }}>
             <div style={{ padding: "4px 12px 18px" }}><Brand /></div>
-            <Nav route={route} />
+            <Nav route={route} admin={admin} />
           </aside>
           <div className="shell-main">
             <header className="topbar" style={{ borderBottom: `1px solid ${pal.border}` }}>
@@ -78,7 +92,7 @@ export function App() {
             <main id="main" ref={main} tabIndex={-1} className="page" style={{ maxWidth: 1280, margin: "0 auto", padding: "36px 28px 96px" }}>{view}</main>
           </div>
         </div>
-        <Sheet open={menu} onClose={() => setMenu(false)} title="Menu" side="left"><div style={{ height: "calc(100vh - 110px)", display: "flex", flexDirection: "column" }}><Nav route={route} onNavigate={() => setMenu(false)} /></div></Sheet>
+        <Sheet open={menu} onClose={() => setMenu(false)} title="Menu" side="left"><div style={{ height: "calc(100vh - 110px)", display: "flex", flexDirection: "column" }}><Nav route={route} admin={admin} onNavigate={() => setMenu(false)} /></div></Sheet>
       </ProjectsProvider>
     </SessionProvider>
   );

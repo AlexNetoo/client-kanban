@@ -6,7 +6,7 @@ import { useMe } from "./session";
 import { usePalette } from "./theme";
 import { columnLabel, type Task, type TaskLink, type TaskSearchResult } from "./types";
 
-// What the freelancer picks, and how it is stored: "is blocked by X" is stored as "X blocks this".
+// What the admin picks, and how it is stored: "is blocked by X" is stored as "X blocks this".
 const RELATIONS: { value: string; label: string; type: TaskLink["type"]; inverse: boolean }[] = [
   { value: "relates", label: "relates to", type: "relates", inverse: false },
   { value: "blocks", label: "blocks", type: "blocks", inverse: false },
@@ -15,7 +15,7 @@ const RELATIONS: { value: string; label: string; type: TaskLink["type"]; inverse
   { value: "duplicated_by", label: "is duplicated by", type: "duplicates", inverse: true },
 ];
 
-/** Jira-style "Linked tasks": relation + task, each opening that task. Only the freelancer can add or remove. */
+/** Jira-style "Linked tasks": relation + task, each opening that task. Only the admin can add or remove. */
 export function LinkedTasks({ task, onChange }: { task: Task; onChange: (t: Task) => void }) {
   const pal = usePalette();
   const toast = useToast();

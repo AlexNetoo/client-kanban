@@ -38,3 +38,6 @@ export interface ClientProject {
 export interface ClientTask { id: string; title: string; description: string; status: Column; dueDate: string; clientUpdate: string; clientUpdateAt: string }
 export type ProjectInput = Pick<Project, "name" | "client" | "status" | "dueDate" | "recurring" | "summary">;
 export type TaskInput = Pick<Task, "title" | "description" | "status" | "priority" | "dueDate" | "clientUpdate" | "privateNotes" | "assigneeId">;
+
+export interface ClientAccount { id: string; name: string; company: string; email: string; hasLogin: boolean; projectIds: string[] }
+export interface MyProject { token: string; name: string; client: string; status: ProjectStatus; dueDate: string; recurring: boolean; summary: string; progress: number; counts: Record<Column, number>; total: number }

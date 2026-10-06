@@ -26,7 +26,7 @@ export function ClientView({ token, role }: { token: string; role: "owner" | "cl
 
   if (error) return (
     <StateBlock title={error.status === 404 ? "We couldn’t find that project" : "Couldn’t load this project"}
-      description={error.status === 404 ? "The link may be out of date. Ask your freelancer for a fresh one." : error.message}
+      description={error.status === 404 ? "The link may be out of date. Ask your project contact for a fresh one." : error.message}
       action={error.status === 404 ? undefined : <Button onClick={load}>Try again</Button>} />
   );
   if (!data) return <Loading rows={1} />;
@@ -36,6 +36,7 @@ export function ClientView({ token, role }: { token: string; role: "owner" | "cl
 
   return (
     <>
+      {role === "client" && <a href="#/" style={{ display: "inline-block", marginBottom: 14, color: pal.textSecondary, fontSize: 14 }}>← Your projects</a>}
       {role === "owner" && (
         <div style={{ border: `1px solid ${pal.text}`, borderRadius: 12, padding: "10px 16px", marginBottom: 28, display: "flex", gap: "8px 16px", alignItems: "center", flexWrap: "wrap", justifyContent: "space-between", fontSize: 14, fontWeight: 500 }}>
           <span><EyeIcon /> Client preview — this is exactly what your client sees. Private notes are never included.</span>
