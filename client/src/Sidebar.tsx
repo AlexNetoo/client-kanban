@@ -1,7 +1,7 @@
 import { useId, type ReactNode } from "react";
 import { isDemo } from "./demo";
 import { Button } from "./halaska-kit";
-import { api } from "./api";
+import { api, loginPath } from "./api";
 import { statusDotColor } from "./chips";
 import { useProjectsNav } from "./nav";
 import { useMe } from "./session";
@@ -60,7 +60,7 @@ export function Nav({ route, admin = false, collapsed = false, onNavigate }: { r
           <div style={{ fontWeight: 600, color: pal.text }}>{me.designer?.name ?? me.client?.name ?? "Admin"}</div>
           <div>{owner ? "Admin account" : me.role === "client" ? "Client account" : "Designer account"}</div>
         </div>
-        <Button variant="secondary" size="sm" fullWidth onClick={async () => { try { await api.logout(); } finally { location.replace("/login"); } }} aria-label="Sign out" title="Sign out">{collapsed ? <Icon d={<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5M21 12H9" /></>} /> : "Sign out"}</Button>
+        <Button variant="secondary" size="sm" fullWidth onClick={async () => { try { await api.logout(); } finally { location.replace(loginPath()); } }} aria-label="Sign out" title="Sign out">{collapsed ? <Icon d={<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5M21 12H9" /></>} /> : "Sign out"}</Button>
       </div>
     </nav>
   );

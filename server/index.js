@@ -452,7 +452,7 @@ function createApp(config) {
   async function serveStatic(req, res, pathname) {
     const session = await sessionForPage(req);
     let rel = pathname === '/' ? '/index.html' : pathname;
-    if (rel === '/login') rel = '/login.html';
+    if (rel === '/login' || rel === '/designer') rel = '/login.html';
     // /admin: the admin console for a signed-in admin, otherwise the admin sign-in (same page as /login, admin mode).
     const adminPage = pathname === '/admin' || pathname === '/admin/';
     if (adminPage) rel = session && session.role === 'owner' ? '/index.html' : '/login.html';

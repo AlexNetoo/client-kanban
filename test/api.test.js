@@ -63,6 +63,7 @@ test('pages redirect to login without a session; login assets are public', async
   assert.strictEqual(r.res.headers.get('location'), '/login');
   assert.strictEqual((await call('GET', '/index.html')).res.status, 302);
   assert.strictEqual((await call('GET', '/login')).res.status, 200);
+  assert.strictEqual((await call('GET', '/designer')).res.status, 200); // the designer sign-in page is public too
 });
 
 test('/demo and the boot script are public, but grant no access to real data', async () => {

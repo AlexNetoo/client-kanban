@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Button, IconButton, Sheet } from "./halaska-kit";
-import { api } from "./api";
+import { api, loginPath } from "./api";
 import { AdminConsole } from "./AdminConsole";
 import { Board } from "./Board";
 import { ClientView } from "./ClientView";
@@ -21,7 +21,7 @@ function useHash() {
 }
 
 
-const signOut = async () => { try { await api.logout(); } finally { location.replace("/login"); } };
+const signOut = async () => { try { await api.logout(); } finally { location.replace(loginPath()); } };
 export const isAdminPath = () => location.pathname.replace(/\/+$/, "") === "/admin";
 
 export function App() {

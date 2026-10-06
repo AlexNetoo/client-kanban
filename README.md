@@ -58,8 +58,8 @@ Creating, editing, archiving and deleting **projects is admin-only**: designers 
 There are three kinds of user, each with its own way in:
 
 - **Admin** signs in at **`/admin`** with the admin password (`APP_PASSWORD_HASH`). The admin console lets you create **designer** and **client** accounts, reset their passwords (with a password generator and a one-time reveal), edit which projects a client can see, delete users, and archive or delete any project (deleting asks you to type the project name). The admin also uses the whole app: dashboard, boards, task view, comments, links and attachments.
-- **Designers** sign in at `/login` on the **Designer** tab with an email and password.
-- **Clients** sign in at `/login` on the **Client** tab with an email and password. They get the same layout as designers (side menu, project dashboard, boards, the full task view) for **only the projects the admin assigned to them**, but **read-only**: they can look at the board and tasks and **add comments**, nothing else.
+- **Designers** sign in at `/designer` (a separate page, not linked from the client login) with an email and password.
+- **Clients** sign in at `/login` with an email and password. They get the same layout as designers (side menu, project dashboard, boards, the full task view) for **only the projects the admin assigned to them**, but **read-only**: they can look at the board and tasks and **add comments**, nothing else.
 
 An account only works on its own tab, emails are unique across designers and clients, and a client can't open a project that isn't assigned to them. There is no public way to reach the admin sign-in other than knowing `/admin`.
 
@@ -90,7 +90,7 @@ Open a task and use **Add files** (or drop files) in the Attachments section. Up
 
 ## Designer logins
 
-Designers sign in on the **Designer** tab of the login page with an email and password. The admin creates them in the **Admin console** (name, optional role, login email and a password of 10+ characters) and shares the password privately. A designer can then change it under **Change password**.
+Designers sign in at `/designer` with an email and password. The admin creates them in the **Admin console** (name, optional role, login email and a password of 10+ characters) and shares the password privately. A designer can then change it under **Change password**.
 
 What a designer can do, enforced on the server:
 - See only projects where a task is assigned to them, never archived ones.

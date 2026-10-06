@@ -3,6 +3,9 @@ import type { ProjectRequest, RequestInput, ClientAccount, ClientProject, Client
 
 export interface UploadTarget { url: string; method: string; headers: Record<string, string> }
 
+/** Where this browser last signed in (designers use /designer, everyone else /login), so sign-out and expiry land on the right page. */
+export const loginPath = () => { try { return localStorage.getItem("loginPath") === "/designer" ? "/designer" : "/login"; } catch { return "/login"; } };
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
@@ -21,7 +24,7 @@ async function request<T>(method: string, url: string, body?: unknown): Promise<
   }
   const data = await res.json().catch(() => ({}));
   if (res.status === 401 && !url.endsWith("/login") && !url.endsWith("/me/password")) { // those 401s mean a wrong password, not an expired session
-    location.replace("/login?expired=1" + location.hash);
+    location.replace(loginPath() + "?expired=1" + location.hash);
     throw new ApiError(401, "Your session ended. Please sign in again.");
   }
   if (!res.ok) throw new ApiError(res.status, (data as { error?: string }).error || "Something went wrong.");
