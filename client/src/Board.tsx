@@ -16,6 +16,7 @@ export function Board({ id, taskId }: { id: string; taskId?: string }) {
   const pal = usePalette();
   const me = useMe();
   const owner = me.role === "owner";
+  const canAdd = me.role !== "client"; // the admin and designers add tasks; clients only read and comment
   const canMove = (t: Task) => owner || t.assigneeId === me.designer?.id;
   const toast = useToast();
   const [project, setProject] = useState<Project | null>(null);
@@ -93,7 +94,7 @@ export function Board({ id, taskId }: { id: string; taskId?: string }) {
   return (
     <div ref={root}>
       <a href="#/" style={{ display: "inline-block", marginBottom: 14, color: pal.textSecondary, fontSize: 14 }}>← {owner ? "All projects" : "My projects"}</a>
-      {!owner && <p style={{ marginBottom: 14, fontSize: 14, color: pal.textSecondary }}>{me.role === "client" ? "You’re viewing this board. Open a task to read the details and leave a comment." : "You can move your own tasks between columns and comment on any task here."}</p>}
+      {!owner && <p style={{ marginBottom: 14, fontSize: 14, color: pal.textSecondary }}>{me.role === "client" ? "You’re viewing this board. Open a task to read the details and leave a comment." : "You can add tasks, move your own between columns and comment on any task here."}</p>}
       <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-start", gap: 16, marginBottom: 20 }}>
         <div>
           <Heading level={1}>{project.name}</Heading>
@@ -103,11 +104,13 @@ export function Board({ id, taskId }: { id: string; taskId?: string }) {
             {project.archived && <Badge>Archived</Badge>}
           </div>
         </div>
-        {owner && <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+        {canAdd && <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
           <Button icon={<PlusIcon />} onClick={() => setEditing({ status: "todo" })}>Add task</Button>
+          {owner && <>
           <Button variant="secondary" icon={<EyeIcon />} onClick={() => { location.hash = `#/c/${project.shareToken}`; }}>Client view</Button>
           <Button variant="secondary" onClick={() => { location.href = "/admin"; }}>Admin console</Button>
           <ProjectMenu project={project} onChange={() => load()} afterDelete={() => { location.hash = "#/"; }} />
+          </>}
         </div>}
       </div>
 
@@ -116,7 +119,7 @@ export function Board({ id, taskId }: { id: string; taskId?: string }) {
         <p style={{ marginTop: 8, fontSize: 13, color: pal.textSecondary }}>{project.progress}% complete · {project.counts.done} of {project.total} tasks done</p>
       </div>
 
-      {owner && project.total === 0 && <div style={{ marginBottom: 20 }}><StateBlock title="No tasks yet" description="Add the first task to start this board." action={<Button onClick={() => setEditing({ status: "todo" })}>Add task</Button>} /></div>}
+      {canAdd && project.total === 0 && <div style={{ marginBottom: 20 }}><StateBlock title="No tasks yet" description="Add the first task to start this board." action={<Button onClick={() => setEditing({ status: "todo" })}>Add task</Button>} /></div>}
 
       <div className="board" role="group" aria-label="Kanban board">
         {COLUMNS.map((col) => {
@@ -127,7 +130,7 @@ export function Board({ id, taskId }: { id: string; taskId?: string }) {
                 <h2 id={`col-${col.id}`} style={{ margin: 0, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.09em", fontWeight: 700 }}>
                   {col.label} <span aria-label={`${items.length} tasks`} style={{ color: pal.textTertiary, marginLeft: 6 }}>{items.length}</span>
                 </h2>
-                {owner && <Button variant="ghost" size="sm" icon={<PlusIcon />} aria-label={`Add task to ${col.label}`} onClick={() => setEditing({ status: col.id })}>Add</Button>}
+                {canAdd && <Button variant="ghost" size="sm" icon={<PlusIcon />} aria-label={`Add task to ${col.label}`} onClick={() => setEditing({ status: col.id })}>Add</Button>}
               </div>
               <ul className={`cards${dropCol === col.id ? " drop-target" : ""}`} aria-labelledby={`col-${col.id}`}
                 onDragOver={(e) => { if (dragId.current) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDropCol(col.id); } }}

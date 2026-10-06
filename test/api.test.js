@@ -226,9 +226,16 @@ test('designer logins: scoped access, forced authorship, immediate revocation', 
   assert.ok(!('shareToken' in dBoard.json.project));
 
   // no owner powers
-  for (const [m, u, b] of [['POST', '/api/projects', {}], ['PATCH', `/api/projects/${pA.id}`, { name: 'x' }], ['DELETE', `/api/projects/${pA.id}`], ['POST', `/api/projects/${pA.id}/tasks`, { title: 'x' }], ['DELETE', `/api/tasks/${mine.id}`], ['POST', '/api/designers', { name: 'x' }], ['PATCH', `/api/designers/${dee.json.id}`, { name: 'x' }], ['DELETE', `/api/designers/${dee.json.id}`], ['GET', `/api/client/${pA.shareToken}`]]) {
+  for (const [m, u, b] of [['POST', '/api/projects', {}], ['PATCH', `/api/projects/${pA.id}`, { name: 'x' }], ['DELETE', `/api/projects/${pA.id}`], ['DELETE', `/api/tasks/${mine.id}`], ['POST', '/api/designers', { name: 'x' }], ['PATCH', `/api/designers/${dee.json.id}`, { name: 'x' }], ['DELETE', `/api/designers/${dee.json.id}`], ['GET', `/api/client/${pA.shareToken}`]]) {
     assert.strictEqual((await call(m, u, { ...D, body: b })).res.status, 403, `${m} ${u}`);
   }
+  // designers can add tasks to their own projects (assigned to them by default, no private notes or client updates), not elsewhere
+  const made = await call('POST', `/api/projects/${pA.id}/tasks`, { ...D, body: { title: 'From Dee', status: 'todo', privateNotes: 'sneaky', clientUpdate: 'sneaky' } });
+  assert.strictEqual(made.res.status, 201, made.text);
+  assert.strictEqual(made.json.assigneeId, dee.json.id);
+  assert.ok(!('privateNotes' in made.json) && made.json.clientUpdate === '');
+  assert.strictEqual((await call('POST', `/api/projects/${pB.id}/tasks`, { ...D, body: { title: 'nope' } })).res.status, 404);
+  assert.strictEqual((await call('GET', `/api/projects/${pA.id}`, O)).json.tasks.find((t) => t.id === made.json.id).privateNotes, '');
   const names = (await call('GET', '/api/designers', D)).json;
   assert.ok(names.length >= 3 && names.every((d) => !('email' in d) && !('hasLogin' in d)));
 

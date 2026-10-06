@@ -4,6 +4,7 @@ import { api } from "./api";
 import { Area, DateField, Text1 } from "./fields";
 import { EyeIcon, LockIcon, Modal, useToast } from "./ui";
 import { usePalette } from "./theme";
+import { useMe } from "./session";
 import { COLUMNS, PRIORITY, PROJECT_STATUS, type Column, type Designer, type Priority, type Project, type ProjectStatus, type Task } from "./types";
 
 const toOptions = (m: Record<string, string>) => Object.entries(m).map(([value, label]) => ({ value, label }));
@@ -86,12 +87,14 @@ export function TaskDialog({ projectId, task, designers, defaultStatus = "backlo
   projectId: string; task?: Task; designers: Designer[]; defaultStatus?: Column; onClose: () => void; onSaved: (t: Task) => void; onDelete?: (t: Task) => void;
 }) {
   const toast = useToast();
+  const me = useMe();
+  const owner = me.role === "owner"; // designers add tasks but don't write client updates or private notes
   const [title, setTitle] = useState(task?.title ?? "");
   const [description, setDescription] = useState(task?.description ?? "");
   const [status, setStatus] = useState<Column>(task?.status ?? defaultStatus);
   const [priority, setPriority] = useState<Priority>(task?.priority ?? "medium");
   const [dueDate, setDue] = useState(task?.dueDate ?? "");
-  const [assigneeId, setAssignee] = useState(task?.assigneeId ?? "");
+  const [assigneeId, setAssignee] = useState(task?.assigneeId ?? (owner ? "" : me.designer?.id ?? ""));
   const [clientUpdate, setClientUpdate] = useState(task?.clientUpdate ?? "");
   const [privateNotes, setPrivate] = useState(task?.privateNotes ?? "");
   const { busy, error, run } = useSave(onClose);
@@ -120,12 +123,12 @@ export function TaskDialog({ projectId, task, designers, defaultStatus = "backlo
           <DateField label="Due date" clearable value={dueDate} onChange={setDue} />
           <Select label="Assigned designer" value={assigneeId} onChange={(v: string) => setAssignee(v)} options={assigneeOptions(designers)} />
         </div>
-        <Callout kind="client" title="Client-visible update" note="Shown to your client in their view.">
+        {owner && <><Callout kind="client" title="Client-visible update" note="Shown to your client in their view.">
           <Area label="Update for the client" value={clientUpdate} onChange={setClientUpdate} />
         </Callout>
         <Callout kind="private" title="Private notes" note="Only you can see this. Never sent to clients.">
           <Area label="Private notes" value={privateNotes} onChange={setPrivate} />
-        </Callout>
+        </Callout></>}
       </Form>
     </Modal>
   );

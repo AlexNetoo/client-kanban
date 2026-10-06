@@ -94,7 +94,7 @@ Designers sign in at `/designer` with an email and password. The admin creates t
 
 What a designer can do, enforced on the server:
 - See only projects where a task is assigned to them, never archived ones.
-- Move tasks assigned to them between columns (status/position only), and comment on tasks in their projects. The comment author always comes from their login.
+- Add tasks to their projects (no private notes or client updates), move tasks assigned to them between columns (status/position only), and comment on tasks in their projects. The comment author always comes from their login.
 - Delete only their own comments.
 
 What they never get: private notes, client share links, the client view, or any create/edit/delete of projects, tasks or team members.

@@ -181,9 +181,17 @@ function createApp(config) {
     return { ok: true };
   });
 
-  // ---- Tasks: owner edits everything; a designer may only move their own assigned tasks ----
-  route('POST', '/api/projects/:id/tasks', 'owner', ({ params, body, session }) =>
-    ({ status: 201, body: outTask(session, store.createTask(params.id, cleanTask(body))) }));
+  // ---- Tasks: owner edits everything; a designer may add tasks and move their own assigned tasks ----
+  // Designers may add tasks to projects they can open. They can't write private notes or client updates, and an unassigned task becomes theirs.
+  route('POST', '/api/projects/:id/tasks', 'staff', ({ params, body, session }) => {
+    const fields = cleanTask(body);
+    if (isDesigner(session)) {
+      if (!visibleIds(session).has(params.id)) throw new HttpError(404, 'Project not found');
+      delete fields.privateNotes; delete fields.clientUpdate;
+      if (!fields.assigneeId) fields.assigneeId = session.uid;
+    }
+    return { status: 201, body: outTask(session, store.createTask(params.id, fields)) };
+  });
   route('PATCH', '/api/tasks/:id', 'staff', ({ params, body, session }) => {
     if (!isDesigner(session)) return outTask(session, store.updateTask(params.id, cleanTask(body, true)));
     const task = taskFor(session, params.id);
