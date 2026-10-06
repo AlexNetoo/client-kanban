@@ -34,7 +34,7 @@ npm run dev:web     # optional Vite dev server on :5173 (proxies /api to :3000)
 | `BLOB_DB_PATH` / `STORAGE` | no | blob pathname (default `client-kanban/db.json`) / `file` to force the file backend |
 | `COOKIE_SECURE` | no | defaults to true when `NODE_ENV=production`; keep it on behind HTTPS |
 | `ANTHROPIC_API_KEY` | no | Turns on the **AI assistant** for the admin and designers. Leave unset to keep it off. Optional: `AI_MODEL` (default `claude-sonnet-5-5`) |
-| `OLLAMA_MODEL` | no | Runs the **AI assistant** on a model on your own computer through [Ollama](https://ollama.com) (for example `llama3.1`). Optional: `OLLAMA_BASE_URL` (default `http://localhost:11434`, localhost only), `AI_PROVIDER` (`anthropic` or `ollama`, to choose when both are set) |
+| `OLLAMA_MODEL` | no | Runs the **AI assistant** on a model on your own computer through [Ollama](https://ollama.com) (for example `llama3.1`). Optional: `OLLAMA_BASE_URL` (default `http://127.0.0.1:11434`, this computer only), `AI_PROVIDER` (`anthropic` or `ollama`, to choose when both are set) |
 | `TRUST_PROXY` | no | `true` if behind a proxy that sets `X-Forwarded-For` (used for login rate limiting) |
 
 `.env` and `data/` are git-ignored. Never commit them.
@@ -160,8 +160,8 @@ URLs in task descriptions, client updates and comments become clickable links th
 
 ### Using Ollama (on your own computer only)
 
-1. Install Ollama and pull a model, for example `ollama pull llama3.1`. Larger models plan tasks much better than small ones.
-2. Add `OLLAMA_MODEL=llama3.1` to your local `.env` file and run the app with `npm start`. Keep Ollama running.
+1. Install Ollama (`brew install ollama`, then `brew services start ollama` to keep it running) and pull a model, for example `ollama pull qwen2.5:7b`. Larger models plan tasks much better than small ones.
+2. Add `OLLAMA_MODEL=qwen2.5:7b` (or the model you pulled) to your local `.env` file and run the app with `npm start`. Keep Ollama running.
 3. The **AI assistant** button now answers using the local model. Nothing leaves your computer.
 
 Ollama is deliberately limited to `localhost`: a deployed site (Vercel) can't reach your computer, and the app refuses any other Ollama address so a server can never be pointed at an open Ollama by mistake. If both `ANTHROPIC_API_KEY` and `OLLAMA_MODEL` are set, Anthropic is used unless `AI_PROVIDER=ollama`.

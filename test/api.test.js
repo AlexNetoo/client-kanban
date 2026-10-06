@@ -845,7 +845,8 @@ test('AI assistant: proposes validated changes, hides private data, respects rol
 test('AI assistant with Ollama: local only, structured request, same validation', async () => {
   const { aiConfig } = require('../server/config');
   assert.strictEqual(aiConfig({}).enabled, false);
-  assert.deepStrictEqual([aiConfig({ OLLAMA_MODEL: 'llama3.1' }).provider, aiConfig({ OLLAMA_MODEL: 'llama3.1' }).baseUrl], ['ollama', 'http://localhost:11434']);
+  assert.deepStrictEqual([aiConfig({ OLLAMA_MODEL: 'llama3.1' }).provider, aiConfig({ OLLAMA_MODEL: 'llama3.1' }).baseUrl], ['ollama', 'http://127.0.0.1:11434']);
+  assert.strictEqual(aiConfig({ OLLAMA_MODEL: 'm', OLLAMA_BASE_URL: 'http://localhost:9999/' }).baseUrl, 'http://127.0.0.1:9999');
   assert.strictEqual(aiConfig({ ANTHROPIC_API_KEY: 'k', OLLAMA_MODEL: 'm' }).provider, 'anthropic'); // a key wins unless AI_PROVIDER says otherwise
   assert.strictEqual(aiConfig({ AI_PROVIDER: 'ollama', ANTHROPIC_API_KEY: 'k', OLLAMA_MODEL: 'm' }).provider, 'ollama');
   const warn = console.warn; console.warn = () => {};

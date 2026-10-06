@@ -29,7 +29,8 @@ function aiConfig(env) {
     return { provider, enabled: !!env.ANTHROPIC_API_KEY, key: env.ANTHROPIC_API_KEY || '', model: env.AI_MODEL || 'claude-sonnet-5-5', baseUrl: (env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com').replace(/\/+$/, '') };
   }
   if (provider === 'ollama') {
-    const baseUrl = (env.OLLAMA_BASE_URL || 'http://localhost:11434').replace(/\/+$/, '');
+    // "localhost" can resolve to IPv6 first while Ollama listens on IPv4 only, so it is mapped to 127.0.0.1
+    const baseUrl = (env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434').replace(/\/+$/, '').replace(/^(https?:\/\/)localhost(?=[:/]|$)/i, '$1127.0.0.1');
     let host = '';
     try { host = new URL(baseUrl).hostname; } catch { /* invalid */ }
     if (!['localhost', '127.0.0.1', '[::1]', '::1'].includes(host)) { console.warn('OLLAMA_BASE_URL must point at this computer (localhost). The AI assistant is off.'); return off; }

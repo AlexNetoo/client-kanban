@@ -73,6 +73,17 @@ async function callAnthropic(cfg, system, userText) {
   return block.input;
 }
 
+// Smaller local models need the output shape spelled out, with an example, and a reminder to actually fill in "actions".
+const OLLAMA_NOTE = `Reply with a single JSON object with the keys "reply" and "actions", and nothing else.
+When the user asks you to create, plan, write or change tasks, "actions" MUST contain those proposals (one entry per task). Leave "actions" empty only when the user just asked a question.
+Example of a good answer to "Plan a logo project":
+{"reply":"Here are four tasks to get the logo project moving.","actions":[
+{"type":"create_task","title":"Brand discovery questionnaire","description":"Send the client a short questionnaire and collect answers about audience, tone and competitors.","priority":"high","status":"todo"},
+{"type":"create_task","title":"Moodboard and direction","description":"Collect references and agree one visual direction with the client.","priority":"medium","status":"backlog"},
+{"type":"create_task","title":"Logo concepts (3 routes)","description":"Design three distinct logo routes and present them with short rationales.","priority":"medium","status":"backlog"},
+{"type":"create_task","title":"Final files and guidelines","description":"Export the approved logo in all formats and write a one-page usage guide.","priority":"low","status":"backlog"}]}
+To change an existing task use {"type":"update_task","taskId":"<its exact id from the task list>", ...only the fields that change}. Never leave out taskId.`;
+
 // Ollama (a model running on this computer). Its structured-output mode forces the reply to match the same schema.
 async function callOllama(cfg, system, userText) {
   const res = await fetch(`${cfg.baseUrl}/api/chat`, {
@@ -80,7 +91,7 @@ async function callOllama(cfg, system, userText) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       model: cfg.model, stream: false, format: TOOL.input_schema, options: { temperature: 0.3 },
-      messages: [{ role: 'system', content: `${system}\n\nReply with a single JSON object with the keys "reply" and "actions", and nothing else.` }, { role: 'user', content: userText }],
+      messages: [{ role: 'system', content: `${system}\n\n${OLLAMA_NOTE}` }, { role: 'user', content: userText }],
     }),
     signal: AbortSignal.timeout(180_000), // local models can be slow, especially the first request while the model loads
   }).catch((e) => { throw new HttpError(502, e.name === 'TimeoutError' ? 'The local model took too long. Try a smaller request or a smaller model.' : `Could not reach Ollama at ${cfg.baseUrl}. Is it running? (start it with "ollama serve")`); });
@@ -100,7 +111,7 @@ const callModel = (cfg, system, userText) => (cfg.provider === 'ollama' ? callOl
 const tidy = (f) => Object.fromEntries(Object.entries(f).filter(([k, v]) => v !== '' && k !== 'privateNotes' && k !== 'clientUpdate'));
 
 /** Validates the model's proposals with the same rules as the task API and drops anything unusable. */
-function sanitize(input, { tasks, designers }) {
+function sanitize(input, { tasks, designers, allowDates = true }) {
   const byId = new Map(tasks.map((t) => [t.id, t]));
   const people = new Set(designers.map((d) => d.id));
   const actions = [];
@@ -109,7 +120,7 @@ function sanitize(input, { tasks, designers }) {
     const raw = {};
     for (const k of ['title', 'description', 'status', 'priority', 'dueDate', 'assigneeId']) if (typeof a[k] === 'string' && a[k].trim() !== '') raw[k] = a[k].trim();
     if (raw.assigneeId && !people.has(raw.assigneeId)) delete raw.assigneeId;
-    if (raw.dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(raw.dueDate)) delete raw.dueDate;
+    if (raw.dueDate && (!allowDates || !/^\d{4}-\d{2}-\d{2}$/.test(raw.dueDate))) delete raw.dueDate;
     if (raw.title) raw.title = raw.title.slice(0, 160);
     if (raw.description) raw.description = raw.description.slice(0, 2000);
     try {
@@ -117,7 +128,12 @@ function sanitize(input, { tasks, designers }) {
         if (!raw.title) continue;
         actions.push({ type: 'create_task', fields: tidy(cleanTask({ status: 'backlog', priority: 'medium', ...raw })) });
       } else if (a.type === 'update_task') {
-        const t = byId.get(a.taskId);
+        // Small models sometimes name the task instead of giving its id: accept an exact title match, and then keep the title as is.
+        let t = byId.get(a.taskId);
+        if (!t && typeof a.title === 'string') {
+          const hits = tasks.filter((x) => x.title.trim().toLowerCase() === a.title.trim().toLowerCase());
+          if (hits.length === 1) { t = hits[0]; delete raw.title; }
+        }
         if (!t || !Object.keys(raw).length) continue;
         const fields = tidy(cleanTask(raw, true));
         const changed = Object.fromEntries(Object.entries(fields).filter(([k, v]) => t[k] !== v));
@@ -131,7 +147,11 @@ function sanitize(input, { tasks, designers }) {
 async function assist(cfg, { project, tasks, designers, history = [], message, today }) {
   const transcript = history.map((h) => `${h.role === 'assistant' ? 'Assistant' : 'User'}: ${clip(h.text, 1500)}`).join('\n');
   const userText = `<project_data>\n${buildContext({ project, tasks, designers, today })}\n</project_data>\n\n${transcript ? `Conversation so far:\n${transcript}\n\n` : ''}Latest request from the user:\n${message}`;
-  return sanitize(await callModel(cfg, SYSTEM, userText), { tasks, designers });
+  const raw = await callModel(cfg, SYSTEM, userText);
+  if (process.env.AI_DEBUG) console.log('AI raw answer:', JSON.stringify(raw));
+  // Small models like to invent deadlines: keep dates only when the request talks about time.
+  const allowDates = /\b(due|deadline|dates?|weeks?|months?|days?|by|before|until|timeline|schedule|today|tomorrow|sprint|launch|\d{4}|\d{1,2}\/\d{1,2})\b/i.test(message);
+  return sanitize(raw, { tasks, designers, allowDates });
 }
 
 module.exports = { assist, sanitize };

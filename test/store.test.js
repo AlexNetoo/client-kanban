@@ -48,3 +48,15 @@ test('readers see another instance’s write immediately', async () => {
   await a.transact(() => a.createDesigner({ name: 'Fresh', role: '' }));
   assert.ok((await b.transact(() => b.listDesigners())).some((d) => d.name === 'Fresh'));
 });
+
+test('AI proposals: an update that names the task instead of giving its id still resolves', () => {
+  const { sanitize } = require('../server/ai');
+  const tasks = [{ id: 't1', title: 'Contact form', description: '', priority: 'medium', status: 'todo' }, { id: 't2', title: 'Dup', description: '' }, { id: 't3', title: 'dup', description: '' }];
+  const out = sanitize({ reply: 'ok', actions: [
+    { type: 'update_task', title: 'contact form', description: 'Fields for name, email and message', priority: 'high' },
+    { type: 'update_task', title: 'Dup', description: 'ambiguous, dropped' },
+    { type: 'update_task', title: 'Unknown task', description: 'dropped' },
+  ] }, { tasks, designers: [] });
+  assert.strictEqual(out.actions.length, 1);
+  assert.deepStrictEqual(out.actions[0], { type: 'update_task', taskId: 't1', taskTitle: 'Contact form', fields: { description: 'Fields for name, email and message', priority: 'high' } });
+});
