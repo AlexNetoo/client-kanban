@@ -60,7 +60,8 @@ async function callAnthropic(cfg, system, userText) {
   const res = await fetch(`${cfg.baseUrl}/v1/messages`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-api-key': cfg.key, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({ model: cfg.model, max_tokens: 4096, system, tools: [TOOL], tool_choice: { type: 'tool', name: 'respond' }, messages: [{ role: 'user', content: userText }] }),
+    // Newer models reject a forced tool_choice, so the tool is offered ("auto") and the instructions require using it.
+    body: JSON.stringify({ model: cfg.model, max_tokens: 4096, system: `${system}\n\nYou must answer by calling the respond tool exactly once. Do not write any other text.`, tools: [TOOL], tool_choice: { type: 'auto' }, messages: [{ role: 'user', content: userText }] }),
     signal: AbortSignal.timeout(50_000),
   }).catch((e) => { throw new HttpError(502, e.name === 'TimeoutError' ? 'The assistant took too long. Try a smaller request.' : 'Could not reach the AI service.'); });
   const json = await res.json().catch(() => ({}));
@@ -70,9 +71,13 @@ async function callAnthropic(cfg, system, userText) {
     if (/credit balance/i.test(detail)) throw new HttpError(502, 'The Anthropic account is out of credit. Add credit at console.anthropic.com (Plans & Billing), then try again.');
     throw new HttpError(502, res.status === 401 || res.status === 403 ? 'The AI key was rejected. Check ANTHROPIC_API_KEY.' : res.status === 429 ? 'The AI service is busy. Try again in a moment.' : `The AI service returned an error${detail ? `: ${detail}` : '.'}`);
   }
-  const block = (json.content || []).find((b) => b.type === 'tool_use' && b.name === 'respond');
-  if (!block || !block.input) throw new HttpError(502, 'The assistant gave no usable answer. Try rephrasing.');
-  return block.input;
+  const blocks = json.content || [];
+  const block = blocks.find((b) => b.type === 'tool_use' && b.name === 'respond');
+  if (block && block.input) return block.input;
+  // The model answered in plain text instead: use it as the reply, or as the structured answer if it is JSON.
+  const text = blocks.filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim();
+  if (text) { try { return JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/g, '')); } catch { return { reply: text, actions: [] }; } }
+  throw new HttpError(502, 'The assistant gave no usable answer. Try rephrasing.');
 }
 
 // Smaller local models need the output shape spelled out, with an example, and a reminder to actually fill in "actions".

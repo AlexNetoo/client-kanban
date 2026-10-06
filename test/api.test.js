@@ -820,6 +820,7 @@ test('AI assistant: proposes validated changes, hides private data, respects rol
     const r = await c2('POST', '/api/ai/assist', { cookie: ck, body: { projectId: P.id, message: 'Plan the site', history: [{ role: 'user', text: 'earlier' }] } });
     assert.strictEqual(r.status, 200, JSON.stringify(r.json));
     assert.strictEqual(seen.headers['x-api-key'], 'test-key');
+    assert.deepStrictEqual(seen.body.tool_choice, { type: 'auto' }); // forced tool_choice is rejected by newer models
     assert.strictEqual(seen.body.model, 'test-model');
     assert.ok(!JSON.stringify(seen.body).includes('TOP-SECRET-NOTE'), 'private notes must never reach the AI');
     assert.ok(JSON.stringify(seen.body).includes('Existing') && JSON.stringify(seen.body).includes('Plan the site'));
@@ -828,6 +829,12 @@ test('AI assistant: proposes validated changes, hides private data, respects rol
     assert.deepStrictEqual(r.json.actions[1].fields, { description: 'Better words' }); // unchanged title not repeated
     // nothing was applied by the server
     assert.strictEqual((await c2('GET', `/api/projects/${P.id}`, { cookie: ck })).json.tasks.length, 1);
+    // a plain-text answer (no tool call) still works: it becomes the reply
+    const reply0 = reply; reply = () => null; fake.removeAllListeners('request');
+    fake.on('request', (req, res) => { req.resume(); req.on('end', () => { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ content: [{ type: 'text', text: 'I could not plan that.' }] })); }); });
+    const plain = await c2('POST', '/api/ai/assist', { cookie: ck, body: { projectId: P.id, message: 'Plan the site' } });
+    assert.deepStrictEqual([plain.status, plain.json.reply, plain.json.actions], [200, 'I could not plan that.', []]);
+    void reply0;
     // validation, roles
     assert.strictEqual((await c2('POST', '/api/ai/assist', { cookie: ck, body: { projectId: P.id, message: '   ' } })).status, 400);
     assert.strictEqual((await c2('POST', '/api/ai/assist', { cookie: ck, body: { projectId: 'nope', message: 'hi' } })).status, 404);
