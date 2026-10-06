@@ -103,8 +103,8 @@ main:focus { outline: none !important; }
 @keyframes slide-in { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: none; } }
 @keyframes slide-in-back { from { opacity: 0; transform: translateX(-18px); } to { opacity: 1; transform: none; } }
 @keyframes shake { 0%, 100% { transform: none; } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
-.page > * { animation: rise 0.5s var(--ease) both; }
-.grid > li, .stats > *, .cards > .task { animation: rise 0.55s var(--ease) both; }
+.page > * { animation: rise 0.5s var(--ease) backwards; }
+.grid > li, .stats > *, .cards > .task { animation: rise 0.55s var(--ease) backwards; }
 .grid > li:nth-child(2), .stats > *:nth-child(2) { animation-delay: 0.05s; }
 .grid > li:nth-child(3), .stats > *:nth-child(3) { animation-delay: 0.1s; }
 .grid > li:nth-child(4), .stats > *:nth-child(4) { animation-delay: 0.15s; }
@@ -113,7 +113,7 @@ main:focus { outline: none !important; }
 .column:nth-child(4) .cards > .task { animation-delay: 0.15s; } .column:nth-child(5) .cards > .task { animation-delay: 0.2s; }
 
 /* Cards lift on hover and press */
-.lift, .task-surface { transition: transform 0.35s var(--ease), box-shadow 0.35s var(--ease); border-radius: 16px; will-change: transform; }
+.lift, .task-surface { transition: transform 0.35s var(--ease), box-shadow 0.35s var(--ease); border-radius: 16px; }
 .lift:hover, .task-surface:hover { transform: translateY(-3px); box-shadow: 0 14px 32px -14px rgba(0, 0, 0, 0.35); }
 .lift:active, .task-surface:active { transform: translateY(-1px) scale(0.995); }
 .lift:focus-within, .task-surface:focus-within { box-shadow: 0 14px 32px -14px rgba(0, 0, 0, 0.35); }
@@ -156,7 +156,7 @@ button:not(:disabled):active { transform: scale(0.97); }
 .is-now .stepper__dot { transform: scale(1.1); }
 .stepper__bar { display: block; height: 2px; border-radius: 2px; margin-right: 10px; overflow: hidden; }
 .stepper__bar > span { display: block; height: 100%; transform-origin: left; transition: transform 0.6s var(--ease); }
-.step-in { animation: slide-in 0.45s var(--ease) both; }
+.step-in { animation: slide-in 0.45s var(--ease) backwards; }
 .step-in--back { animation-name: slide-in-back; }
 .type-grid { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 8px; }
 .type-grid legend { width: 100%; padding: 0; }
@@ -164,16 +164,16 @@ button:not(:disabled):active { transform: scale(0.97); }
 .type-chip:hover { transform: translateY(-1px); border-color: currentColor !important; }
 .type-chip:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 .goal-list { display: flex; flex-direction: column; gap: 8px; padding: 0; margin: 0; list-style: none; }
-.goal-item { display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 10px; font-size: 14px; animation: rise 0.4s var(--ease) both; }
+.goal-item { display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 10px; font-size: 14px; animation: rise 0.4s var(--ease) backwards; }
 .goal-num { width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; flex: none; }
 .review { display: flex; flex-direction: column; gap: 12px; margin: 0; font-size: 14px; }
 .review > div { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 12px; }
 .review dt, .review dd { margin: 0; }
 .shake { animation: shake 0.35s; }
-.onb-check { width: 64px; height: 64px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 28px; animation: pop 0.6s var(--ease) both; }
-.onb-done > * { animation: rise 0.55s var(--ease) both; }
+.onb-check { width: 64px; height: 64px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 28px; animation: pop 0.6s var(--ease) backwards; }
+.onb-done > * { animation: rise 0.55s var(--ease) backwards; }
 .onb-done > :nth-child(2) { animation-delay: 0.08s; } .onb-done > :nth-child(3) { animation-delay: 0.16s; } .onb-done > :nth-child(4) { animation-delay: 0.24s; } .onb-done > :nth-child(5) { animation-delay: 0.3s; }
-.req-card { animation: rise 0.45s var(--ease) both; }
+.req-card { animation: rise 0.45s var(--ease) backwards; }
 @media (max-width: 899px) {
   .onb-layout { grid-template-columns: minmax(0, 1fr); }
   .onb-aside { position: static; }
