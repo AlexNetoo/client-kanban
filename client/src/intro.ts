@@ -38,4 +38,6 @@ export function runIntro() {
   const lift = el.animate([{ transform: "translateY(0)" }, { transform: "translateY(-100%)" }], { duration: 1000, delay: 2220, easing: EXPO_IN_OUT, ...fill });
   lift.onfinish = () => { el.remove(); };
   window.setTimeout(markReady, 2620);
+  // Safety net: tabs opened in the background pause animations, so never let the cover panel outlive the intro.
+  window.setTimeout(() => { el.remove(); markReady(); }, 5000);
 }
