@@ -1,6 +1,6 @@
 'use strict';
 const crypto = require('crypto');
-const { STATUSES, HttpError } = require('./validate');
+const { STATUSES, HttpError, LINK_TYPES } = require('./validate');
 const { seed, seedDesigners } = require('./seed');
 const { ConflictError } = require('./persist');
 
@@ -72,6 +72,7 @@ class Store {
       if (d.passwordHash === undefined) { d.passwordHash = ''; changed = true; }
       if (d.tokenVersion === undefined) { d.tokenVersion = 0; changed = true; }
     }
+    if (!this.data.links) { this.data.links = []; changed = true; }
     for (const t of this.data.tasks) {
       if (!Array.isArray(t.comments)) { t.comments = []; changed = true; }
       if (t.assigneeId === undefined) { t.assigneeId = ''; changed = true; }
@@ -143,6 +144,53 @@ class Store {
     return new Set([...ids].filter((pid) => this.data.projects.some((p) => p.id === pid && !p.archived)));
   }
 
+  // ---- task links (Jira-style "linked work items"): one stored edge, shown on both tasks with the inverse wording ----
+  linksFor(taskId) {
+    const out = [];
+    for (const l of this.data.links) {
+      const outgoing = l.fromId === taskId;
+      if (!outgoing && l.toId !== taskId) continue;
+      const other = this.data.tasks.find((t) => t.id === (outgoing ? l.toId : l.fromId));
+      if (!other) continue;
+      const project = this.data.projects.find((p) => p.id === other.projectId);
+      out.push({
+        id: l.id, type: l.type, label: LINK_TYPES[l.type][outgoing ? 'out' : 'in'],
+        task: { id: other.id, title: other.title, status: other.status, projectId: other.projectId, projectName: project ? project.name : '' },
+      });
+    }
+    return out;
+  }
+
+  addLink(taskId, { targetId, type, inverse = false }) {
+    this.getTask(taskId);
+    if (targetId === taskId) throw new HttpError(400, 'A task can’t be linked to itself');
+    if (!this.data.tasks.some((t) => t.id === targetId)) throw new HttpError(404, 'The task to link to was not found');
+    if (this.data.links.some((l) => (l.fromId === taskId && l.toId === targetId) || (l.fromId === targetId && l.toId === taskId))) {
+      throw new HttpError(409, 'These tasks are already linked');
+    }
+    if (this.data.links.filter((l) => l.fromId === taskId || l.toId === taskId).length >= 50) throw new HttpError(400, 'Too many links on this task');
+    const [fromId, toId] = inverse ? [targetId, taskId] : [taskId, targetId];
+    this.data.links.push({ id: crypto.randomUUID(), fromId, toId, type, createdAt: new Date().toISOString() });
+    this.save();
+  }
+
+  deleteLink(taskId, linkId) {
+    const l = this.data.links.find((x) => x.id === linkId && (x.fromId === taskId || x.toId === taskId));
+    if (!l) throw new HttpError(404, 'Link not found');
+    this.data.links = this.data.links.filter((x) => x.id !== linkId);
+    this.save();
+  }
+
+  /** Tasks in active projects matching the text (title or project name); used by the "link a task" picker. */
+  searchTasks(q, excludeId) {
+    const needle = String(q || '').trim().toLowerCase();
+    return this.data.tasks
+      .map((t) => ({ t, p: this.data.projects.find((p) => p.id === t.projectId) }))
+      .filter(({ t, p }) => p && !p.archived && t.id !== excludeId && (!needle || t.title.toLowerCase().includes(needle) || p.name.toLowerCase().includes(needle)))
+      .slice(0, 15)
+      .map(({ t, p }) => ({ id: t.id, title: t.title, status: t.status, projectId: p.id, projectName: p.name }));
+  }
+
   // ---- comments (internal: never exposed through the client view) ----
   addComment(taskId, { text, authorId }) {
     const task = this.getTask(taskId);
@@ -207,8 +255,10 @@ class Store {
 
   deleteProject(id) {
     this.getProject(id);
+    const gone = new Set(this.data.tasks.filter((t) => t.projectId === id).map((t) => t.id));
     this.data.projects = this.data.projects.filter((p) => p.id !== id);
     this.data.tasks = this.data.tasks.filter((t) => t.projectId !== id);
+    this.data.links = this.data.links.filter((l) => !gone.has(l.fromId) && !gone.has(l.toId));
     this.save();
   }
 
@@ -269,6 +319,7 @@ class Store {
   deleteTask(id) {
     this.getTask(id);
     this.data.tasks = this.data.tasks.filter((t) => t.id !== id);
+    this.data.links = this.data.links.filter((l) => l.fromId !== id && l.toId !== id);
     this.save();
   }
 }

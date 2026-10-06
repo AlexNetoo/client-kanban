@@ -43,6 +43,10 @@ The login page has three tabs: **Freelancer** (the owner password), **Client** (
 
 Clicking a task opens a wide scrollable view with the description, client update, private notes (freelancer only), comments and a details panel (status, assignee, priority, due date) that the freelancer can edit in place.
 
+## Linked tasks
+
+Open a task and use **Link a task** to relate it to any other task, in this or another project: *relates to*, *blocks* / *is blocked by*, *duplicates* / *is duplicated by*. A link is stored once and shown on both tasks with the matching wording. Each open task has its own address (`#/p/<project>/t/<task>`), so links open that task, Back closes it, and **Copy link** shares it. Only the freelancer can add or remove links. Designers see links only to tasks in projects they can open, and clients never see links. Deleting a task or project removes its links.
+
 ## Designer logins
 
 Designers sign in on the **Designer** tab of the login page with an email and password. The freelancer creates them in **Team** (name, optional role, login email and a password of 10+ characters) and shares the password privately. A designer can then change it under **Change password**.

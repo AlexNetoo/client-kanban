@@ -30,6 +30,7 @@ export function TaskCard({ task: t, designers, onOpen, onEdit, onMove }: Props) 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", fontSize: 12, color: pal.textSecondary }}>
         <PriorityChip priority={t.priority} />
         {t.dueDate && <DueLabel date={t.dueDate} done={t.status === "done"} />}
+        {(t.links?.length ?? 0) > 0 && <Badge>{t.links.length} linked</Badge>}
         {t.comments.length > 0 && <Badge>{t.comments.length} {t.comments.length === 1 ? "comment" : "comments"}</Badge>}
         {t.clientUpdate && <Badge><EyeIcon /> Client update</Badge>}
         {owner && t.privateNotes && <span title="Private notes: only you can see them" style={{ display: "inline-flex", alignItems: "center", gap: 4, border: `1px dashed ${pal.textTertiary}`, borderRadius: 8, padding: "2px 8px", fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.3 }}><LockIcon /> Private note</span>}

@@ -6,7 +6,7 @@ const { loadConfig, loadDotEnv, ROOT } = require('./config');
 const { hashPassword, verifyPassword, signSession, readSession, parseCookies } = require('./auth');
 const { Store } = require('./store');
 const { FilePersistence, BlobPersistence } = require('./persist');
-const { COLUMNS, HttpError, cleanProject, cleanTask, cleanComment, cleanDesigner } = require('./validate');
+const { COLUMNS, HttpError, cleanProject, cleanTask, cleanComment, cleanDesigner, cleanLink } = require('./validate');
 
 const PUBLIC_DIR = path.join(ROOT, 'web');
 const COOKIE = 'sid';
@@ -128,7 +128,12 @@ function createApp(config) {
     visibleProject(s, t.projectId);
     return t;
   };
-  const outTask = (s, t) => (isDesigner(s) ? staffTask(t) : t);
+  // Every task leaves the server through here: designers lose private notes, and links include only tasks the caller may see.
+  const outTask = (s, t) => {
+    const seen = isDesigner(s) ? store.projectIdsFor(s.uid) : null;
+    const links = store.linksFor(t.id).filter((l) => !seen || seen.has(l.task.projectId));
+    return { ...(isDesigner(s) ? staffTask(t) : t), links };
+  };
 
   // ---- Projects: owner sees all; a designer sees only their own, without private notes or share links ----
   route('GET', '/api/projects', 'staff', ({ session }) => {
@@ -140,26 +145,41 @@ function createApp(config) {
   route('GET', '/api/projects/:id', 'staff', ({ params, session }) => {
     const p = visibleProject(session, params.id);
     const tasks = store.tasksFor(p.id);
-    return isDesigner(session)
-      ? { project: staffProject(store.withStats(p)), tasks: tasks.map(staffTask) }
-      : { project: store.withStats(p), tasks };
+    return {
+      project: isDesigner(session) ? staffProject(store.withStats(p)) : store.withStats(p),
+      tasks: tasks.map((t) => outTask(session, t)),
+    };
   });
   route('PATCH', '/api/projects/:id', 'owner', ({ params, body }) =>
     store.updateProject(params.id, cleanProject(body, true), { resetToken: body.resetShareToken === true }));
   route('DELETE', '/api/projects/:id', 'owner', ({ params }) => { store.deleteProject(params.id); return { ok: true }; });
 
   // ---- Tasks: owner edits everything; a designer may only move their own assigned tasks ----
-  route('POST', '/api/projects/:id/tasks', 'owner', ({ params, body }) =>
-    ({ status: 201, body: store.createTask(params.id, cleanTask(body)) }));
+  route('POST', '/api/projects/:id/tasks', 'owner', ({ params, body, session }) =>
+    ({ status: 201, body: outTask(session, store.createTask(params.id, cleanTask(body))) }));
   route('PATCH', '/api/tasks/:id', 'staff', ({ params, body, session }) => {
-    if (!isDesigner(session)) return store.updateTask(params.id, cleanTask(body, true));
+    if (!isDesigner(session)) return outTask(session, store.updateTask(params.id, cleanTask(body, true)));
     const task = taskFor(session, params.id);
     if (task.assigneeId !== session.uid) throw new HttpError(403, 'You can only move tasks assigned to you');
     if (Object.keys(body).some((k) => !DESIGNER_TASK_FIELDS.has(k))) throw new HttpError(403, 'Designers can only move tasks between columns');
     const { status, position } = cleanTask(body, true);
-    return staffTask(store.updateTask(params.id, { status, position }));
+    return outTask(session, store.updateTask(params.id, { status, position }));
   });
   route('DELETE', '/api/tasks/:id', 'owner', ({ params }) => { store.deleteTask(params.id); return { ok: true }; });
+
+  // ---- Task links (owner edits; designers only ever see links to projects they can access) ----
+  route('POST', '/api/tasks/:id/links', 'owner', ({ params, body, session }) => {
+    store.addLink(params.id, cleanLink(body));
+    return { status: 201, body: outTask(session, store.getTask(params.id)) };
+  });
+  route('DELETE', '/api/tasks/:id/links/:lid', 'owner', ({ params, session }) => {
+    store.deleteLink(params.id, params.lid);
+    return outTask(session, store.getTask(params.id));
+  });
+  route('GET', '/api/task-search', 'owner', ({ req }) => {
+    const u = new URL(req.url, 'http://localhost');
+    return store.searchTasks(u.searchParams.get('q'), u.searchParams.get('exclude'));
+  });
 
   // ---- Designers (accounts). Everyone signed in as staff can list names; only the owner manages logins. ----
   route('GET', '/api/designers', 'staff', ({ session }) => store.listDesigners({ full: !isDesigner(session) }));

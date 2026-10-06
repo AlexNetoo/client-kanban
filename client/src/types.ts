@@ -19,7 +19,13 @@ export interface Project {
 }
 export interface Designer { id: string; name: string; role: string; email?: string; hasLogin?: boolean }
 export interface Comment { id: string; authorId: string; authorName: string; text: string; createdAt: string }
+export interface TaskLink {
+  id: string; type: "relates" | "blocks" | "duplicates"; label: string;
+  task: { id: string; title: string; status: Column; projectId: string; projectName: string };
+}
+export interface TaskSearchResult { id: string; title: string; status: Column; projectId: string; projectName: string }
 export interface Task {
+  links: TaskLink[];
   assigneeId: string; comments: Comment[];
   id: string; projectId: string; title: string; description: string; status: Column; priority: Priority; dueDate: string;
   clientUpdate: string; clientUpdateAt: string; privateNotes: string; createdAt: string; updatedAt: string;

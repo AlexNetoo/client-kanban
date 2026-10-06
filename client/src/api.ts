@@ -1,4 +1,4 @@
-import type { ClientProject, ClientTask, Designer, Project, ProjectInput, Task, TaskInput } from "./types";
+import type { ClientProject, ClientTask, Designer, Project, ProjectInput, Task, TaskInput, TaskLink, TaskSearchResult } from "./types";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -43,5 +43,8 @@ export const api = {
   deleteDesigner: (id: string) => request<{ ok: true }>("DELETE", `/api/designers/${id}`),
   addComment: (taskId: string, d: { text: string }) => request<Task>("POST", `/api/tasks/${taskId}/comments`, d),
   deleteComment: (taskId: string, commentId: string) => request<Task>("DELETE", `/api/tasks/${taskId}/comments/${commentId}`),
+  addLink: (taskId: string, d: { targetId: string; type: TaskLink["type"]; inverse?: boolean }) => request<Task>("POST", `/api/tasks/${taskId}/links`, d),
+  deleteLink: (taskId: string, linkId: string) => request<Task>("DELETE", `/api/tasks/${taskId}/links/${linkId}`),
+  searchTasks: (q: string, exclude: string) => request<TaskSearchResult[]>("GET", `/api/task-search?q=${encodeURIComponent(q)}&exclude=${encodeURIComponent(exclude)}`),
   clientView: (token: string) => request<{ project: ClientProject; tasks: ClientTask[] }>("GET", `/api/client/${encodeURIComponent(token)}`),
 };

@@ -251,6 +251,68 @@ test('sign-in tabs: a password only works on its own account type', async () => 
   assert.strictEqual(await as(OWNER_PW, 'client'), 401);
 });
 
+test('task links: shown on both tasks, validated, scoped for designers, hidden from clients, cleaned up on delete', async () => {
+  const owner = await login(OWNER_PW); const O = { cookie: owner.cookie };
+  const mkProject = async (name) => (await call('POST', '/api/projects', { ...O, body: { name, client: 'LinkCo', status: 'active' } })).json;
+  const mkTask = async (p, title) => (await call('POST', `/api/projects/${p.id}/tasks`, { ...O, body: { title, status: 'todo', priority: 'low' } })).json;
+  const P1 = await mkProject('Links P1'); const P2 = await mkProject('Links P2');
+  const a = await mkTask(P1, 'Alpha task'); const b = await mkTask(P1, 'Beta task'); const x = await mkTask(P2, 'Xray hidden task');
+  const tasksOf = async (p, cookie = owner.cookie) => (await call('GET', `/api/projects/${p.id}`, { cookie })).json.tasks;
+  const link = (id, body, cookie = owner.cookie) => call('POST', `/api/tasks/${id}/links`, { cookie, body });
+
+  // create + both directions with inverse wording
+  const created = await link(a.id, { targetId: b.id, type: 'blocks' });
+  assert.strictEqual(created.res.status, 201);
+  assert.deepStrictEqual(created.json.links.map((l) => [l.label, l.task.id]), [['blocks', b.id]]);
+  const bLinks = (await tasksOf(P1)).find((t) => t.id === b.id).links;
+  assert.deepStrictEqual(bLinks.map((l) => [l.label, l.task.id, l.task.title]), [['is blocked by', a.id, 'Alpha task']]);
+
+  // validation
+  assert.strictEqual((await link(a.id, { targetId: a.id, type: 'relates' })).res.status, 400);
+  assert.strictEqual((await link(a.id, { targetId: 'nope', type: 'relates' })).res.status, 404);
+  assert.strictEqual((await link(a.id, { targetId: b.id, type: 'whatever' })).res.status, 400);
+  assert.strictEqual((await link(b.id, { targetId: a.id, type: 'relates' })).res.status, 409); // already linked, either direction
+  assert.strictEqual((await link(a.id, { targetId: x.id, type: 'relates' })).res.status, 201); // across projects
+
+  // inverse direction: "Beta is duplicated by Gamma" is stored as Gamma duplicates Beta
+  const g = await mkTask(P1, 'Gamma task');
+  const inv = await link(b.id, { targetId: g.id, type: 'duplicates', inverse: true });
+  assert.deepStrictEqual(inv.json.links.map((l) => l.label).sort(), ['is blocked by', 'is duplicated by']);
+  assert.deepStrictEqual((await tasksOf(P1)).find((t) => t.id === g.id).links.map((l) => [l.label, l.task.id]), [['duplicates', b.id]]);
+
+  // search
+  const found = (await call('GET', '/api/task-search?q=xray', O)).json;
+  assert.ok(found.some((r) => r.id === x.id && r.projectName === 'Links P2'));
+  assert.ok(!(await call('GET', `/api/task-search?q=alpha&exclude=${a.id}`, O)).json.some((r) => r.id === a.id));
+
+  // clients never see links
+  const client = await login(CLIENT_PW);
+  const view = await call('GET', `/api/client/${P1.shareToken}`, { cookie: client.cookie });
+  assert.ok(view.json.tasks.every((t) => !('links' in t)) && !view.text.includes('Beta task\",\"links'));
+  assert.strictEqual((await link(a.id, { targetId: b.id, type: 'relates' }, client.cookie)).res.status, 403);
+
+  // designers: see only links into projects they can access; cannot edit or search
+  const lee = (await call('POST', '/api/designers', { ...O, body: { name: 'Lee', email: 'lee@example.com', password: 'lee-password-123' } })).json;
+  await call('PATCH', `/api/tasks/${a.id}`, { ...O, body: { assigneeId: lee.id } });
+  const dl = await login('lee-password-123', 'lee@example.com'); const D = { cookie: dl.cookie };
+  const dA = (await tasksOf(P1, dl.cookie)).find((t) => t.id === a.id);
+  assert.deepStrictEqual(dA.links.map((l) => l.task.id), [b.id]); // x lives in P2, which Lee can't open
+  assert.ok(!JSON.stringify(dA.links).includes('Xray'));
+  assert.strictEqual((await link(a.id, { targetId: b.id, type: 'relates' }, dl.cookie)).res.status, 403);
+  assert.strictEqual((await call('DELETE', `/api/tasks/${a.id}/links/${created.json.links[0].id}`, D)).res.status, 403);
+  assert.strictEqual((await call('GET', '/api/task-search?q=a', D)).res.status, 403);
+
+  // removing a link updates both sides; deleting a task drops its links
+  assert.strictEqual((await call('DELETE', `/api/tasks/${a.id}/links/${created.json.links[0].id}`, O)).res.status, 200);
+  assert.ok(!(await tasksOf(P1)).find((t) => t.id === b.id).links.some((l) => l.task.id === a.id)); // gone from the other side too
+  await link(a.id, { targetId: b.id, type: 'duplicates' });
+  await call('DELETE', `/api/tasks/${b.id}`, O);
+  assert.ok(!(await tasksOf(P1)).find((t) => t.id === a.id).links.some((l) => l.task.id === b.id));
+  await call('DELETE', `/api/projects/${P2.id}`, O); // cascades: a's link to x disappears
+  assert.deepStrictEqual((await tasksOf(P1)).find((t) => t.id === a.id).links, []);
+  await call('DELETE', `/api/projects/${P1.id}`, O); await call('DELETE', `/api/designers/${lee.id}`, O);
+});
+
 test('cross-origin writes are blocked', async () => {
   const { cookie } = await login(OWNER_PW);
   const res = await fetch(base + '/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: cookie, Origin: 'https://evil.example' }, body: '{}' });

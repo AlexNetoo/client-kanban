@@ -90,7 +90,14 @@ function seed() {
     ['Handover documentation', 'done', 'medium', -42, 'Usage guide and recorded walkthrough.', 'Documentation and walkthrough video delivered.'],
   ]);
 
-  return { projects, tasks, designers };
+  // A few sample links so the feature is visible on first launch (by task title, across projects).
+  const byTitle = (t) => tasks.find((x) => x.title === t).id;
+  const links = [
+    ['Product pages template', 'Wholesale enquiry form', 'relates'],
+    ['Homepage design', 'Product pages template', 'blocks'],
+    ['Print-ready PDF export', 'Chart and data visualisation polish', 'blocks'],
+  ].map(([from, to, type]) => ({ id: crypto.randomUUID(), fromId: byTitle(from), toId: byTitle(to), type, createdAt: now }));
+  return { projects, tasks, designers, links };
 }
 
 module.exports = { seed, seedDesigners, OWNER_ID };

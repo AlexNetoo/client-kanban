@@ -104,4 +104,17 @@ function cleanDesigner(body, partial = false) {
   return out;
 }
 
-module.exports = { cleanComment, cleanDesigner, COLUMNS, STATUSES, PROJECT_STATUSES, PRIORITIES, HttpError, cleanProject, cleanTask };
+const LINK_TYPES = {
+  relates: { out: 'relates to', in: 'relates to' },
+  blocks: { out: 'blocks', in: 'is blocked by' },
+  duplicates: { out: 'duplicates', in: 'is duplicated by' },
+};
+
+function cleanLink(body) {
+  if (!body || typeof body !== 'object') throw new HttpError(400, 'Invalid body');
+  const type = oneOf(body, 'type', Object.keys(LINK_TYPES));
+  // inverse: the chosen task is the source ('is blocked by' = the other task blocks this one)
+  return { targetId: str(body, 'targetId', { max: 64, required: true }), type, inverse: body.inverse === true };
+}
+
+module.exports = { LINK_TYPES, cleanLink, cleanComment, cleanDesigner, COLUMNS, STATUSES, PROJECT_STATUSES, PRIORITIES, HttpError, cleanProject, cleanTask };

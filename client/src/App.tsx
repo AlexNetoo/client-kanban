@@ -34,13 +34,13 @@ export function App() {
   if (!me) return null;
   const role = me.role;
 
-  const [, kind, param] = route.split("/");
+  const [, kind, param, sub, subParam] = route.split("/");
   let view;
   if (kind === "c" && param && role !== "designer") view = <ClientView key={param} token={decodeURIComponent(param)} role={role} />;
   else if (role === "client") view = <StateBlock title="Open your project link" description="Use the link your freelancer sent you to see your project’s progress." />;
   else if (kind === "settings") view = <Settings />;
   else if (kind === "team" && role === "owner") view = <TeamPage />;
-  else if (kind === "p" && param) view = <Board key={param} id={decodeURIComponent(param)} />;
+  else if (kind === "p" && param) view = <Board key={param} id={decodeURIComponent(param)} taskId={sub === "t" && subParam ? decodeURIComponent(subParam) : undefined} />;
   else view = <Dashboard />;
 
   const skip = <a className="skip-link" href="#main" onClick={(e) => { e.preventDefault(); main.current?.focus(); }}>Skip to content</a>;

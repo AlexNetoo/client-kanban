@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button, Select, TextArea, Text } from "./halaska-kit";
 import { api } from "./api";
 import { assigneeOptions } from "./dialogs";
+import { LinkedTasks } from "./LinkedTasks";
 import { PriorityChip } from "./chips";
 import { EyeIcon, LockIcon, Person, WideModal, useToast, val } from "./ui";
 import { useMe } from "./session";
@@ -29,6 +30,10 @@ export function TaskModal({ task: t, projectName, designers, onClose, onChange, 
   const patch = async (data: Parameters<typeof api.updateTask>[1], message: string) => {
     try { onChange(await api.updateTask(t.id, data)); toast(message); } catch (e) { toast((e as Error).message, "error"); }
   };
+  const copyLink = async () => {
+    try { await navigator.clipboard.writeText(`${location.origin}/#/p/${t.projectId}/t/${t.id}`); toast("Link copied"); }
+    catch { toast("Couldn’t copy automatically. Copy the address bar instead.", "error"); }
+  };
   const post = async () => {
     if (!text.trim()) return;
     setPosting(true);
@@ -53,16 +58,19 @@ export function TaskModal({ task: t, projectName, designers, onClose, onChange, 
         <div className="task-main">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
             <h2 style={{ margin: 0, fontSize: 24, fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1.25 }}>{t.title}</h2>
-            {owner && <div style={{ display: "flex", gap: 8 }}>
-              <Button size="sm" variant="secondary" aria-label={`Edit task ${t.title}`} onClick={onEdit}>Edit</Button>
-              <Button size="sm" variant="secondary" aria-label={`Delete task ${t.title}`} onClick={onDelete}>Delete</Button>
-            </div>}
+            <div style={{ display: "flex", gap: 8 }}>
+              <Button size="sm" variant="ghost" aria-label={`Copy link to ${t.title}`} onClick={copyLink}>Copy link</Button>
+              {owner && <Button size="sm" variant="secondary" aria-label={`Edit task ${t.title}`} onClick={onEdit}>Edit</Button>}
+              {owner && <Button size="sm" variant="secondary" aria-label={`Delete task ${t.title}`} onClick={onDelete}>Delete</Button>}
+            </div>
           </div>
 
           <section aria-label="Description">
             {h("Description")}
             {t.description ? <p style={{ fontSize: 15, lineHeight: 1.65, whiteSpace: "pre-wrap", margin: 0 }}>{t.description}</p> : <Text size="sm" secondary>No description yet.</Text>}
           </section>
+
+          <LinkedTasks task={t} onChange={onChange} />
 
           {t.clientUpdate && (
             <section aria-label="Client-visible update" style={{ border: `1px solid ${pal.text}`, borderRadius: 16, padding: 16 }}>

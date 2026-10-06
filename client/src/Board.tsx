@@ -12,7 +12,7 @@ import { usePalette } from "./theme";
 import { useMe } from "./session";
 import { COLUMNS, columnLabel, type Column, type Designer, type Project, type Task } from "./types";
 
-export function Board({ id }: { id: string }) {
+export function Board({ id, taskId }: { id: string; taskId?: string }) {
   const pal = usePalette();
   const me = useMe();
   const owner = me.role === "owner";
@@ -24,7 +24,10 @@ export function Board({ id }: { id: string }) {
   const [editing, setEditing] = useState<{ task?: Task; status?: Column } | null>(null);
   const [deleting, setDeleting] = useState<Task | null>(null);
   const [designers, setDesigners] = useState<Designer[]>([]);
-  const [viewingId, setViewingId] = useState<string | null>(null);
+  // The open task lives in the address (#/p/<project>/t/<task>): links work, Back closes it, and it can be shared.
+  const viewingId = taskId ?? null;
+  const openTask = (tid: string) => { location.hash = `#/p/${id}/t/${tid}`; };
+  const closeTask = () => { location.hash = `#/p/${id}`; };
   const nav = useProjectsNav();
   const [dropCol, setDropCol] = useState<Column | null>(null);
   const dragId = useRef<string | null>(null);
@@ -134,7 +137,7 @@ export function Board({ id }: { id: string }) {
                   <li key={t.id} className="task" data-task-id={t.id} draggable={canMove(t)}
                     onDragStart={(e) => { dragId.current = t.id; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", t.id); e.currentTarget.classList.add("dragging"); }}
                     onDragEnd={(e) => { dragId.current = null; setDropCol(null); e.currentTarget.classList.remove("dragging"); }}>
-                    <TaskCard task={t} designers={designers} onOpen={() => setViewingId(t.id)} onEdit={() => setEditing({ task: t })} onMove={(s) => move(t, s)} />
+                    <TaskCard task={t} designers={designers} onOpen={() => openTask(t.id)} onEdit={() => setEditing({ task: t })} onMove={(s) => move(t, s)} />
                   </li>
                 ))}
                 {items.length === 0 && <li style={{ fontSize: 13, color: pal.textTertiary, textAlign: "center", padding: 16, border: `1px dashed ${pal.border}`, borderRadius: 14 }}>Nothing here yet</li>}
@@ -149,10 +152,10 @@ export function Board({ id }: { id: string }) {
           onSaved={(t) => load(t.id)} onDelete={(t) => { setEditing(null); setDeleting(t); }} />
       )}
       {viewingId && tasks.find((x) => x.id === viewingId) && (
-        <TaskModal task={tasks.find((x) => x.id === viewingId)!} projectName={project.name} designers={designers} onClose={() => setViewingId(null)}
+        <TaskModal task={tasks.find((x) => x.id === viewingId)!} projectName={project.name} designers={designers} onClose={closeTask}
           onChange={replaceTask} onMove={(t, s) => move(t, s)}
-          onEdit={() => { const t = tasks.find((x) => x.id === viewingId)!; setViewingId(null); setEditing({ task: t }); }}
-          onDelete={() => { const t = tasks.find((x) => x.id === viewingId)!; setViewingId(null); setDeleting(t); }} />
+          onEdit={() => { const t = tasks.find((x) => x.id === viewingId)!; closeTask(); setEditing({ task: t }); }}
+          onDelete={() => { const t = tasks.find((x) => x.id === viewingId)!; closeTask(); setDeleting(t); }} />
       )}
       <ConfirmDialog open={!!deleting} title="Delete this task?" description={deleting ? `“${deleting.title}” will be permanently removed.` : ""} onClose={() => setDeleting(null)}
         onConfirm={async () => { if (deleting) { await api.deleteTask(deleting.id); toast("Task deleted"); load(); } }} />
