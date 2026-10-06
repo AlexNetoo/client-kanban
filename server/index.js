@@ -47,7 +47,7 @@ const staffTask = ({ privateNotes, ...t }) => t; // eslint-disable-line no-unuse
 const DESIGNER_TASK_FIELDS = new Set(['status', 'position']);
 
 function createApp(config) {
-  const store = new Store(config.storage === 'blob' ? new BlobPersistence(config.blobPath) : new FilePersistence(config.dataFile));
+  const store = new Store(config.storage === 'blob' ? new BlobPersistence(config.blobPath) : new FilePersistence(config.dataFile), { seedDemo: !!config.seedDemo });
   // Admin sessions carry a fingerprint of the current admin password hash: change the password and every old admin session dies.
   const ownerVersion = crypto.createHash('sha256').update(config.ownerHash).digest('base64url').slice(0, 16);
   const maxBytes = config.attachMaxBytes || 25 * 1024 * 1024;

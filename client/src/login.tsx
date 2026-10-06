@@ -39,7 +39,7 @@ function Login() {
     <main className="login-wrap">
       <form onSubmit={submit} style={{ width: "min(100%, 380px)", display: "flex", flexDirection: "column", gap: 18 }} noValidate>
         <div style={{ display: "inline-flex", alignItems: "center", gap: 10, fontWeight: 800, letterSpacing: "-0.02em", marginBottom: 18 }}>
-          <img src="/favicon.svg" alt="" width={24} height={24} /> NetoDesign
+          <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="11" fill="currentColor" /></svg> NetoDesign
         </div>
         <div>
           <Heading level={1}>{ADMIN ? "Admin sign in" : "Sign in"}</Heading>

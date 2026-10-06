@@ -7,9 +7,10 @@ const { ConflictError } = require('./persist');
 const newToken = () => crypto.randomBytes(18).toString('base64url');
 
 class Store {
-  /** `persistence` is a FilePersistence or BlobPersistence (see persist.js). */
-  constructor(persistence) {
+  /** `persistence` is a FilePersistence or BlobPersistence (see persist.js). A fresh store starts empty. */
+  constructor(persistence, { seedDemo = false } = {}) {
     this.p = persistence;
+    this.seedDemo = seedDemo; // sample projects/designers only when explicitly enabled (SEED_DEMO_DATA=true)
     this.data = null;
     this.version = null; // ETag of what we last read/wrote (shared stores only)
     this.dirty = false;
@@ -23,7 +24,7 @@ class Store {
   async load() {
     if (!this.p.shared && this.data) return;
     const r = await this.p.load();
-    if (r) { this.data = JSON.parse(r.text); this.version = r.version; this.dirty = false; } else { this.data = seed(); this.version = null; this.dirty = true; }
+    if (r) { this.data = JSON.parse(r.text); this.version = r.version; this.dirty = false; } else { this.data = this.seedDemo ? seed() : { projects: [], tasks: [], designers: [], links: [], clients: [] }; this.version = null; this.dirty = true; }
     this.migrate();
   }
 
@@ -66,7 +67,7 @@ class Store {
   // Older data files predate designers, logins, assignees and comments.
   migrate() {
     let changed = false;
-    if (!this.data.designers) { this.data.designers = seedDesigners(); changed = true; }
+    if (!this.data.designers) { this.data.designers = this.seedDemo ? seedDesigners() : []; changed = true; }
     for (const d of this.data.designers) {
       if (d.email === undefined) { d.email = ''; changed = true; }
       if (d.passwordHash === undefined) { d.passwordHash = ''; changed = true; }

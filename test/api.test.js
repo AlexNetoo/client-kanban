@@ -14,7 +14,7 @@ const ready = (async () => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-'));
   ({ server } = createApp({
     ownerHash: hashPassword(OWNER_PW), secret: 'x'.repeat(40),
-    sessionMs: 3600_000, dataFile: path.join(dir, 'db.json'), secureCookies: false, trustProxy: false,
+    sessionMs: 3600_000, dataFile: path.join(dir, 'db.json'), secureCookies: false, trustProxy: false, seedDemo: true,
   }));
   await new Promise((r) => server.listen(0, r));
   base = `http://localhost:${server.address().port}`;
@@ -664,6 +664,38 @@ test('changing the admin password signs out every existing admin session', async
     const fresh = await fetch(`http://localhost:${server2.address().port}/api/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: 'a-brand-new-admin-pw' }) });
     assert.strictEqual(fresh.status, 200);
   } finally { server2.close(); }
+});
+
+test('a fresh install starts empty; sample data only appears when SEED_DEMO_DATA is on, and never refills an emptied database', async () => {
+  const boot = async (extra, file) => {
+    const { server } = createApp({ ownerHash: hashPassword(OWNER_PW), secret: 'x'.repeat(40), sessionMs: 3600_000, dataFile: file, secureCookies: false, trustProxy: false, ...extra });
+    await new Promise((r) => server.listen(0, r));
+    const url = `http://localhost:${server.address().port}`;
+    const login = await fetch(`${url}/api/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: OWNER_PW }) });
+    const cookie = login.headers.get('set-cookie').split(';')[0];
+    const get = async (p) => (await fetch(url + p, { headers: { Cookie: cookie } })).json();
+    return { server, url, cookie, get };
+  };
+  const emptyFile = path.join(dir, 'fresh-empty.json');
+  const a = await boot({}, emptyFile);
+  try {
+    assert.deepStrictEqual(await a.get('/api/projects'), []);
+    assert.deepStrictEqual(await a.get('/api/designers'), []);
+    assert.deepStrictEqual(await a.get('/api/clients'), []);
+  } finally { a.server.close(); }
+  const demoFile = path.join(dir, 'fresh-demo.json');
+  const b = await boot({ seedDemo: true }, demoFile);
+  try {
+    assert.ok((await b.get('/api/projects')).length >= 3 && (await b.get('/api/designers')).length >= 3);
+    // delete everything, then restart WITH the flag still on: the (now empty) database must not be refilled
+    for (const p of await b.get('/api/projects')) await fetch(`${b.url}/api/projects/${p.id}`, { method: 'DELETE', headers: { Cookie: b.cookie } });
+    for (const d of await b.get('/api/designers')) await fetch(`${b.url}/api/designers/${d.id}`, { method: 'DELETE', headers: { Cookie: b.cookie } });
+  } finally { b.server.close(); }
+  const c = await boot({ seedDemo: true }, demoFile);
+  try {
+    assert.deepStrictEqual(await c.get('/api/projects'), []);
+    assert.deepStrictEqual(await c.get('/api/designers'), []);
+  } finally { c.server.close(); }
 });
 
 test('admin sign-in locks out after 5 wrong passwords, even for the right one', async () => {

@@ -35,6 +35,7 @@ function loadConfig(env = process.env) {
     // unless STORAGE=file forces the local file.
     storage: env.STORAGE === 'file' ? 'file' : (env.BLOB_STORE_ID || env.BLOB_READ_WRITE_TOKEN) ? 'blob' : 'file',
     attachMaxBytes: (Number(env.ATTACH_MAX_MB) || 25) * 1024 * 1024,
+    seedDemo: env.SEED_DEMO_DATA === 'true', // opt-in: fills an EMPTY database with sample projects, tasks and designers
     blobPath: env.BLOB_DB_PATH || 'client-kanban/db.json',
     secureCookies: bool(env.COOKIE_SECURE, env.NODE_ENV === 'production'),
     trustProxy: bool(env.TRUST_PROXY, false),

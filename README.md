@@ -6,7 +6,7 @@ A small, password-protected kanban for an admin (freelancer) to manage projects 
 - **Kanban board** per project: Backlog, To do, In progress, In review, Done. Create, edit, delete and move tasks by drag-and-drop **or** the "Move to…" select on each card (keyboard / touch friendly).
 - **Client view**: progress, task stages and per-task updates. It never includes private notes.
 - **Private notes vs client updates**: each task has a *Client-visible update* (blue, eye icon) and *Private notes* (dashed amber, lock icon, owner only).
-- Seeded with four realistic sample projects on first launch.
+- Starts **empty**: no sample data. To try it with demo content, set `SEED_DEMO_DATA=true` before the very first start (it only fills a brand-new, empty database, and never refills one you have emptied).
 
 The server has zero npm dependencies. The UI is React + TypeScript built with Vite and styled with [Halaska UI](https://ui.halaska.com) (`client/src/halaska-kit.jsx`, grayscale accent) set in **Suisse Int'l**. The built UI is committed in `web/`, so you only need Node to run it. Requires Node 18.11+ (developed on Node 19).
 
@@ -104,7 +104,7 @@ Upgrading from the old shared client password: that password (`CLIENT_PASSWORD_H
 
 Two backends, chosen automatically:
 
-- **Local file (default for `npm start` / `npm run dev`)**: one JSON file at `DATA_FILE` (default `./data/db.json`), written atomically. The seed is created if the file doesn't exist; delete it to reseed.
+- **Local file (default for `npm start` / `npm run dev`)**: one JSON file at `DATA_FILE` (default `./data/db.json`), written atomically. A missing file starts as an empty database (sample projects only if `SEED_DEMO_DATA=true`); deleting the file resets everything.
 - **Vercel Blob (private store)**: used whenever `BLOB_STORE_ID` (or `BLOB_READ_WRITE_TOKEN`) is present, which is what connecting a Blob store to the project sets. The whole database is one private JSON blob (`BLOB_DB_PATH`, default `client-kanban/db.json`). Every request reads the latest copy and writes back conditionally on its ETag, so two serverless instances can't overwrite each other: a conflicting write is detected and the step is retried on fresh data. Set `STORAGE=file` to force the file backend.
 
 Set up persistence on Vercel (once):
@@ -115,7 +115,7 @@ vercel storage connect client-kanban-data -e production -y   # OIDC credentials:
 vercel deploy --prod
 ```
 
-The first request after connecting creates the blob with the sample data. Back it up by downloading `client-kanban/db.json` from the store (`vercel blob get client-kanban/db.json`). It contains password hashes and private notes, so keep the store private.
+The first request after connecting creates an empty database blob. Back it up by downloading `client-kanban/db.json` from the store (`vercel blob get client-kanban/db.json`). It contains password hashes and private notes, so keep the store private.
 
 ## Security notes
 
