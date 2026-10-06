@@ -39,7 +39,7 @@ export function Board({ id, taskId }: { id: string; taskId?: string }) {
     try {
       const d = await api.getProject(id);
       setProject(d.project); setTasks(d.tasks); setError(null); nav.reload();
-      document.title = `${d.project.name} · NetoDesign`;
+      document.title = `${d.project.name} · Alex Neto - Client Portal`;
       if (focus) focusTask(focus);
     } catch (e) { setError({ status: (e as { status?: number }).status ?? 0, message: (e as Error).message }); }
   }, [id]);

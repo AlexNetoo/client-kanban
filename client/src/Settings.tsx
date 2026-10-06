@@ -14,7 +14,7 @@ export function Settings() {
   const me = useMe();
   const { pref, setPref } = useThemePref();
   const [pw, setPw] = useState(false);
-  useEffect(() => { document.title = "Settings · NetoDesign"; }, []);
+  useEffect(() => { document.title = "Settings · Alex Neto - Client Portal"; }, []);
 
   const Section = ({ title, children }: { title: string; children: ReactNode }) => (
     <section aria-label={title} style={{ border: `1px solid ${pal.border}`, borderRadius: 16, padding: 20, display: "flex", flexDirection: "column", gap: 12 }}>

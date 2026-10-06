@@ -1,4 +1,4 @@
-# NetoDesign — client kanban
+# Alex Neto - Client Portal
 
 A small, password-protected kanban for an admin (freelancer) to manage projects and share progress with designers and clients.
 
@@ -39,7 +39,7 @@ npm run dev:web     # optional Vite dev server on :5173 (proxies /api to :3000)
 
 ## Intro, hero background and demo
 
-- **Intro:** on the first visit of a browser session the page opens with the NetoDesign intro (mark scales in, the name rises word by word, the panel lifts away), the same timeline as alexneto.com (`client/src/intro.ts`, plain Web Animations, no library). `public/boot.js` skips it for the rest of the session and for visitors who prefer reduced motion.
+- **Intro:** on the first visit of a browser session the page opens with the Alex Neto intro (mark scales in, the name rises word by word, the panel lifts away), the same timeline as alexneto.com (`client/src/intro.ts`, plain Web Animations, no library). `public/boot.js` skips it for the rest of the session and for visitors who prefer reduced motion.
 - **Hero background:** the sign-in page has the alexneto.com hero background behind the form: fine drifting lines that bend around the pointer, drawn in the theme's ink colour, paused off-screen and static for reduced motion (`client/src/HeroBackground.tsx`).
 - **Sign-in tabs:** **Client** is the default tab, **Designer** the second. The **Demo** button next to **Sign in** opens `/demo`.
 - **Demo (`/demo`):** a sample client project, *Website redesign & development* for a fictional studio, with 17 tasks across all five columns, linked tasks, client updates and a conversation. It behaves like a client account (read-only board, comments allowed) but is answered entirely in the browser (`client/src/demo.ts`): no account, no server data, nothing saved, and a reload resets it. The `/demo` page itself grants no access; every real API call still needs a real login.

@@ -134,4 +134,15 @@ export function Person({ name, size = 28 }: { name: string; size?: number }) {
   );
 }
 
+/** The alexneto.com logo (circle + name) with "Client Portal" as a quiet label underneath. */
+export function Brand({ href = "#/" }: { href?: string }) {
+  const pal = usePalette();
+  return (
+    <div>
+      <a href={href} className="nav__brand" aria-label="Alex Neto - Client Portal, home"><span className="nav__mark" />Alex Neto</a>
+      <span className="brand-sub" style={{ color: pal.textTertiary }}>Client Portal</span>
+    </div>
+  );
+}
+
 export const space = tokens.space;

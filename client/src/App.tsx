@@ -9,6 +9,7 @@ import { ProjectsProvider } from "./nav";
 import { Nav } from "./Sidebar";
 import { Settings } from "./Settings";
 import { SessionProvider, type Me } from "./session";
+import { Brand } from "./ui";
 import { usePalette } from "./theme";
 import { isDemo } from "./demo";
 
@@ -18,11 +19,6 @@ function useHash() {
   return hash.replace(/^#/, "") || "/";
 }
 
-const Brand = ({ href = "#/" }: { href?: string }) => (
-  <a href={href} style={{ display: "inline-flex", alignItems: "center", gap: 10, fontWeight: 800, letterSpacing: "-0.02em", textDecoration: "none" }}>
-    <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="11" fill="currentColor" /></svg> NetoDesign
-  </a>
-);
 
 const signOut = async () => { try { await api.logout(); } finally { location.replace("/login"); } };
 export const isAdminPath = () => location.pathname.replace(/\/+$/, "") === "/admin";
@@ -54,13 +50,13 @@ export function App() {
         {skip}
         <div className="shell">
           <aside className="sidebar" style={{ borderRight: `1px solid ${pal.border}`, background: pal.bg }}>
-            <div style={{ padding: "4px 12px 18px" }}><Brand /></div>
+            <div style={{ padding: "4px 12px 22px" }}><Brand href={isDemo() ? "/demo#/" : "/#/"} /></div>
             <Nav route={route} admin={admin} />
           </aside>
           <div className="shell-main">
             <header className="topbar" style={{ borderBottom: `1px solid ${pal.border}` }}>
               <IconButton icon={<span aria-hidden="true" style={{ fontSize: 18 }}>☰</span>} label="Open menu" onClick={() => setMenu(true)} aria-haspopup="dialog" />
-              <Brand />
+              <Brand href={isDemo() ? "/demo#/" : "/#/"} />
             </header>
             <main id="main" ref={main} tabIndex={-1} className="page" style={{ maxWidth: 1280, margin: "0 auto", padding: "36px 28px 96px" }}>{view}</main>
           </div>
