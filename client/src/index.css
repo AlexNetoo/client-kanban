@@ -28,6 +28,9 @@ main:focus { outline: none !important; }
 .column { scroll-snap-align: start; min-width: 0; }
 .cards { display: flex; flex-direction: column; gap: 10px; min-height: 64px; border-radius: 14px; }
 .cards.drop-target { outline: 2px dashed currentColor; outline-offset: 3px; }
+.task { position: relative; }
+/* A card whose Move menu is open (focus is inside it) must paint above the cards below, or the menu is hidden behind them. */
+.task:focus-within { z-index: 40; }
 .task.dragging { opacity: .4; }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .client-layout { display: grid; grid-template-columns: 2fr 1fr; gap: 48px; align-items: start; }

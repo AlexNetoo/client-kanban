@@ -20,7 +20,10 @@ export function TaskCard({ task: t, designers, onOpen, onEdit, onMove }: Props) 
   const assignee = designers.find((d) => d.id === t.assigneeId);
 
   return (
-    <Card padding={14} style={{ display: "flex", flexDirection: "column", gap: 10, cursor: owner || mine ? "grab" : "default", borderRadius: 16 }}>
+    // The whole card opens the task (like Jira); the title stays a real button for keyboard and screen-reader users,
+    // and the action buttons (marked data-no-open) keep their own behaviour.
+    <div className="task-surface" onClick={(e) => { if (!(e.target as HTMLElement).closest("[data-no-open]")) onOpen(); }} style={{ cursor: "pointer", borderRadius: 16 }}>
+    <Card padding={14} style={{ display: "flex", flexDirection: "column", gap: 10, borderRadius: 16 }}>
       <button type="button" className="task-title" aria-haspopup="dialog" onClick={onOpen}
         style={{ all: "unset", cursor: "pointer", fontWeight: 600, fontSize: 14, lineHeight: 1.4, color: pal.text, display: "block" }}>{t.title}</button>
 
@@ -36,7 +39,7 @@ export function TaskCard({ task: t, designers, onOpen, onEdit, onMove }: Props) 
         <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, color: pal.textSecondary, minWidth: 0 }}>
           {assignee ? <><Person name={assignee.name} size={22} /><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{assignee.name}</span></> : "Unassigned"}
         </span>
-        <span style={{ display: "inline-flex", gap: 4 }}>
+        <span data-no-open style={{ display: "inline-flex", gap: 4 }}>
           {owner && <Button variant="ghost" size="sm" aria-label={`Edit task ${t.title}`} onClick={onEdit}>Edit</Button>}
           {(owner || mine) && <DropdownMenu
             trigger={<Button variant="ghost" size="sm" aria-label={`Move “${t.title}” to another column`}>Move to…</Button>}
@@ -44,5 +47,6 @@ export function TaskCard({ task: t, designers, onOpen, onEdit, onMove }: Props) 
         </span>
       </div>
     </Card>
+    </div>
   );
 }
