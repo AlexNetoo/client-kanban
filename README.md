@@ -39,9 +39,9 @@ npm run dev:web     # optional Vite dev server on :5173 (proxies /api to :3000)
 
 ## Font (Suisse Int'l)
 
-The interface is set in Suisse Int'l (Swiss Typefaces), self-hosted as four WOFF2 weights (400, 500, 600, 700) in `client/src/assets/fonts/suisse-intl-<weight>.woff2`. **These licensed files are deliberately not in git** (they are git-ignored), so the public repo doesn't redistribute them; the build copies them to `web/assets/fonts/`, which is also git-ignored but is uploaded when you deploy. A few decorative symbols (▲ ◆ ▼ ✕ ☰) aren't in the font and use the system's. Check that your Suisse licence covers web use before publishing the site.
+The interface is set in Suisse Int'l (Swiss Typefaces), self-hosted as three WOFF2 cuts, **Regular, Book and Medium only**, in `client/src/assets/fonts/suisse-intl-{regular,book,medium}.woff2`. The app's weights map onto them: 400 and lighter use Regular, 450–599 (labels, buttons, chips) use Book, and 600 and heavier (titles, headings, numbers) use Medium; font synthesis is off so no bold is ever faked. **These licensed files are deliberately not in git** (they are git-ignored), so the public repo doesn't redistribute them; the build copies them to `web/assets/fonts/`, which is also git-ignored but is uploaded when you deploy. A few decorative symbols (▲ ◆ ▼ ✕ ☰) aren't in the font and use the system's. Check that your Suisse licence covers web use before publishing the site.
 
-- **Rebuilding on a machine without the files:** copy the four WOFF2 files into `client/src/assets/fonts/` first (they were made by subsetting the licensed OTFs to Latin + the symbols the UI uses). Without them the build fails.
+- **Rebuilding on a machine without the files:** copy the three WOFF2 files into `client/src/assets/fonts/` first (they were made by subsetting the licensed OTFs to Latin + the symbols the UI uses). Without them the build fails.
 - **Deploying:** pushes to GitHub do **not** deploy automatically (`vercel.json` turns that off), because a build from git wouldn't contain the font. Deploy with `vercel deploy --prod`; `.vercelignore` makes sure the font is uploaded and secrets are not.
 
 ## Accounts and signing in
