@@ -193,3 +193,10 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea {
 }
 input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):hover, textarea:hover { border-color: var(--field-border-hover) !important; }
 input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus, textarea:focus { border-color: var(--field-border-focus) !important; box-shadow: 0 0 0 3px color-mix(in srgb, var(--field-border-focus) 18%, transparent) !important; outline: none !important; }
+
+/* Date field: the kit's picker, styled like the other fields */
+.datefield { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
+.datefield > div { width: 100%; min-width: 0 !important; }
+.datefield button[aria-haspopup="dialog"] { width: 100%; background: var(--field-bg) !important; border: 1.5px solid var(--field-border) !important; height: 44px !important; }
+.datefield button[aria-haspopup="dialog"]:hover { border-color: var(--field-border-hover) !important; }
+.datefield button[aria-haspopup="dialog"][aria-expanded="true"], .datefield button[aria-haspopup="dialog"]:focus-visible { border-color: var(--field-border-focus) !important; }

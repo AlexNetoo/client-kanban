@@ -728,8 +728,12 @@ test('client onboarding: server prices the brief, the admin approves it into a p
   assert.strictEqual((await day('2030-01-05')).total, 1200); // 5 days cost a week, not 1250
   assert.strictEqual((await day('2030-01-28')).total, 4500); // 4 weeks would be 4800: a month is cheaper
   assert.strictEqual((await day('2030-01-31')).total, 4750); // 31 days: 1 month + 1 day
+  assert.strictEqual((await day('2030-12-31')).total, 50000); // 365 days = one year
+  assert.strictEqual((await day('2030-12-01')).total, 50000); // 335 days would be 11 months + 5 days > a year
+  assert.strictEqual((await day('2030-06-29')).total, 27000); // 180 days = 6 months
+  assert.deepStrictEqual((await day('2031-12-31')).lines.map((l) => [l.unit, l.qty]), [['year', 2]]); // 730 days
   // validation and access
-  for (const bad of [{ goals: [] }, { name: '' }, { dueDate: '2029-12-31' }, { dueDate: '2033-01-01' }, { type: 'Nope' }]) {
+  for (const bad of [{ goals: [] }, { name: '' }, { dueDate: '2029-12-31' }, { dueDate: '2033-01-01' }, { type: 'Marketing & campaign' }]) {
     assert.strictEqual((await call('POST', '/api/requests', { cookie: c.cookie, body: { ...brief, ...bad } })).res.status, 400, JSON.stringify(bad));
   }
   assert.strictEqual((await call('POST', '/api/requests', { cookie: owner, body: brief })).res.status, 403);

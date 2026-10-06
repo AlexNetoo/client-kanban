@@ -1,7 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Button, Checkbox, Select, Text } from "./halaska-kit";
 import { api } from "./api";
-import { Area, Text1 } from "./fields";
+import { Area, DateField, Text1 } from "./fields";
 import { EyeIcon, LockIcon, Modal, useToast } from "./ui";
 import { usePalette } from "./theme";
 import { COLUMNS, PRIORITY, PROJECT_STATUS, type Column, type Designer, type Priority, type Project, type ProjectStatus, type Task } from "./types";
@@ -55,7 +55,7 @@ export function ProjectDialog({ project, onClose, onSaved }: { project?: Project
         <div className="row2">
           <Select label="Status" value={status} onChange={(v: string) => setStatus(v as ProjectStatus)} options={toOptions(PROJECT_STATUS)} />
           <div style={{ opacity: recurring ? 0.45 : 1 }}>
-            <Text1 label="Due date" type="date" value={recurring ? "" : dueDate} onChange={(v) => { if (!recurring) setDue(v); }} />
+            <DateField label="Due date" clearable value={recurring ? "" : dueDate} onChange={(v) => { if (!recurring) setDue(v); }} />
           </div>
         </div>
         <Checkbox checked={recurring} onChange={(c: boolean) => { setRecurring(c); if (c) setDue(""); }} label="Recurring project (no due date)" aria-label="Recurring project (no due date)" />
@@ -117,7 +117,7 @@ export function TaskDialog({ projectId, task, designers, defaultStatus = "backlo
           <Select label="Priority" value={priority} onChange={(v: string) => setPriority(v as Priority)} options={toOptions(PRIORITY)} />
         </div>
         <div className="row2">
-          <Text1 label="Due date" type="date" value={dueDate} onChange={setDue} />
+          <DateField label="Due date" clearable value={dueDate} onChange={setDue} />
           <Select label="Assigned designer" value={assigneeId} onChange={(v: string) => setAssignee(v)} options={assigneeOptions(designers)} />
         </div>
         <Callout kind="client" title="Client-visible update" note="Shown to your client in their view.">

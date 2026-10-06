@@ -162,7 +162,7 @@ function cleanClient(body, partial = false) {
   return out;
 }
 
-const REQUEST_TYPES = ['Website design & development', 'Branding & identity', 'Product / app design', 'Marketing & campaign', 'Other'];
+const REQUEST_TYPES = ['Website design & development', 'Branding & identity', 'Product / app design', 'Other'];
 const MAX_REQUEST_DAYS = 730;
 
 /** A project request from the client onboarding flow. The estimate is never taken from the client: the server recomputes it. */

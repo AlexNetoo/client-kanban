@@ -1,18 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import { Button, Card, Heading, Text } from "./halaska-kit";
 import { api } from "./api";
-import { Area, Text1 } from "./fields";
+import { Area, DateField, Text1 } from "./fields";
 import { estimate, daysBetween, euro, unitLabel, RATES } from "./lib/pricing";
 import { formatDate } from "./lib/format";
 import { CheckIcon, PlusIcon, useToast } from "./ui";
 import { usePalette } from "./theme";
+import { DiscountChip } from "./chips";
 import { REQUEST_TYPES, type ProjectRequest } from "./types";
 
 const STEPS = ["Project", "Goals", "Timeline", "Estimate"] as const;
 const MAX_DAYS = 730;
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const addDays = (s: string, n: number) => { const d = new Date(s + "T00:00:00"); d.setDate(d.getDate() + n); return iso(d); };
-const PRESETS: [string, number][] = [["2 weeks", 14], ["1 month", 30], ["2 months", 60], ["3 months", 90], ["6 months", 180]];
+const PRESETS: [string, number][] = [["2 weeks", 14], ["1 month", 30], ["2 months", 60], ["3 months", 90], ["6 months", 180], ["1 year", 365]];
 
 /** Eases a number toward its target so the estimate feels alive when it changes. */
 function useCountUp(target: number, ms = 700) {
@@ -42,7 +43,10 @@ function EstimatePanel({ days, ready, final = false }: { days: number; ready: bo
       <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.09em", fontWeight: 700, color: pal.textTertiary }}>{final ? "Your estimate" : "Estimate so far"}</div>
       {!est ? <Text size="sm" secondary>Choose your start and due dates in the Timeline step and the budget appears here.</Text> : <>
         <div>
-          <div aria-live="polite" style={{ fontSize: final ? 44 : 34, fontWeight: 600, letterSpacing: "-0.03em", lineHeight: 1.05, fontVariantNumeric: "tabular-nums" }}>{euro(total)}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <div aria-live="polite" style={{ fontSize: final ? 44 : 34, fontWeight: 600, letterSpacing: "-0.03em", lineHeight: 1.05, fontVariantNumeric: "tabular-nums" }}>{euro(total)}</div>
+            <DiscountChip total={est.total} days={est.days} />
+          </div>
           <Text size="sm" secondary>for {est.days} {est.days === 1 ? "day" : "days"} of work</Text>
         </div>
         <ul style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13, borderTop: `1px solid ${pal.border}`, paddingTop: 12 }}>
@@ -187,8 +191,8 @@ export function Onboarding() {
 
               {step === 2 && <>
                 <div className="row2">
-                  <Text1 label="Start date" required type="date" value={startDate} onChange={(v) => { setStart(v); if (dueDate && v > dueDate) setDue(""); }} />
-                  <Text1 label="Due date" required type="date" value={dueDate} onChange={setDue} />
+                  <DateField label="Start date" required value={startDate} onChange={(v) => { setStart(v); if (dueDate && v > dueDate) setDue(""); }} />
+                  <DateField label="Due date" required value={dueDate} onChange={setDue} />
                 </div>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>Or pick a duration</div>

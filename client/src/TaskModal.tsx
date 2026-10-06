@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { DateField } from "./fields";
 import { Button, Checkbox, Select, TextArea, Text } from "./halaska-kit";
 import { api } from "./api";
 import { assigneeOptions } from "./dialogs";
@@ -139,8 +140,7 @@ export function TaskModal({ task: t, projectName, designers, onClose, onChange, 
               ? <Select label="Priority" value={t.priority} onChange={(v: string) => patch({ priority: v as Priority }, "Priority updated")} options={PRIORITY_OPTIONS} />
               : <PriorityChip priority={t.priority} />, owner)}
             {row("Due date", owner
-              ? <input type="date" aria-label="Due date" value={t.dueDate} onChange={(e) => patch({ dueDate: e.target.value }, "Due date updated")}
-                style={{ font: "inherit", fontSize: 14, color: pal.text, background: pal.bgInput, border: `1px solid ${pal.border}`, borderRadius: 12, padding: "8px 10px", width: "100%" }} />
+              ? <DateField label="Due date" clearable value={t.dueDate} onChange={(v) => patch({ dueDate: v }, "Due date updated")} />
               : <span style={{ fontSize: 14 }}>{t.dueDate ? formatDate(t.dueDate) : "No due date"}</span>)}
           </div>
           <p style={{ margin: 0, fontSize: 12, color: pal.textTertiary, lineHeight: 1.7 }}>

@@ -3,6 +3,7 @@ import { Button, Card, Text } from "./halaska-kit";
 import { api } from "./api";
 import { euro, unitLabel } from "./lib/pricing";
 import { formatDate } from "./lib/format";
+import { DiscountChip } from "./chips";
 import { ConfirmDialog, useToast } from "./ui";
 import { useTheme, usePalette } from "./theme";
 import type { ProjectRequest } from "./types";
@@ -41,6 +42,7 @@ export function RequestList({ requests, admin = false, onChange }: { requests: P
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums" }}>{euro(r.estimate.total)}</div>
+                  <DiscountChip total={r.estimate.total} days={r.days} />
                   <Text size="sm" secondary>{r.estimate.lines.map(unitLabel).join(" + ")}</Text>
                 </div>
               </div>

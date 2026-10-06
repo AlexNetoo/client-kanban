@@ -1,4 +1,5 @@
 import { useTheme } from "./theme";
+import { discountPercent } from "./lib/pricing";
 import { PRIORITY, PROJECT_STATUS, type Priority, type ProjectStatus } from "./types";
 
 // The only coloured elements in an otherwise grayscale UI. Each chip also carries a text label (and a
@@ -32,3 +33,11 @@ export function StatusChip({ status }: { status: ProjectStatus }) {
 }
 
 export const statusDotColor = (status: ProjectStatus, scheme: "light" | "dark") => STATUS_COLORS[status][scheme].fg;
+
+/** Green chip showing how much cheaper the estimate is than paying the day rate. Renders nothing when there is no saving. */
+export function DiscountChip({ total, days }: { total: number; days: number }) {
+  const pct = discountPercent(total, days);
+  const c = STATUS_COLORS.active[useTheme()];
+  if (pct <= 0) return null;
+  return <span title="Compared with paying the day rate for every day" style={{ ...base, background: c.bg, color: c.fg }}>{pct}% off day rate</span>;
+}
