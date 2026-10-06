@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type DragEvent } from "react";
 import { Badge, Button, Heading, Progress } from "./halaska-kit";
 import { api } from "./api";
 import { TaskDialog } from "./dialogs";
@@ -37,6 +37,17 @@ export function Board({ id, taskId }: { id: string; taskId?: string }) {
   const [dropBefore, setDropBefore] = useState<string>("end"); // the card the dragged one would land above, or "end"
   const dragId = useRef<string | null>(null);
   const root = useRef<HTMLDivElement>(null);
+
+  // The board fills the rest of the screen: columns scroll up and down on their own and the board scrolls sideways at the bottom
+  // of the window, so there is no long page to scroll before reaching the horizontal scrollbar.
+  const boardRef = useRef<HTMLDivElement>(null);
+  const fit = useCallback(() => {
+    const el = boardRef.current; if (!el) return;
+    const top = el.getBoundingClientRect().top + window.scrollY;
+    el.style.setProperty("--board-h", `${Math.max(460, window.innerHeight - top - 16)}px`);
+  }, []);
+  useLayoutEffect(() => { fit(); });
+  useEffect(() => { window.addEventListener("resize", fit); const t = window.setTimeout(fit, 400); return () => { window.removeEventListener("resize", fit); window.clearTimeout(t); }; }, [fit]);
 
   const focusTask = (taskId?: string) => setTimeout(() => root.current?.querySelector<HTMLElement>(`[data-task-id="${taskId}"] .task-title`)?.focus(), 0);
 
@@ -110,7 +121,7 @@ export function Board({ id, taskId }: { id: string; taskId?: string }) {
   };
 
   return (
-    <div ref={root}>
+    <div ref={root} className="board-page">
       <a href="#/" style={{ display: "inline-block", marginBottom: 14, color: pal.textSecondary, fontSize: 14 }}>← {owner ? "All projects" : "My projects"}</a>
       {!owner && <p style={{ marginBottom: 14, fontSize: 14, color: pal.textSecondary }}>{me.role === "client" ? "You’re viewing this board. Open a task to read the details and leave a comment." : "You can add tasks, move your own between columns and comment on any task here."}</p>}
       <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-start", gap: 16, marginBottom: 20 }}>
@@ -140,7 +151,7 @@ export function Board({ id, taskId }: { id: string; taskId?: string }) {
 
       {canAdd && project.total === 0 && <div style={{ marginBottom: 20 }}><StateBlock title="No tasks yet" description="Add the first task to start this board." action={<Button onClick={() => setEditing({ status: "todo" })}>Add task</Button>} /></div>}
 
-      <div className="board" role="group" aria-label="Kanban board">
+      <div ref={boardRef} className="board" role="group" aria-label="Kanban board">
         {COLUMNS.map((col) => {
           const items = tasks.filter((t) => t.status === col.id);
           return (

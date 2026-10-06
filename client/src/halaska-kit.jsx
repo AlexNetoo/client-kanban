@@ -6,7 +6,8 @@
  * Single-file React kit: import { Button, Orb, PlanPreviewPattern } from "./halaska-kit"
  */
 
-import { useState, useRef, useEffect, useCallback, createContext, useContext, Fragment, cloneElement, isValidElement } from "react";
+import { createPortal } from "react-dom";
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, createContext, useContext, Fragment, cloneElement, isValidElement } from "react";
 
 // shadcn/ui components available in Claude artifacts:
 // Badge, Button, Card, Checkbox, Input, Label, Progress, RadioGroup,
@@ -3247,6 +3248,15 @@ function DropdownMenu({ trigger, items, theme: tp }) {
   const [hoverIdx, setHoverIdx] = useState(-1);
   const rootRef = useRef(null);
   const menuRef = useRef(null);
+  // The menu is drawn in a portal at fixed coordinates, so scrolling parents (like a board column) and transformed cards can't clip or displace it.
+  const [pos, setPos] = useState({ top: 0, right: 0 });
+  useLayoutEffect(() => {
+    if (!open || !rootRef.current) return;
+    const r = rootRef.current.getBoundingClientRect();
+    const h = menuRef.current ? menuRef.current.offsetHeight : 0;
+    const below = r.bottom + 6; const flip = below + h > window.innerHeight - 8 && r.top - 6 - h > 8;
+    setPos({ top: flip ? r.top - 6 - h : below, right: Math.max(8, window.innerWidth - r.right) });
+  }, [open]);
   const close = (refocus) => {
     setOpen(false);
     if (refocus) rootRef.current?.querySelector("[data-menu-trigger] button, [data-menu-trigger] [tabindex]")?.focus();
@@ -3257,15 +3267,18 @@ function DropdownMenu({ trigger, items, theme: tp }) {
     if (viaKeyboard) setTimeout(() => focusFirstItem(menuRef.current), 0);
   };
   return (
+    <>
     <div ref={rootRef} style={{ position: "relative", display: "inline-flex" }}>
       <div data-menu-trigger
         onClick={(e) => (open ? close() : openMenu(e.detail === 0))}
         onKeyDown={(e) => { if (e.key === "ArrowDown" && !open) { e.preventDefault(); openMenu(true); } }}>{withPopupState(trigger, open, "menu")}</div>
-      {open && <div onClick={() => close()} style={{ position: "fixed", inset: 0, zIndex: 9999 }} />}
+      </div>
+    {open && createPortal(<>
+      <div onClick={() => close()} style={{ position: "fixed", inset: 0, zIndex: 9999 }} />
       <div ref={menuRef} role="menu" aria-hidden={!open}
         onKeyDown={(e) => { if (e.key === "Tab") { close(); return; } arrowNav(e, { horizontal: false, onEscape: () => close(true) }); }}
         style={{
-        position: "absolute", top: "100%", right: 0, marginTop: 6, zIndex: 10000,
+        position: "fixed", top: pos.top, right: pos.right, zIndex: 10000,
         background: theme === "dark" ? "rgba(30,30,30,0.95)" : "rgba(255,255,255,0.95)",
         backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
         border: `1px solid ${pal.borderSubtle}`, borderRadius: tokens.radius.md,
@@ -3292,7 +3305,8 @@ function DropdownMenu({ trigger, items, theme: tp }) {
           </button>
         ))}
       </div>
-    </div>
+    </>, document.body)}
+    </>
   );
 }
 

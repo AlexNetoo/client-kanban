@@ -48,6 +48,8 @@ export function useTouchDrag(opts: Opts) {
       if (!active) return;
       const board = el.closest<HTMLElement>(".board");
       if (board) { const r = board.getBoundingClientRect(); if (x < r.left + 56) board.scrollLeft -= 14; else if (x > r.right - 56) board.scrollLeft += 14; }
+      const list = (document.elementFromPoint(x, y) as HTMLElement | null)?.closest<HTMLElement>("ul.cards");
+      if (list) { const lr = list.getBoundingClientRect(); if (y < lr.top + 56) list.scrollTop -= 12; else if (y > lr.bottom - 56) list.scrollTop += 12; }
       if (y < 90) window.scrollBy(0, -14); else if (y > window.innerHeight - 90) window.scrollBy(0, 14);
       if (ghost) ghost.style.transform = `translate(${x - ox}px, ${y - oy}px) rotate(1.5deg)`;
       hover(); raf = requestAnimationFrame(tick);
