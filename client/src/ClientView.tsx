@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Button, Progress, Text } from "./halaska-kit";
 import { api } from "./api";
 import { DueLabel } from "./Dashboard";
+import { Linkify } from "./Linkify";
 import { StatusChip } from "./chips";
 import { CheckIcon, EyeIcon, Loading, StateBlock } from "./ui";
 import { usePalette } from "./theme";
@@ -80,8 +81,8 @@ export function ClientView({ token, role }: { token: string; role: "owner" | "cl
                         <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
                           {t.title}{t.dueDate && s.id !== "done" && <DueLabel date={t.dueDate} />}
                         </h3>
-                        {t.description && <p style={{ marginTop: 4, fontSize: 14, color: pal.textSecondary }}>{t.description}</p>}
-                        {t.clientUpdate && <p style={{ marginTop: 10, borderLeft: `2px solid ${pal.text}`, padding: "2px 0 2px 12px", fontSize: 14 }}><strong>Update: </strong>{t.clientUpdate}</p>}
+                        {t.description && <p style={{ marginTop: 4, fontSize: 14, color: pal.textSecondary, overflowWrap: "anywhere" }}><Linkify text={t.description} /></p>}
+                        {t.clientUpdate && <p style={{ marginTop: 10, borderLeft: `2px solid ${pal.text}`, padding: "2px 0 2px 12px", fontSize: 14 }}><strong>Update: </strong><Linkify text={t.clientUpdate} /></p>}
                       </li>
                     ))}
                   </ul>

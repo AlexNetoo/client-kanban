@@ -12,9 +12,9 @@ export const Area = (p: { label: string; value: string; onChange: (v: string) =>
 const toDate = (iso: string) => (iso ? new Date(iso + "T00:00:00") : null);
 const toIso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 /** Themed date picker (the kit's calendar) working with YYYY-MM-DD strings, replacing the browser's native date input. */
-export const DateField = (p: { label: string; value: string; onChange: (v: string) => void; required?: boolean; clearable?: boolean; placeholder?: string }) => (
+export const DateField = (p: { label: string; value: string; onChange: (v: string) => void; required?: boolean; clearable?: boolean; placeholder?: string; bare?: boolean }) => (
   <div className="datefield">
-    <DatePicker label={p.label + (p.required ? " *" : "")} placeholder={p.placeholder ?? "Pick a date"} value={toDate(p.value)} onChange={(d: Date) => p.onChange(toIso(d))} />
+    <DatePicker label={p.bare ? undefined : p.label + (p.required ? " *" : "")} placeholder={p.placeholder ?? "Pick a date"} value={toDate(p.value)} onChange={(d: Date) => p.onChange(toIso(d))} />
     {p.clearable && p.value && <Button type="button" variant="ghost" size="sm" onClick={() => p.onChange("")} aria-label={`Clear ${p.label}`}>Clear</Button>}
   </div>
 );

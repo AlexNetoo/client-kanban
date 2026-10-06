@@ -67,6 +67,7 @@ export const api = {
   declineRequest: (id: string) => request<ProjectRequest>("POST", `/api/requests/${id}/decline`, {}),
   deleteRequest: (id: string) => request<{ ok: true }>("DELETE", `/api/requests/${id}`),
   aiAssist: (projectId: string, message: string, history: { role: "user" | "assistant"; text: string }[]) => request<{ reply: string; actions: AiAction[] }>("POST", "/api/ai/assist", { projectId, message, history }),
+  figmaPreview: (url: string, taskId: string) => request<{ configured?: boolean; error?: boolean; name?: string; lastModified?: string; image?: string }>("GET", `/api/figma-preview?task=${encodeURIComponent(taskId)}&url=${encodeURIComponent(url)}`),
   clientView: (token: string) => request<{ project: ClientProject; tasks: ClientTask[] }>("GET", `/api/client/${encodeURIComponent(token)}`),
 };
 

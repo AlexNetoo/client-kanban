@@ -10,6 +10,7 @@ const { LocalFiles, BlobFiles } = require('./files');
 const { COLUMNS, HttpError, cleanProject, cleanTask, cleanComment, cleanDesigner, cleanLink, cleanAttachment, cleanClient, cleanRequest, MAX_REQUEST_DAYS } = require('./validate');
 const { estimate, daysBetween } = require('./pricing');
 const { assist } = require('./ai');
+const { parseFigma, fetchPreview } = require('./figma');
 
 const crypto = require('crypto');
 const PUBLIC_DIR = path.join(ROOT, 'web');
@@ -318,6 +319,28 @@ function createApp(config) {
     return store.updateDesigner(params.id, { ...fields, ...(password ? { passwordHash: hashPassword(password) } : {}) });
   });
   route('DELETE', '/api/designers/:id', 'owner', ({ params }) => { store.deleteDesigner(params.id); return { ok: true }; });
+
+  // ---- Figma link previews: only for links that appear in a task the caller can open (so nobody can probe other files) ----
+  const figmaCache = new Map(); // key:node -> { at, value }
+  route('GET', '/api/figma-preview', 'any', ({ req, session }) => {
+    const q = new URL(req.url, 'http://localhost').searchParams;
+    const link = parseFigma(q.get('url'));
+    if (!link) throw new HttpError(400, 'Not a Figma link');
+    if (!config.figmaToken) return { configured: false };
+    const task = outTask(session, taskFor(session, String(q.get('task') || '')));
+    const text = JSON.stringify([task.description, task.clientUpdate, task.comments]);
+    if (!text.includes(link.key)) throw new HttpError(404, 'That link isn’t in this task');
+    const id = `${link.key}:${link.node}`;
+    const hit = figmaCache.get(id);
+    if (hit && Date.now() - hit.at < 10 * 60e3) return hit.value;
+    // network calls run after the data transaction ends
+    return { after: async (res) => {
+      let value;
+      try { value = await fetchPreview({ token: config.figmaToken, baseUrl: config.figmaBaseUrl }, link); figmaCache.set(id, { at: Date.now(), value }); }
+      catch (e) { console.error('figma preview failed', e.message); value = { configured: true, error: true }; }
+      sendJson(res, 200, value);
+    } };
+  });
 
   // ---- AI assistant (admin and designers): proposes task changes for a project; the browser applies the approved ones ----
   const aiUse = new Map(); // best-effort per-user limit (per server instance): 30 requests an hour

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { DateField } from "./fields";
+import { Linkify, LinkTaskContext } from "./Linkify";
 import { Button, Checkbox, Select, TextArea, Text } from "./halaska-kit";
 import { api } from "./api";
 import { assigneeOptions } from "./dialogs";
@@ -59,6 +60,7 @@ export function TaskModal({ task: t, projectName, designers, onClose, onChange, 
   );
 
   return (
+    <LinkTaskContext.Provider value={t.id}>
     <WideModal open onClose={onClose} label={`Task: ${t.title}`} header={<span>{projectName} <span aria-hidden="true">/</span> <span style={{ color: pal.text, fontWeight: 600 }}>Task</span></span>}>
       <div className="task-modal">
         <div className="task-main">
@@ -73,7 +75,7 @@ export function TaskModal({ task: t, projectName, designers, onClose, onChange, 
 
           <section aria-label="Description">
             {h("Description")}
-            {t.description ? <p style={{ fontSize: 15, lineHeight: 1.65, whiteSpace: "pre-wrap", margin: 0 }}>{t.description}</p> : <Text size="sm" secondary>No description yet.</Text>}
+            {t.description ? <p style={{ fontSize: 15, lineHeight: 1.65, whiteSpace: "pre-wrap", overflowWrap: "anywhere", margin: 0 }}><Linkify text={t.description} /></p> : <Text size="sm" secondary>No description yet.</Text>}
           </section>
 
           <Attachments task={t} onChange={onChange} />
@@ -83,7 +85,7 @@ export function TaskModal({ task: t, projectName, designers, onClose, onChange, 
           {t.clientUpdate && (
             <section aria-label="Client-visible update" style={{ border: `1px solid ${pal.text}`, borderRadius: 16, padding: 16 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, fontSize: 13 }}><EyeIcon /> Client-visible update</div>
-              <p style={{ margin: "8px 0 0", fontSize: 15, lineHeight: 1.6 }}>{t.clientUpdate}</p>
+              <p style={{ margin: "8px 0 0", fontSize: 15, lineHeight: 1.6, overflowWrap: "anywhere" }}><Linkify text={t.clientUpdate} /></p>
               {t.clientUpdateAt && <p style={{ margin: "6px 0 0", fontSize: 12, color: pal.textTertiary }}>Posted {formatDateTime(t.clientUpdateAt)}</p>}
             </section>
           )}
@@ -120,7 +122,7 @@ export function TaskModal({ task: t, projectName, designers, onClose, onChange, 
                           {(owner || c.authorId === me.designer?.id || c.authorId === me.client?.id) && <Button variant="ghost" size="sm" aria-label={`Delete comment by ${c.authorName}`} onClick={() => removeComment(c.id)}>Delete</Button>}
                         </span>
                       </div>
-                      <p style={{ margin: "4px 0 0", fontSize: 15, lineHeight: 1.6, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{c.text}</p>
+                      <p style={{ margin: "4px 0 0", fontSize: 15, lineHeight: 1.6, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}><Linkify text={c.text} /></p>
                     </div>
                   </li>
                 ))}
@@ -141,7 +143,7 @@ export function TaskModal({ task: t, projectName, designers, onClose, onChange, 
               ? <Select label="Priority" value={t.priority} onChange={(v: string) => patch({ priority: v as Priority }, "Priority updated")} options={PRIORITY_OPTIONS} />
               : <PriorityChip priority={t.priority} />, canEdit)}
             {row("Due date", canEdit
-              ? <DateField label="Due date" clearable value={t.dueDate} onChange={(v) => patch({ dueDate: v }, "Due date updated")} />
+              ? <DateField label="Due date" bare clearable value={t.dueDate} onChange={(v) => patch({ dueDate: v }, "Due date updated")} />
               : <span style={{ fontSize: 14 }}>{t.dueDate ? formatDate(t.dueDate) : "No due date"}</span>)}
           </div>
           <p style={{ margin: 0, fontSize: 12, color: pal.textTertiary, lineHeight: 1.7 }}>
@@ -150,5 +152,6 @@ export function TaskModal({ task: t, projectName, designers, onClose, onChange, 
         </aside>
       </div>
     </WideModal>
+    </LinkTaskContext.Provider>
   );
 }

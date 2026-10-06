@@ -39,6 +39,9 @@ function loadConfig(env = process.env) {
     blobPath: env.BLOB_DB_PATH || 'client-kanban/db.json',
     secureCookies: bool(env.COOKIE_SECURE, env.NODE_ENV === 'production'),
     trustProxy: bool(env.TRUST_PROXY, false),
+    // Figma link previews (optional): a personal access token with file read access adds the file name, date and thumbnail.
+    figmaToken: env.FIGMA_ACCESS_TOKEN || '',
+    figmaBaseUrl: (env.FIGMA_API_BASE || 'https://api.figma.com').replace(/\/+$/, ''),
     // AI assistant (optional): leave ANTHROPIC_API_KEY unset to switch it off.
     aiKey: env.ANTHROPIC_API_KEY || '',
     aiModel: env.AI_MODEL || 'claude-sonnet-5-5',
