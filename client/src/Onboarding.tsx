@@ -13,7 +13,7 @@ const STEPS = ["Project", "Goals", "Timeline", "Estimate"] as const;
 const MAX_DAYS = 730;
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const addDays = (s: string, n: number) => { const d = new Date(s + "T00:00:00"); d.setDate(d.getDate() + n); return iso(d); };
-const PRESETS: [string, number][] = [["2 weeks", 14], ["1 month", 30], ["2 months", 60], ["3 months", 90], ["6 months", 180], ["1 year", 365]];
+const PRESETS: [string, number][] = [["2 weeks", 14], ["1 month", 30], ["3 months", 90], ["6 months", 180], ["1 year", 365]];
 
 /** Eases a number toward its target so the estimate feels alive when it changes. */
 function useCountUp(target: number, ms = 700) {
