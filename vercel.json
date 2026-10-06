@@ -2,7 +2,7 @@
   "functions": {
     "api/index.js": {
       "includeFiles": "{web/**,server/**}",
-      "maxDuration": 10
+      "maxDuration": 60
     }
   },
   "rewrites": [

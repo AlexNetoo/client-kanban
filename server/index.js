@@ -9,6 +9,7 @@ const { FilePersistence, BlobPersistence } = require('./persist');
 const { LocalFiles, BlobFiles } = require('./files');
 const { COLUMNS, HttpError, cleanProject, cleanTask, cleanComment, cleanDesigner, cleanLink, cleanAttachment, cleanClient, cleanRequest, MAX_REQUEST_DAYS } = require('./validate');
 const { estimate, daysBetween } = require('./pricing');
+const { assist } = require('./ai');
 
 const crypto = require('crypto');
 const PUBLIC_DIR = path.join(ROOT, 'web');
@@ -129,7 +130,7 @@ function createApp(config) {
     res.setHeader('Set-Cookie', cookie('', 0));
     return { ok: true };
   });
-  route('GET', '/api/session', 'any', ({ session }) => ({ role: session.role, designer: session.designer, client: session.client, expiresAt: session.exp, columns: COLUMNS, maxUploadBytes: maxBytes }));
+  route('GET', '/api/session', 'any', ({ session }) => ({ role: session.role, designer: session.designer, client: session.client, expiresAt: session.exp, columns: COLUMNS, maxUploadBytes: maxBytes, ai: !!config.aiKey && session.role !== 'client' }));
 
   const isDesigner = (s) => s.role === 'designer';
   const isClient = (s) => s.role === 'client';
@@ -317,6 +318,25 @@ function createApp(config) {
     return store.updateDesigner(params.id, { ...fields, ...(password ? { passwordHash: hashPassword(password) } : {}) });
   });
   route('DELETE', '/api/designers/:id', 'owner', ({ params }) => { store.deleteDesigner(params.id); return { ok: true }; });
+
+  // ---- AI assistant (admin and designers): proposes task changes for a project; the browser applies the approved ones ----
+  const aiUse = new Map(); // best-effort per-user limit (per server instance): 30 requests an hour
+  route('POST', '/api/ai/assist', 'staff', async ({ body, session }) => {
+    if (!config.aiKey) throw new HttpError(503, 'The AI assistant isn’t set up yet. The admin needs to add ANTHROPIC_API_KEY.');
+    const key = `${session.role}:${session.uid || 'owner'}`;
+    const now = Date.now();
+    const recent = (aiUse.get(key) || []).filter((t) => now - t < 3600e3);
+    if (recent.length >= 30) throw new HttpError(429, 'You’ve reached the hourly limit for the assistant. Try again later.');
+    aiUse.set(key, [...recent, now]);
+    if (!body || typeof body.projectId !== 'string' || typeof body.message !== 'string' || !body.message.trim() || body.message.length > 2000) throw new HttpError(400, 'Write a request of up to 2000 characters.');
+    if (restricted(session) && !visibleIds(session).has(body.projectId)) throw new HttpError(404, 'Project not found');
+    const project = store.getProject(body.projectId);
+    const history = (Array.isArray(body.history) ? body.history : []).slice(-6)
+      .filter((h) => h && typeof h.text === 'string' && (h.role === 'user' || h.role === 'assistant')).map((h) => ({ role: h.role, text: h.text }));
+    const input = { project: { ...project }, tasks: store.tasksFor(project.id).map((t) => ({ ...t })), designers: store.listDesigners(), history, message: body.message.trim(), today: new Date().toISOString().slice(0, 10) };
+    // The slow model call runs after the data transaction ends, so it never blocks other requests.
+    return { after: async (res) => sendJson(res, 200, await assist({ key: config.aiKey, model: config.aiModel, baseUrl: config.aiBaseUrl }, input)) };
+  });
 
   // ---- Euro to US dollar rate for the estimate's currency switch (ECB reference rate via frankfurter.dev, cached 6 hours) ----
   let fxCache = null;

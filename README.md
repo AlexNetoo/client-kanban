@@ -33,6 +33,7 @@ npm run dev:web     # optional Vite dev server on :5173 (proxies /api to :3000)
 | `ATTACH_MAX_MB` | no | max attachment size in MB, default `25` |
 | `BLOB_DB_PATH` / `STORAGE` | no | blob pathname (default `client-kanban/db.json`) / `file` to force the file backend |
 | `COOKIE_SECURE` | no | defaults to true when `NODE_ENV=production`; keep it on behind HTTPS |
+| `ANTHROPIC_API_KEY` | no | Turns on the **AI assistant** for the admin and designers. Leave unset to keep it off. Optional: `AI_MODEL` (default `claude-sonnet-5-5`) |
 | `TRUST_PROXY` | no | `true` if behind a proxy that sets `X-Forwarded-For` (used for login rate limiting) |
 
 `.env` and `data/` are git-ignored. Never commit them.
@@ -147,3 +148,7 @@ scripts/  setup.js      test/  api.test.js
 - No email invites or password-reset emails: the admin sets and resets passwords.
 - Rate limiting is per process and in memory, so on serverless it is per instance (best effort). The whole database is one document: fine for a freelancer-sized team, not for heavy concurrent writing.
 - No real-time sync between browser tabs, no file attachments, no per-client passwords (one client password for all clients; isolation is by link token).
+
+## AI assistant
+
+Admins and designers get an **AI assistant** button on every project board. It can break a project into tasks, write task descriptions, tidy titles and priorities, and edit existing tasks. It only *proposes* changes: each one is shown with a checkbox, and the browser applies the ticked ones through the normal task API, so a designer's limits (no private notes, no client updates) still hold. The assistant is sent the project, its tasks and the designer names. It is never sent private notes, client updates, comments or attachments. Requests run on the server (`server/ai.js`) after the data transaction ends, are limited to 30 an hour per person, and are switched off until `ANTHROPIC_API_KEY` is set.

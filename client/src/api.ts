@@ -1,5 +1,5 @@
 import { demoRequest, isDemo } from "./demo";
-import type { ProjectRequest, RequestInput, ClientAccount, ClientProject, ClientTask, Designer, Project, ProjectInput, Task, TaskInput, TaskLink, TaskSearchResult } from "./types";
+import type { AiAction, ProjectRequest, RequestInput, ClientAccount, ClientProject, ClientTask, Designer, Project, ProjectInput, Task, TaskInput, TaskLink, TaskSearchResult } from "./types";
 
 export interface UploadTarget { url: string; method: string; headers: Record<string, string> }
 
@@ -33,7 +33,7 @@ async function request<T>(method: string, url: string, body?: unknown): Promise<
 
 export const api = {
   login: (password: string, opts: { email?: string; as?: "owner" | "designer" | "client" } = {}) => request<{ role: string }>("POST", "/api/login", opts.email ? { email: opts.email, password, as: opts.as } : { password, as: "owner" }),
-  session: () => request<{ role: "owner" | "client" | "designer"; designer?: { id: string; name: string }; client?: { id: string; name: string }; expiresAt?: number; maxUploadBytes?: number }>("GET", "/api/session"),
+  session: () => request<{ role: "owner" | "client" | "designer"; designer?: { id: string; name: string }; client?: { id: string; name: string }; expiresAt?: number; maxUploadBytes?: number; ai?: boolean }>("GET", "/api/session"),
   logout: () => request<{ ok: true }>("POST", "/api/logout", {}),
   listProjects: () => request<Project[]>("GET", "/api/projects"),
   getProject: (id: string) => request<{ project: Project; tasks: Task[] }>("GET", `/api/projects/${id}`),
@@ -66,6 +66,7 @@ export const api = {
   acceptRequest: (id: string) => request<ProjectRequest>("POST", `/api/requests/${id}/accept`, {}),
   declineRequest: (id: string) => request<ProjectRequest>("POST", `/api/requests/${id}/decline`, {}),
   deleteRequest: (id: string) => request<{ ok: true }>("DELETE", `/api/requests/${id}`),
+  aiAssist: (projectId: string, message: string, history: { role: "user" | "assistant"; text: string }[]) => request<{ reply: string; actions: AiAction[] }>("POST", "/api/ai/assist", { projectId, message, history }),
   clientView: (token: string) => request<{ project: ClientProject; tasks: ClientTask[] }>("GET", `/api/client/${encodeURIComponent(token)}`),
 };
 

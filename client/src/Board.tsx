@@ -2,12 +2,13 @@ import { useCallback, useEffect, useRef, useState, type DragEvent } from "react"
 import { Badge, Button, Heading, Progress } from "./halaska-kit";
 import { api } from "./api";
 import { TaskDialog } from "./dialogs";
+import { Assistant } from "./Assistant";
 import { TaskCard } from "./TaskCard";
 import { TaskModal } from "./TaskModal";
 import { StatusChip } from "./chips";
 import { useProjectsNav } from "./nav";
 import { DueLabel, ProjectMenu } from "./Dashboard";
-import { ConfirmDialog, EyeIcon, Loading, LockIcon, PlusIcon, StateBlock, useToast } from "./ui";
+import { ConfirmDialog, EyeIcon, SparkIcon, Loading, LockIcon, PlusIcon, StateBlock, useToast } from "./ui";
 import { usePalette } from "./theme";
 import { useMe } from "./session";
 import { COLUMNS, columnLabel, type Column, type Designer, type Project, type Task } from "./types";
@@ -22,6 +23,7 @@ export function Board({ id, taskId }: { id: string; taskId?: string }) {
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [error, setError] = useState<{ status: number; message: string } | null>(null);
+  const [assistantOpen, setAssistantOpen] = useState(false);
   const [editing, setEditing] = useState<{ task?: Task; status?: Column } | null>(null);
   const [deleting, setDeleting] = useState<Task | null>(null);
   const [designers, setDesigners] = useState<Designer[]>([]);
@@ -106,6 +108,7 @@ export function Board({ id, taskId }: { id: string; taskId?: string }) {
         </div>
         {canAdd && <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
           <Button icon={<PlusIcon />} onClick={() => setEditing({ status: "todo" })}>Add task</Button>
+          <Button variant="secondary" icon={<SparkIcon />} onClick={() => setAssistantOpen(true)}>AI assistant</Button>
           {owner && <>
           <Button variant="secondary" icon={<EyeIcon />} onClick={() => { location.hash = `#/c/${project.shareToken}`; }}>Client view</Button>
           <Button variant="secondary" onClick={() => { location.href = "/admin"; }}>Admin console</Button>
@@ -150,6 +153,7 @@ export function Board({ id, taskId }: { id: string; taskId?: string }) {
         })}
       </div>
 
+      {assistantOpen && <Assistant projectId={id} designers={designers} enabled={!!me.ai} isAdmin={owner} onClose={() => setAssistantOpen(false)} onApplied={() => load()} />}
       {editing && (
         <TaskDialog projectId={id} task={editing.task} designers={designers} defaultStatus={editing.status} onClose={() => setEditing(null)}
           onSaved={(t) => load(t.id)} onDelete={(t) => { setEditing(null); setDeleting(t); }} />

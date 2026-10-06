@@ -36,6 +36,9 @@ export interface ClientProject {
   counts: Record<Column, number>; total: number; updatedAt: string;
 }
 export interface ClientTask { id: string; title: string; description: string; status: Column; dueDate: string; clientUpdate: string; clientUpdateAt: string }
+export type AiAction =
+  | { type: "create_task"; fields: Partial<TaskInput> & { title: string } }
+  | { type: "update_task"; taskId: string; taskTitle: string; fields: Partial<TaskInput> };
 export type ProjectInput = Pick<Project, "name" | "client" | "status" | "dueDate" | "recurring" | "summary">;
 export type TaskInput = Pick<Task, "title" | "description" | "status" | "priority" | "dueDate" | "clientUpdate" | "privateNotes" | "assigneeId">;
 

@@ -39,6 +39,10 @@ function loadConfig(env = process.env) {
     blobPath: env.BLOB_DB_PATH || 'client-kanban/db.json',
     secureCookies: bool(env.COOKIE_SECURE, env.NODE_ENV === 'production'),
     trustProxy: bool(env.TRUST_PROXY, false),
+    // AI assistant (optional): leave ANTHROPIC_API_KEY unset to switch it off.
+    aiKey: env.ANTHROPIC_API_KEY || '',
+    aiModel: env.AI_MODEL || 'claude-sonnet-5-5',
+    aiBaseUrl: (env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com').replace(/\/+$/, ''),
   };
 }
 

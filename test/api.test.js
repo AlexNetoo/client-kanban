@@ -784,6 +784,64 @@ test('admin can assign projects to a designer directly', async () => {
   assert.deepStrictEqual((await call('GET', '/api/designers', { cookie: owner })).json.find((x) => x.id === d.json.id).projectIds, []);
 });
 
+test('AI assistant: proposes validated changes, hides private data, respects roles', async () => {
+  // not configured on the shared test app
+  const owner0 = (await login(OWNER_PW)).cookie;
+  const p0 = (await call('POST', '/api/projects', { cookie: owner0, body: { name: 'AI P0', client: 'X' } })).json;
+  assert.strictEqual((await call('POST', '/api/ai/assist', { cookie: owner0, body: { projectId: p0.id, message: 'hi' } })).res.status, 503);
+  assert.strictEqual((await call('GET', '/api/session', { cookie: owner0 })).json.ai, false);
+
+  // a fake Anthropic API
+  const http = require('http');
+  let seen = null; let reply;
+  const fake = http.createServer((req, res) => {
+    let b = ''; req.on('data', (c) => { b += c; }); req.on('end', () => { seen = { headers: req.headers, body: JSON.parse(b) }; res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ content: [{ type: 'tool_use', name: 'respond', input: reply(seen) }] })); });
+  });
+  await new Promise((r) => fake.listen(0, r));
+  const dir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-ai-'));
+  const { server: s2 } = createApp({ ownerHash: hashPassword(OWNER_PW), secret: 'y'.repeat(40), sessionMs: 3600_000, dataFile: path.join(dir2, 'db.json'), secureCookies: false, trustProxy: false, seedDemo: false,
+    aiKey: 'test-key', aiModel: 'test-model', aiBaseUrl: `http://localhost:${fake.address().port}` });
+  await new Promise((r) => s2.listen(0, r));
+  const b2 = `http://localhost:${s2.address().port}`;
+  const c2 = async (m, u, { body, cookie } = {}) => { const r = await fetch(b2 + u, { method: m, headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), ...(cookie ? { Cookie: cookie } : {}) }, body: body ? JSON.stringify(body) : undefined }); const t = await r.text(); let j; try { j = JSON.parse(t); } catch { /* */ } return { status: r.status, json: j, headers: r.headers }; };
+  try {
+    const lg = await c2('POST', '/api/login', { body: { password: OWNER_PW } });
+    const ck = lg.headers.get('set-cookie').split(';')[0];
+    assert.strictEqual((await c2('GET', '/api/session', { cookie: ck })).json.ai, true);
+    const P = (await c2('POST', '/api/projects', { cookie: ck, body: { name: 'Site', client: 'Acme' } })).json;
+    const T = (await c2('POST', `/api/projects/${P.id}/tasks`, { cookie: ck, body: { title: 'Existing', privateNotes: 'TOP-SECRET-NOTE', clientUpdate: 'x' } })).json;
+    reply = () => ({ reply: 'Here you go', actions: [
+      { type: 'create_task', title: 'Design homepage', description: 'Hero and nav', priority: 'high', dueDate: '2030-01-10', assigneeId: 'nobody' },
+      { type: 'create_task', description: 'no title, dropped' },
+      { type: 'create_task', title: 'Bad status', status: 'nonsense' },
+      { type: 'update_task', taskId: T.id, description: 'Better words', title: 'Existing' },
+      { type: 'update_task', taskId: 'not-a-task', title: 'x' },
+    ] });
+    const r = await c2('POST', '/api/ai/assist', { cookie: ck, body: { projectId: P.id, message: 'Plan the site', history: [{ role: 'user', text: 'earlier' }] } });
+    assert.strictEqual(r.status, 200, JSON.stringify(r.json));
+    assert.strictEqual(seen.headers['x-api-key'], 'test-key');
+    assert.strictEqual(seen.body.model, 'test-model');
+    assert.ok(!JSON.stringify(seen.body).includes('TOP-SECRET-NOTE'), 'private notes must never reach the AI');
+    assert.ok(JSON.stringify(seen.body).includes('Existing') && JSON.stringify(seen.body).includes('Plan the site'));
+    assert.deepStrictEqual(r.json.actions.map((a) => a.type), ['create_task', 'update_task']); // invalid ones dropped
+    assert.deepStrictEqual([r.json.actions[0].fields.title, r.json.actions[0].fields.priority, r.json.actions[0].fields.status, r.json.actions[0].fields.assigneeId], ['Design homepage', 'high', 'backlog', undefined]);
+    assert.deepStrictEqual(r.json.actions[1].fields, { description: 'Better words' }); // unchanged title not repeated
+    // nothing was applied by the server
+    assert.strictEqual((await c2('GET', `/api/projects/${P.id}`, { cookie: ck })).json.tasks.length, 1);
+    // validation, roles
+    assert.strictEqual((await c2('POST', '/api/ai/assist', { cookie: ck, body: { projectId: P.id, message: '   ' } })).status, 400);
+    assert.strictEqual((await c2('POST', '/api/ai/assist', { cookie: ck, body: { projectId: 'nope', message: 'hi' } })).status, 404);
+    const cl = await c2('POST', '/api/clients', { cookie: ck, body: { name: 'C', email: 'ai-client@example.com', password: 'client-pass-ai-1', projectIds: [P.id] } });
+    assert.strictEqual(cl.status, 201);
+    const cc = (await c2('POST', '/api/login', { body: { email: 'ai-client@example.com', password: 'client-pass-ai-1', as: 'client' } })).headers.get('set-cookie').split(';')[0];
+    assert.strictEqual((await c2('POST', '/api/ai/assist', { cookie: cc, body: { projectId: P.id, message: 'hi' } })).status, 403);
+    assert.strictEqual((await c2('GET', '/api/session', { cookie: cc })).json.ai, false);
+    assert.strictEqual((await c2('POST', '/api/designers', { cookie: ck, body: { name: 'D', email: 'ai-d@example.com', password: 'designer-pass-ai-1' } })).status, 201);
+    const dc = (await c2('POST', '/api/login', { body: { email: 'ai-d@example.com', password: 'designer-pass-ai-1', as: 'designer' } })).headers.get('set-cookie').split(';')[0];
+    assert.strictEqual((await c2('POST', '/api/ai/assist', { cookie: dc, body: { projectId: P.id, message: 'hi' } })).status, 404); // not their project
+  } finally { s2.close(); fake.close(); fs.rmSync(dir2, { recursive: true, force: true }); }
+});
+
 test('admin sign-in locks out after 5 wrong passwords, even for the right one', async () => {
   const bad = async () => (await call('POST', '/api/login', { body: { password: 'definitely-wrong-1' } })).res.status;
   for (let i = 0; i < 5; i += 1) assert.strictEqual(await bad(), 401);
