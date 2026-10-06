@@ -6,8 +6,9 @@ runIntro();
 import { App } from "./App";
 import { Providers } from "./theme";
 import { ToastProvider } from "./ui";
+import { CurrencyProvider } from "./currency";
 import { ErrorBoundary } from "./ErrorBoundary";
 
 createRoot(document.getElementById("root")!).render(
-  <StrictMode><Providers><ErrorBoundary><ToastProvider><App /></ToastProvider></ErrorBoundary></Providers></StrictMode>,
+  <StrictMode><Providers><ErrorBoundary><ToastProvider><CurrencyProvider><App /></CurrencyProvider></ToastProvider></ErrorBoundary></Providers></StrictMode>,
 );

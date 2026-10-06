@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { Button, Card, Heading, Text } from "./halaska-kit";
 import { api } from "./api";
 import { Area, DateField, Text1 } from "./fields";
-import { estimate, daysBetween, euro, unitLabel, RATES } from "./lib/pricing";
+import { estimate, daysBetween, unitLabel, RATES } from "./lib/pricing";
 import { formatDate } from "./lib/format";
 import { CheckIcon, PlusIcon, useToast } from "./ui";
 import { usePalette } from "./theme";
 import { DiscountChip } from "./chips";
+import { CurrencyToggle, FxNote, useMoney } from "./currency";
 import { REQUEST_TYPES, type ProjectRequest } from "./types";
 
 const STEPS = ["Project", "Goals", "Timeline", "Estimate"] as const;
@@ -34,13 +35,17 @@ function useCountUp(target: number, ms = 700) {
 
 function EstimatePanel({ days, ready, final = false }: { days: number; ready: boolean; final?: boolean }) {
   const pal = usePalette();
+  const { fmt: euro } = useMoney();
   const est = ready ? estimate(days) : null;
   const total = useCountUp(est?.total ?? 0);
   const daily = ready ? days * RATES.day : 0;
   const saving = est ? Math.max(0, daily - est.total) : 0;
   return (
     <Card padding={22} style={{ borderRadius: 16, display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.09em", fontWeight: 700, color: pal.textTertiary }}>{final ? "Your estimate" : "Estimate so far"}</div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+        <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.09em", fontWeight: 700, color: pal.textTertiary }}>{final ? "Your estimate" : "Estimate so far"}</div>
+        <CurrencyToggle />
+      </div>
       {!est ? <Text size="sm" secondary>Choose your start and due dates in the Timeline step and the budget appears here.</Text> : <>
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
@@ -58,7 +63,8 @@ function EstimatePanel({ days, ready, final = false }: { days: number; ready: bo
         </ul>
         {saving > 0 && <p style={{ fontSize: 12, color: pal.textSecondary }}>The best rate is applied for you: {euro(saving)} less than paying by the day.</p>}
       </>}
-      <p style={{ fontSize: 11, color: pal.textTertiary, lineHeight: 1.5 }}>Rates: {euro(RATES.day)} per day, {euro(RATES.week)} per week, {euro(RATES.month)} per month. An indicative estimate, confirmed after we review your brief.</p>
+      <p style={{ fontSize: 11, color: pal.textTertiary, lineHeight: 1.5 }}>Rates: {euro(RATES.day)} per day, {euro(RATES.week)} per week, {euro(RATES.month)} per month, {euro(RATES.year)} per year. An indicative estimate, confirmed after we review your brief.</p>
+      <FxNote />
     </Card>
   );
 }

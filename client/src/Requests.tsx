@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button, Card, Text } from "./halaska-kit";
 import { api } from "./api";
 import { euro, unitLabel } from "./lib/pricing";
+import { CurrencyToggle, FxNote, useMoney } from "./currency";
 import { formatDate } from "./lib/format";
 import { DiscountChip } from "./chips";
 import { ConfirmDialog, useToast } from "./ui";
@@ -22,6 +23,8 @@ export function RequestChip({ status }: { status: ProjectRequest["status"] }) {
 /** Submitted briefs. Clients see their own (read-only); the admin also gets Approve / Decline / Delete. */
 export function RequestList({ requests, admin = false, onChange }: { requests: ProjectRequest[]; admin?: boolean; onChange?: () => void }) {
   const pal = usePalette();
+  const money = useMoney();
+  const fmt = admin ? euro : money.fmt; // the admin always sees euro
   const toast = useToast();
   const [deleting, setDeleting] = useState<ProjectRequest | null>(null);
   const [busy, setBusy] = useState("");
@@ -31,6 +34,7 @@ export function RequestList({ requests, admin = false, onChange }: { requests: P
   };
   return (
     <>
+      {!admin && <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 10, marginBottom: 8 }}><FxNote /><CurrencyToggle /></div>}
       <ul style={{ display: "flex", flexDirection: "column", gap: 12 }} aria-label="Project requests">
         {requests.map((r) => (
           <li key={r.id} className="req-card">
@@ -41,7 +45,7 @@ export function RequestList({ requests, admin = false, onChange }: { requests: P
                   <Text size="sm" secondary>{admin ? `${r.clientName}${r.company ? ` · ${r.company}` : ""} · ` : ""}{r.type} · {formatDate(r.startDate)} to {formatDate(r.dueDate)} ({r.days} days)</Text>
                 </div>
                 <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums" }}>{euro(r.estimate.total)}</div>
+                  <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums" }}>{fmt(r.estimate.total)}</div>
                   <DiscountChip total={r.estimate.total} days={r.days} />
                   <Text size="sm" secondary>{r.estimate.lines.map(unitLabel).join(" + ")}</Text>
                 </div>

@@ -310,6 +310,21 @@ function createApp(config) {
   });
   route('DELETE', '/api/designers/:id', 'owner', ({ params }) => { store.deleteDesigner(params.id); return { ok: true }; });
 
+  // ---- Euro to US dollar rate for the estimate's currency switch (ECB reference rate via frankfurter.dev, cached 6 hours) ----
+  let fxCache = null;
+  route('GET', '/api/fx', 'public', async () => {
+    if (fxCache && Date.now() - fxCache.at < 6 * 3600e3) return fxCache.value;
+    try {
+      const r = await fetch('https://api.frankfurter.dev/v1/latest?base=EUR&symbols=USD', { signal: AbortSignal.timeout(4000) });
+      const j = await r.json();
+      if (!r.ok || !(j.rates && j.rates.USD > 0)) throw new Error('bad rate');
+      fxCache = { at: Date.now(), value: { rate: j.rates.USD, date: j.date, approximate: false } };
+      return fxCache.value;
+    } catch {
+      return fxCache ? fxCache.value : { rate: 1.08, date: '', approximate: true }; // keep the last good rate, else a rough one, clearly marked
+    }
+  });
+
   // ---- Project requests: clients submit a brief (the server prices it), the admin accepts or declines ----
   route('GET', '/api/requests', 'viewer', ({ session }) => store.listRequests(isClient(session) ? session.uid : undefined));
   route('POST', '/api/requests', 'client', ({ body, session }) => {
