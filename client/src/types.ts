@@ -17,7 +17,10 @@ export interface Project {
   id: string; shareToken: string; name: string; client: string; status: ProjectStatus; dueDate: string; summary: string;
   archived: boolean; createdAt: string; updatedAt: string; counts: Record<Column, number>; total: number; progress: number;
 }
+export interface Designer { id: string; name: string; role: string }
+export interface Comment { id: string; authorId: string; authorName: string; text: string; createdAt: string }
 export interface Task {
+  assigneeId: string; comments: Comment[];
   id: string; projectId: string; title: string; description: string; status: Column; priority: Priority; dueDate: string;
   clientUpdate: string; clientUpdateAt: string; privateNotes: string;
 }
@@ -27,4 +30,4 @@ export interface ClientProject {
 }
 export interface ClientTask { id: string; title: string; description: string; status: Column; dueDate: string; clientUpdate: string; clientUpdateAt: string }
 export type ProjectInput = Pick<Project, "name" | "client" | "status" | "dueDate" | "summary">;
-export type TaskInput = Pick<Task, "title" | "description" | "status" | "priority" | "dueDate" | "clientUpdate" | "privateNotes">;
+export type TaskInput = Pick<Task, "title" | "description" | "status" | "priority" | "dueDate" | "clientUpdate" | "privateNotes" | "assigneeId">;

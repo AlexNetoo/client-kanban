@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Badge, Button, Card, DropdownMenu, Heading, Progress, Stat, Tabs, Text } from "./halaska-kit";
 import { api } from "./api";
 import { ProjectDialog } from "./dialogs";
+import { TeamDialog } from "./TeamDialog";
 import { CalendarIcon, ConfirmDialog, Loading, PlusIcon, StateBlock, useToast } from "./ui";
 import { usePalette } from "./theme";
 import { formatDate, isOverdue } from "./lib/format";
@@ -63,6 +64,7 @@ export function Dashboard() {
   const [error, setError] = useState("");
   const [tab, setTab] = useState<"Active" | "Archived">("Active");
   const [creating, setCreating] = useState(false);
+  const [team, setTeam] = useState(false);
 
   const load = useCallback(async () => {
     setError("");
@@ -86,7 +88,10 @@ export function Dashboard() {
           <Heading level={1}>Projects</Heading>
           <Text secondary>Everything in flight, and how it looks to each client.</Text>
         </div>
-        <Button icon={<PlusIcon />} onClick={() => setCreating(true)}>New project</Button>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <Button variant="secondary" onClick={() => setTeam(true)}>Team</Button>
+          <Button icon={<PlusIcon />} onClick={() => setCreating(true)}>New project</Button>
+        </div>
       </div>
 
       <div className="stats">
@@ -109,7 +114,7 @@ export function Dashboard() {
         <ul className="grid" aria-label={`${tab} projects`}>
           {shown.map((p) => (
             <li key={p.id} style={{ display: "flex" }}>
-              <Card padding={22} style={{ width: "100%", display: "flex", flexDirection: "column", gap: 18 }}>
+              <Card padding={22} style={{ width: "100%", display: "flex", flexDirection: "column", gap: 18, borderRadius: 16 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
                   <div>
                     <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, letterSpacing: "-0.02em" }}><a href={`#/p/${p.id}`} style={{ textDecoration: "none" }}>{p.name}</a></h2>
@@ -133,6 +138,7 @@ export function Dashboard() {
           ))}
         </ul>
       )}
+      {team && <TeamDialog onClose={() => setTeam(false)} onChanged={() => {}} />}
       {creating && <ProjectDialog onClose={() => setCreating(false)} onSaved={load} />}
     </>
   );

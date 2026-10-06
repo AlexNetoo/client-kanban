@@ -8,3 +8,4 @@ export function isOverdue(iso: string, done = false) {
   return parse(iso) < t;
 }
 export const shortDate = (iso: string) => (iso ? new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "");
+export const formatDateTime = (iso: string) => new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });

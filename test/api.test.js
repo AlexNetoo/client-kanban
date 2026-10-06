@@ -105,6 +105,40 @@ test('project + task CRUD, move, archive hides from client, delete cascades', as
   assert.strictEqual((await call('GET', `/api/projects/${created.id}`, { cookie })).res.status, 404);
 });
 
+test('designers, assignment and comments are owner-only and never reach clients', async () => {
+  const { cookie } = await login(OWNER_PW);
+  const client = await login(CLIENT_PW);
+  const designers = (await call('GET', '/api/designers', { cookie })).json;
+  assert.ok(designers.length >= 3);
+  assert.strictEqual((await call('GET', '/api/designers', { cookie: client.cookie })).res.status, 403);
+  const projects = (await call('GET', '/api/projects', { cookie })).json;
+  const board = (await call('GET', `/api/projects/${projects[0].id}`, { cookie })).json;
+  const task = board.tasks[0];
+  // assign, reject unknown designer
+  const upd = await call('PATCH', `/api/tasks/${task.id}`, { cookie, body: { assigneeId: designers[0].id } });
+  assert.strictEqual(upd.json.assigneeId, designers[0].id);
+  assert.strictEqual((await call('PATCH', `/api/tasks/${task.id}`, { cookie, body: { assigneeId: 'nope' } })).res.status, 400);
+  // comments
+  const added = await call('POST', `/api/tasks/${task.id}/comments`, { cookie, body: { text: 'SECRET-COMMENT-TEXT', authorId: designers[1].id } });
+  assert.strictEqual(added.res.status, 201);
+  const c = added.json.comments.at(-1);
+  assert.strictEqual(c.authorName, designers[1].name);
+  assert.strictEqual((await call('POST', `/api/tasks/${task.id}/comments`, { cookie, body: { text: '' } })).res.status, 400);
+  assert.strictEqual((await call('POST', `/api/tasks/${task.id}/comments`, { cookie: client.cookie, body: { text: 'x' } })).res.status, 403);
+  const view = await call('GET', `/api/client/${projects[0].shareToken}`, { cookie: client.cookie });
+  assert.ok(!view.text.includes('SECRET-COMMENT-TEXT'));
+  assert.ok(view.json.tasks.every((x) => !('comments' in x) && !('assigneeId' in x) && !('privateNotes' in x)));
+  // delete comment; deleting a designer unassigns their tasks but keeps comment author names
+  assert.strictEqual((await call('DELETE', `/api/tasks/${task.id}/comments/${c.id}`, { cookie })).json.comments.some((x) => x.id === c.id), false);
+  const fresh = (await call('POST', '/api/designers', { cookie, body: { name: 'Temp Person', role: 'x' } })).json;
+  await call('PATCH', `/api/tasks/${task.id}`, { cookie, body: { assigneeId: fresh.id } });
+  await call('POST', `/api/tasks/${task.id}/comments`, { cookie, body: { text: 'bye', authorId: fresh.id } });
+  assert.strictEqual((await call('DELETE', `/api/designers/${fresh.id}`, { cookie })).res.status, 200);
+  const after = (await call('GET', `/api/projects/${projects[0].id}`, { cookie })).json.tasks.find((x) => x.id === task.id);
+  assert.strictEqual(after.assigneeId, '');
+  assert.strictEqual(after.comments.at(-1).authorName, 'Temp Person');
+});
+
 test('cross-origin writes are blocked', async () => {
   const { cookie } = await login(OWNER_PW);
   const res = await fetch(base + '/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: cookie, Origin: 'https://evil.example' }, body: '{}' });

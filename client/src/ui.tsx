@@ -79,4 +79,14 @@ export const PlusIcon = () => svg(<path d="M12 5v14M5 12h14" />);
 export const CalendarIcon = () => svg(<><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></>);
 export const CheckIcon = () => svg(<path d="M20 6 9 17l-5-5" />);
 
+/** Grayscale initials avatar (the kit's Avatar picks a hue per name). */
+export function Person({ name, size = 28 }: { name: string; size?: number }) {
+  const pal = usePalette();
+  const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("");
+  return (
+    <span aria-hidden="true" style={{ width: size, height: size, borderRadius: "50%", background: pal.bgMuted, color: pal.text, border: `1px solid ${pal.border}`,
+      display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: Math.round(size * 0.4), fontWeight: 700, flex: "none", letterSpacing: 0 }}>{initials}</span>
+  );
+}
+
 export const space = tokens.space;

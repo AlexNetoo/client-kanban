@@ -64,6 +64,7 @@ function cleanTask(body, partial = false) {
   if (has('dueDate')) out.dueDate = date(body, 'dueDate');
   if (has('status')) out.status = body.status === undefined ? 'backlog' : oneOf(body, 'status', STATUSES);
   if (has('priority')) out.priority = body.priority === undefined ? 'medium' : oneOf(body, 'priority', PRIORITIES);
+  if (has('assigneeId')) out.assigneeId = str(body, 'assigneeId', { max: 64 });
   if ('position' in body) {
     if (!Number.isInteger(body.position) || body.position < 0) throw new HttpError(400, 'position must be a non-negative integer');
     out.position = body.position;
@@ -71,4 +72,14 @@ function cleanTask(body, partial = false) {
   return out;
 }
 
-module.exports = { COLUMNS, STATUSES, PROJECT_STATUSES, PRIORITIES, HttpError, cleanProject, cleanTask };
+function cleanComment(body) {
+  if (!body || typeof body !== 'object') throw new HttpError(400, 'Invalid body');
+  return { text: str(body, 'text', { max: 1000, required: true }), authorId: str(body, 'authorId', { max: 64 }) || 'owner' };
+}
+
+function cleanDesigner(body) {
+  if (!body || typeof body !== 'object') throw new HttpError(400, 'Invalid body');
+  return { name: str(body, 'name', { max: 80, required: true }), role: str(body, 'role', { max: 80 }) };
+}
+
+module.exports = { cleanComment, cleanDesigner, COLUMNS, STATUSES, PROJECT_STATUSES, PRIORITIES, HttpError, cleanProject, cleanTask };

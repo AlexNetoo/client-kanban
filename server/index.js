@@ -5,7 +5,7 @@ const path = require('path');
 const { loadConfig, loadDotEnv, ROOT } = require('./config');
 const { verifyPassword, signSession, readSession, parseCookies } = require('./auth');
 const { Store } = require('./store');
-const { COLUMNS, HttpError, cleanProject, cleanTask } = require('./validate');
+const { COLUMNS, HttpError, cleanProject, cleanTask, cleanComment, cleanDesigner } = require('./validate');
 
 const PUBLIC_DIR = path.join(ROOT, 'web');
 const COOKIE = 'sid';
@@ -98,6 +98,13 @@ function createApp(config) {
     ({ status: 201, body: store.createTask(params.id, cleanTask(body)) }));
   route('PATCH', '/api/tasks/:id', 'owner', ({ params, body }) => store.updateTask(params.id, cleanTask(body, true)));
   route('DELETE', '/api/tasks/:id', 'owner', ({ params }) => { store.deleteTask(params.id); return { ok: true }; });
+
+  // ---- Owner: designers and task comments (internal; never part of the client view) ----
+  route('GET', '/api/designers', 'owner', () => store.listDesigners());
+  route('POST', '/api/designers', 'owner', ({ body }) => ({ status: 201, body: store.createDesigner(cleanDesigner(body)) }));
+  route('DELETE', '/api/designers/:id', 'owner', ({ params }) => { store.deleteDesigner(params.id); return { ok: true }; });
+  route('POST', '/api/tasks/:id/comments', 'owner', ({ params, body }) => ({ status: 201, body: store.addComment(params.id, cleanComment(body)) }));
+  route('DELETE', '/api/tasks/:id/comments/:cid', 'owner', ({ params }) => store.deleteComment(params.id, params.cid));
 
   // ---- Client view (owner or client session). Addressed by unguessable share token. ----
   route('GET', '/api/client/:token', 'any', ({ params }) => {

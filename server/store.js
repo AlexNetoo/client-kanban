@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { STATUSES, HttpError } = require('./validate');
-const { seed } = require('./seed');
+const { seed, seedDesigners } = require('./seed');
 
 const newToken = () => crypto.randomBytes(18).toString('base64url');
 
@@ -16,6 +16,61 @@ class Store {
       this.data = seed();
       this.save();
     }
+    this.migrate();
+  }
+
+  // Older data files predate designers, assignees and comments.
+  migrate() {
+    let changed = false;
+    if (!this.data.designers) { this.data.designers = seedDesigners(); changed = true; }
+    for (const t of this.data.tasks) {
+      if (!Array.isArray(t.comments)) { t.comments = []; changed = true; }
+      if (t.assigneeId === undefined) { t.assigneeId = ''; changed = true; }
+    }
+    if (changed) this.save();
+  }
+
+  checkAssignee(id) {
+    if (id && !this.data.designers.some((d) => d.id === id)) throw new HttpError(400, 'Unknown designer');
+  }
+
+  // ---- designers ----
+  listDesigners() { return this.data.designers; }
+
+  createDesigner(fields) {
+    const d = { id: crypto.randomUUID(), ...fields };
+    this.data.designers.push(d);
+    this.save();
+    return d;
+  }
+
+  deleteDesigner(id) {
+    if (!this.data.designers.some((d) => d.id === id)) throw new HttpError(404, 'Designer not found');
+    this.data.designers = this.data.designers.filter((d) => d.id !== id);
+    this.data.tasks.forEach((t) => { if (t.assigneeId === id) t.assigneeId = ''; }); // past comments keep the author's name
+    this.save();
+  }
+
+  // ---- comments (internal: never exposed through the client view) ----
+  addComment(taskId, { text, authorId }) {
+    const task = this.getTask(taskId);
+    let authorName = 'Freelancer';
+    if (authorId !== 'owner') {
+      const d = this.data.designers.find((x) => x.id === authorId);
+      if (!d) throw new HttpError(400, 'Unknown author');
+      authorName = d.name;
+    }
+    task.comments.push({ id: crypto.randomUUID(), authorId, authorName, text, createdAt: new Date().toISOString() });
+    this.save();
+    return task;
+  }
+
+  deleteComment(taskId, commentId) {
+    const task = this.getTask(taskId);
+    if (!task.comments.some((c) => c.id === commentId)) throw new HttpError(404, 'Comment not found');
+    task.comments = task.comments.filter((c) => c.id !== commentId);
+    this.save();
+    return task;
   }
 
   // Atomic write so a crash can't leave a half-written file.
@@ -96,10 +151,11 @@ class Store {
 
   createTask(projectId, fields) {
     this.getProject(projectId);
+    this.checkAssignee(fields.assigneeId);
     const now = new Date().toISOString();
     const { position, ...rest } = fields;
     const task = {
-      id: crypto.randomUUID(), projectId, description: '', clientUpdate: '', clientUpdateAt: '', privateNotes: '', dueDate: '',
+      id: crypto.randomUUID(), projectId, description: '', clientUpdate: '', clientUpdateAt: '', privateNotes: '', dueDate: '', assigneeId: '', comments: [],
       priority: 'medium', createdAt: now, updatedAt: now, ...rest,
     };
     if (task.clientUpdate) task.clientUpdateAt = now;
@@ -110,6 +166,7 @@ class Store {
 
   updateTask(id, fields) {
     const task = this.getTask(id);
+    this.checkAssignee(fields.assigneeId);
     const now = new Date().toISOString();
     const { position, status, ...rest } = fields;
     if ('clientUpdate' in rest && rest.clientUpdate !== task.clientUpdate) {

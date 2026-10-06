@@ -4,9 +4,11 @@ import { api } from "./api";
 import { Area, Text1 } from "./fields";
 import { EyeIcon, LockIcon, Modal, useToast } from "./ui";
 import { usePalette } from "./theme";
-import { COLUMNS, PRIORITY, PROJECT_STATUS, type Column, type Priority, type Project, type ProjectStatus, type Task } from "./types";
+import { COLUMNS, PRIORITY, PROJECT_STATUS, type Column, type Designer, type Priority, type Project, type ProjectStatus, type Task } from "./types";
 
 const toOptions = (m: Record<string, string>) => Object.entries(m).map(([value, label]) => ({ value, label }));
+
+export const assigneeOptions = (designers: Designer[]) => [{ value: "", label: "Unassigned" }, ...designers.map((d) => ({ value: d.id, label: d.name }))];
 
 function Form({ onSubmit, error, children }: { onSubmit: () => void; error: string; children: ReactNode }) {
   const pal = usePalette();
@@ -65,7 +67,7 @@ function Callout({ kind, title, note, children }: { kind: "client" | "private"; 
   const client = kind === "client";
   return (
     <section aria-label={title} style={{
-      border: client ? `1px solid ${pal.text}` : `2px dashed ${pal.textTertiary}`, borderRadius: 12, padding: 14,
+      border: client ? `1px solid ${pal.text}` : `2px dashed ${pal.textTertiary}`, borderRadius: 16, padding: 14,
       display: "flex", flexDirection: "column", gap: 8,
       backgroundImage: client ? "none" : `repeating-linear-gradient(135deg, transparent 0 6px, ${pal.borderSubtle} 6px 7px)`,
     }}>
@@ -76,8 +78,8 @@ function Callout({ kind, title, note, children }: { kind: "client" | "private"; 
   );
 }
 
-export function TaskDialog({ projectId, task, defaultStatus = "backlog", onClose, onSaved, onDelete }: {
-  projectId: string; task?: Task; defaultStatus?: Column; onClose: () => void; onSaved: (t: Task) => void; onDelete?: (t: Task) => void;
+export function TaskDialog({ projectId, task, designers, defaultStatus = "backlog", onClose, onSaved, onDelete }: {
+  projectId: string; task?: Task; designers: Designer[]; defaultStatus?: Column; onClose: () => void; onSaved: (t: Task) => void; onDelete?: (t: Task) => void;
 }) {
   const toast = useToast();
   const [title, setTitle] = useState(task?.title ?? "");
@@ -85,11 +87,12 @@ export function TaskDialog({ projectId, task, defaultStatus = "backlog", onClose
   const [status, setStatus] = useState<Column>(task?.status ?? defaultStatus);
   const [priority, setPriority] = useState<Priority>(task?.priority ?? "medium");
   const [dueDate, setDue] = useState(task?.dueDate ?? "");
+  const [assigneeId, setAssignee] = useState(task?.assigneeId ?? "");
   const [clientUpdate, setClientUpdate] = useState(task?.clientUpdate ?? "");
   const [privateNotes, setPrivate] = useState(task?.privateNotes ?? "");
   const { busy, error, run } = useSave(onClose);
   const save = () => run(async () => {
-    const data = { title, description, status, priority, dueDate, clientUpdate, privateNotes };
+    const data = { title, description, status, priority, dueDate, clientUpdate, privateNotes, assigneeId };
     const saved = task ? await api.updateTask(task.id, data) : await api.createTask(projectId, data);
     toast(task ? "Task saved" : "Task added");
     onSaved(saved);
@@ -109,7 +112,10 @@ export function TaskDialog({ projectId, task, defaultStatus = "backlog", onClose
           <Select label="Status" value={status} onChange={(v: string) => setStatus(v as Column)} options={COLUMNS.map((c) => ({ value: c.id, label: c.label }))} />
           <Select label="Priority" value={priority} onChange={(v: string) => setPriority(v as Priority)} options={toOptions(PRIORITY)} />
         </div>
-        <Text1 label="Due date" type="date" value={dueDate} onChange={setDue} />
+        <div className="row2">
+          <Text1 label="Due date" type="date" value={dueDate} onChange={setDue} />
+          <Select label="Assigned designer" value={assigneeId} onChange={(v: string) => setAssignee(v)} options={assigneeOptions(designers)} />
+        </div>
         <Callout kind="client" title="Client-visible update" note="Shown to your client in their view.">
           <Area label="Update for the client" value={clientUpdate} onChange={setClientUpdate} />
         </Callout>
