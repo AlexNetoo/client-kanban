@@ -741,12 +741,12 @@ test('client onboarding: server prices the brief, the admin approves it into a p
   assert.strictEqual((await call('GET', '/api/requests', { cookie: other.cookie })).json.length, 0); // clients only see their own
   assert.ok((await call('GET', '/api/requests', { cookie: c.cookie })).json.length >= 1);
   assert.strictEqual((await call('POST', `/api/requests/${r.json.id}/accept`, { cookie: c.cookie, body: {} })).res.status, 403);
-  // approving creates a planning project, one task per goal, and gives the client access
+  // approving creates an active project, one task per goal, and gives the client access
   const ok = await call('POST', `/api/requests/${r.json.id}/accept`, { cookie: owner, body: {} });
   assert.strictEqual(ok.res.status, 200, ok.text);
   assert.strictEqual(ok.json.status, 'accepted');
   const mine = (await call('GET', '/api/projects', { cookie: c.cookie })).json.find((p) => p.id === ok.json.projectId);
-  assert.ok(mine && mine.status === 'planning' && mine.total === 2);
+  assert.ok(mine && mine.status === 'active' && mine.total === 2);
   assert.strictEqual((await call('POST', `/api/requests/${r.json.id}/accept`, { cookie: owner, body: {} })).res.status, 409);
   assert.strictEqual((await call('DELETE', `/api/requests/${r.json.id}`, { cookie: owner })).res.status, 200);
 });

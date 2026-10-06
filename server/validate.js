@@ -8,7 +8,7 @@ const COLUMNS = [
   { id: 'done', label: 'Done' },
 ];
 const STATUSES = COLUMNS.map((c) => c.id);
-const PROJECT_STATUSES = ['planning', 'active', 'on_hold', 'completed'];
+const PROJECT_STATUSES = ['active', 'on_hold', 'completed'];
 const PRIORITIES = ['low', 'medium', 'high'];
 
 class HttpError extends Error {

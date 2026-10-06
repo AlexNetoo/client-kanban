@@ -77,6 +77,7 @@ class Store {
     if (!this.data.links) { this.data.links = []; changed = true; }
     if (!this.data.clients) { this.data.clients = []; changed = true; }
     if (!this.data.requests) { this.data.requests = []; changed = true; }
+    for (const p of this.data.projects) if (p.status === 'planning') { p.status = 'active'; changed = true; } // the Planning status was removed
     for (const t of this.data.tasks) for (const a of t.attachments || []) {
       if (a.uploadedById === 'owner' && a.uploadedByName === 'Freelancer') { a.uploadedByName = 'Admin'; changed = true; }
       if (!a.visibility) { a.visibility = 'internal'; changed = true; } // files were team-only until sharing existed
@@ -197,12 +198,12 @@ class Store {
     return r;
   }
 
-  /** Turns a request into a planning project assigned to the client, with one backlog task per goal. */
+  /** Turns a request into an active project assigned to the client, with one backlog task per goal. */
   acceptRequest(id) {
     const r = this.data.requests.find((x) => x.id === id);
     if (!r) throw new HttpError(404, 'Request not found');
     if (r.status !== 'new') throw new HttpError(409, 'This request was already handled');
-    const project = this.createProject({ name: r.name, client: r.company || r.clientName, status: 'planning', summary: r.description, dueDate: r.dueDate });
+    const project = this.createProject({ name: r.name, client: r.company || r.clientName, status: 'active', summary: r.description, dueDate: r.dueDate });
     r.goals.forEach((g, i) => this.createTask(project.id, { title: g, status: 'backlog', priority: 'high', description: i === 0 ? `Important goal from the project brief (${r.type}).` : 'Important goal from the project brief.' }));
     const c = this.getClient(r.clientId);
     if (c && !c.projectIds.includes(project.id)) c.projectIds.push(project.id);

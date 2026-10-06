@@ -11,7 +11,6 @@ const PRIORITY_COLORS: Record<Priority, { light: Pair; dark: Pair }> = {
   low: { light: { bg: "#e3f0ff", fg: "#1d4f91" }, dark: { bg: "#16273d", fg: "#8fbdf5" } },
 };
 const STATUS_COLORS: Record<ProjectStatus, { light: Pair; dark: Pair }> = {
-  planning: { light: { bg: "#ece9fb", fg: "#4b3fa3" }, dark: { bg: "#27234a", fg: "#bdb4ff" } },
   active: { light: { bg: "#e1f5e8", fg: "#1b6b3a" }, dark: { bg: "#16301f", fg: "#7fdca0" } },
   on_hold: { light: { bg: "#fff1d6", fg: "#8a5a00" }, dark: { bg: "#3a2e12", fg: "#f2c36b" } },
   completed: { light: { bg: "#e3f0ff", fg: "#1d4f91" }, dark: { bg: "#16273d", fg: "#8fbdf5" } },

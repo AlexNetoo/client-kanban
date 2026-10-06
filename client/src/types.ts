@@ -1,6 +1,6 @@
 export type Column = "backlog" | "todo" | "in_progress" | "in_review" | "done";
 export type Priority = "low" | "medium" | "high";
-export type ProjectStatus = "planning" | "active" | "on_hold" | "completed";
+export type ProjectStatus = "active" | "on_hold" | "completed";
 
 export const COLUMNS: { id: Column; label: string }[] = [
   { id: "backlog", label: "Backlog" },
@@ -10,7 +10,7 @@ export const COLUMNS: { id: Column; label: string }[] = [
   { id: "done", label: "Done" },
 ];
 export const columnLabel = (id: Column) => COLUMNS.find((c) => c.id === id)?.label ?? id;
-export const PROJECT_STATUS: Record<ProjectStatus, string> = { planning: "Planning", active: "Active", on_hold: "On hold", completed: "Completed" };
+export const PROJECT_STATUS: Record<ProjectStatus, string> = { active: "Active", on_hold: "On hold", completed: "Completed" };
 export const PRIORITY: Record<Priority, string> = { low: "Low", medium: "Medium", high: "High" };
 
 export interface Project {
