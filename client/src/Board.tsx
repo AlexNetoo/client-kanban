@@ -3,6 +3,7 @@ import { Badge, Button, Heading, Progress } from "./halaska-kit";
 import { api } from "./api";
 import { TaskDialog } from "./dialogs";
 import { Assistant } from "./Assistant";
+import { useTouchDrag } from "./useTouchDrag";
 import { TaskCard } from "./TaskCard";
 import { TaskModal } from "./TaskModal";
 import { StatusChip } from "./chips";
@@ -76,6 +77,22 @@ export function Board({ id, taskId }: { id: string; taskId?: string }) {
     } catch (e) { setTasks(before); toast((e as Error).message, "error"); load(task.id); }
   };
 
+  /** Where a drag at this height would land: the card it would sit above (or "end") and its index among the other cards. */
+  const dropTarget = (list: HTMLElement, y: number) => {
+    const cards = [...list.querySelectorAll<HTMLElement>(".task:not(.dragging)")];
+    const idx = cards.findIndex((c) => { const r = c.getBoundingClientRect(); return y < r.top + r.height / 2; });
+    return { before: idx === -1 ? "end" : cards[idx].dataset.taskId!, position: idx === -1 ? cards.length : idx };
+  };
+  // Touch devices: press and hold a card, then drag it (see useTouchDrag). Latest values go through a ref so the long-lived listeners never see stale data.
+  const latest = useRef({ tasks, move }); latest.current = { tasks, move };
+  const touch = useTouchDrag({
+    target: dropTarget,
+    canDrag: (tid) => { const t = latest.current.tasks.find((x) => x.id === tid); return !!t && canMove(t); },
+    onHover: (c, before) => { setDropCol(c as Column | null); setDropBefore(before); },
+    onDrop: (tid, c, position) => { const t = latest.current.tasks.find((x) => x.id === tid); if (t) latest.current.move(t, c as Column, position); },
+  });
+  const coarse = typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches; // native drag is mouse-only; touch has its own
+
   if (error) return (
     <>
       <p style={{ marginBottom: 16 }}><a href="#/">← All projects</a></p>
@@ -85,12 +102,6 @@ export function Board({ id, taskId }: { id: string; taskId?: string }) {
   );
   if (!project) return <Loading rows={1} />;
 
-  /** Where a drag at this height would land: the card it would sit above (or "end") and its index among the other cards. */
-  const dropTarget = (list: HTMLElement, y: number) => {
-    const cards = [...list.querySelectorAll<HTMLElement>(".task:not(.dragging)")];
-    const idx = cards.findIndex((c) => { const r = c.getBoundingClientRect(); return y < r.top + r.height / 2; });
-    return { before: idx === -1 ? "end" : cards[idx].dataset.taskId!, position: idx === -1 ? cards.length : idx };
-  };
   const onDrop = (e: DragEvent<HTMLUListElement>, col: Column) => {
     e.preventDefault(); setDropCol(null);
     const task = tasks.find((t) => t.id === dragId.current);
@@ -140,15 +151,15 @@ export function Board({ id, taskId }: { id: string; taskId?: string }) {
                 </h2>
                 {canAdd && <Button variant="ghost" size="sm" icon={<PlusIcon />} aria-label={`Add task to ${col.label}`} onClick={() => setEditing({ status: col.id })}>Add</Button>}
               </div>
-              <ul className={`cards${dropCol === col.id ? " drop-target" : ""}${dropCol === col.id && dropBefore === "end" ? " drop-end" : ""}`} aria-labelledby={`col-${col.id}`}
+              <ul data-col={col.id} className={`cards${dropCol === col.id ? " drop-target" : ""}${dropCol === col.id && dropBefore === "end" ? " drop-end" : ""}`} aria-labelledby={`col-${col.id}`}
                 onDragOver={(e) => { if (dragId.current) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDropCol(col.id); setDropBefore(dropTarget(e.currentTarget, e.clientY).before); } }}
                 onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropCol(null); }}
                 onDrop={(e) => onDrop(e, col.id)}>
                 {items.map((t) => (
-                  <li key={t.id} className={`task${dropCol === col.id && dropBefore === t.id && dragId.current !== t.id ? " drop-before" : ""}`} data-task-id={t.id} draggable={canMove(t)}
+                  <li key={t.id} className={`task${dropCol === col.id && dropBefore === t.id && dragId.current !== t.id ? " drop-before" : ""}`} data-task-id={t.id} draggable={canMove(t) && !coarse} onPointerDown={(e) => touch.onPointerDown(e, t.id)}
                     onDragStart={(e) => { dragId.current = t.id; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", t.id); e.currentTarget.classList.add("dragging"); }}
                     onDragEnd={(e) => { dragId.current = null; setDropCol(null); e.currentTarget.classList.remove("dragging"); }}>
-                    <TaskCard task={t} designers={designers} onOpen={() => openTask(t.id)} onEdit={() => setEditing({ task: t })} onMove={(s) => move(t, s)}
+                    <TaskCard task={t} designers={designers} onOpen={() => { if (!touch.wasDrag()) openTask(t.id); }} onEdit={() => setEditing({ task: t })} onMove={(s) => move(t, s)}
                       onReorder={(dir) => { const at = items.indexOf(t) + dir; if (at >= 0 && at < items.length) move(t, t.status, at); }} canUp={items.indexOf(t) > 0} canDown={items.indexOf(t) < items.length - 1} />
                   </li>
                 ))}

@@ -220,3 +220,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus, text
 .cards.drop-target { outline: none; }
 .task { transition: opacity 0.2s; }
 .task.dragging { opacity: 0.35; }
+
+/* Touch dragging: no text selection or callout while a card is held, and the lifted copy follows the finger */
+@media (pointer: coarse) { .task { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; } }
+body.touch-dragging { overscroll-behavior: contain; cursor: grabbing; }
+.task-ghost { list-style: none; }
