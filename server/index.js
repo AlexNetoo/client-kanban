@@ -6,7 +6,8 @@ const { loadConfig, loadDotEnv, ROOT } = require('./config');
 const { hashPassword, verifyPassword, signSession, readSession, parseCookies } = require('./auth');
 const { Store } = require('./store');
 const { FilePersistence, BlobPersistence } = require('./persist');
-const { COLUMNS, HttpError, cleanProject, cleanTask, cleanComment, cleanDesigner, cleanLink } = require('./validate');
+const { LocalFiles, BlobFiles } = require('./files');
+const { COLUMNS, HttpError, cleanProject, cleanTask, cleanComment, cleanDesigner, cleanLink, cleanAttachment } = require('./validate');
 
 const PUBLIC_DIR = path.join(ROOT, 'web');
 const COOKIE = 'sid';
@@ -21,7 +22,7 @@ const PUBLIC_FILES = new Set(['/login.html', '/favicon.svg']);
 const isPublic = (rel) => PUBLIC_FILES.has(rel) || rel.startsWith('/assets/');
 
 const SECURITY_HEADERS = {
-  'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+  'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.private.blob.vercel-storage.com; connect-src 'self' https://vercel.com; font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'no-referrer',
   'X-Frame-Options': 'DENY',
@@ -46,14 +47,16 @@ const DESIGNER_TASK_FIELDS = new Set(['status', 'position']);
 
 function createApp(config) {
   const store = new Store(config.storage === 'blob' ? new BlobPersistence(config.blobPath) : new FilePersistence(config.dataFile));
+  const maxBytes = config.attachMaxBytes || 25 * 1024 * 1024;
+  const files = config.storage === 'blob' ? new BlobFiles() : new LocalFiles(path.join(path.dirname(config.dataFile), 'uploads'));
   const attempts = new Map(); // limiter key (ip, or email) -> { n, reset }
   const DUMMY_HASH = hashPassword('unused-' + Math.random()); // equalises timing for unknown emails
   const routes = [];
 
-  const route = (method, pattern, access, handler) => {
+  const route = (method, pattern, access, handler, opts = {}) => {
     const keys = [];
     const re = new RegExp(`^${pattern.replace(/:(\w+)/g, (_, k) => { keys.push(k); return '([^/]+)'; })}$`);
-    routes.push({ method, re, keys, access, handler });
+    routes.push({ method, re, keys, access, handler, raw: !!opts.raw });
   };
 
   const clientIp = (req) => (config.trustProxy && req.headers['x-forwarded-for'])
@@ -114,7 +117,7 @@ function createApp(config) {
     res.setHeader('Set-Cookie', cookie('', 0));
     return { ok: true };
   });
-  route('GET', '/api/session', 'any', ({ session }) => ({ role: session.role, designer: session.designer, expiresAt: session.exp, columns: COLUMNS }));
+  route('GET', '/api/session', 'any', ({ session }) => ({ role: session.role, designer: session.designer, expiresAt: session.exp, columns: COLUMNS, maxUploadBytes: maxBytes }));
 
   const isDesigner = (s) => s.role === 'designer';
   // A designer can reach a project only if they have a task in it; anything else looks like it doesn't exist.
@@ -132,7 +135,9 @@ function createApp(config) {
   const outTask = (s, t) => {
     const seen = isDesigner(s) ? store.projectIdsFor(s.uid) : null;
     const links = store.linksFor(t.id).filter((l) => !seen || seen.has(l.task.projectId));
-    return { ...(isDesigner(s) ? staffTask(t) : t), links };
+    const attachments = (t.attachments || []).filter((a) => a.status === 'ready')
+      .map(({ id, name, size, type, uploadedById, uploadedByName, uploadedAt }) => ({ id, name, size, type, uploadedById, uploadedByName, uploadedAt }));
+    return { ...(isDesigner(s) ? staffTask(t) : t), links, attachments };
   };
 
   // ---- Projects: owner sees all; a designer sees only their own, without private notes or share links ----
@@ -152,7 +157,12 @@ function createApp(config) {
   });
   route('PATCH', '/api/projects/:id', 'owner', ({ params, body }) =>
     store.updateProject(params.id, cleanProject(body, true), { resetToken: body.resetShareToken === true }));
-  route('DELETE', '/api/projects/:id', 'owner', ({ params }) => { store.deleteProject(params.id); return { ok: true }; });
+  route('DELETE', '/api/projects/:id', 'owner', ({ params, defer }) => {
+    const atts = store.attachmentsOfTasks(store.tasksFor(params.id).map((t) => t.id));
+    store.deleteProject(params.id);
+    defer(() => Promise.all(atts.map((a) => files.remove(a))));
+    return { ok: true };
+  });
 
   // ---- Tasks: owner edits everything; a designer may only move their own assigned tasks ----
   route('POST', '/api/projects/:id/tasks', 'owner', ({ params, body, session }) =>
@@ -165,7 +175,85 @@ function createApp(config) {
     const { status, position } = cleanTask(body, true);
     return outTask(session, store.updateTask(params.id, { status, position }));
   });
-  route('DELETE', '/api/tasks/:id', 'owner', ({ params }) => { store.deleteTask(params.id); return { ok: true }; });
+  route('DELETE', '/api/tasks/:id', 'owner', ({ params, defer }) => {
+    const atts = store.attachmentsOfTasks([params.id]);
+    store.deleteTask(params.id);
+    defer(() => Promise.all(atts.map((a) => files.remove(a))));
+    return { ok: true };
+  });
+
+  // ---- Attachments. Owner: any task. Designer: attach to tasks assigned to them, remove only their own uploads.
+  //      Clients never see attachments. Bytes go straight to storage (Blob) or through /api/uploads (local dev). ----
+  const uploaderId = (s) => (isDesigner(s) ? s.uid : 'owner');
+  const uploaderName = (s) => (isDesigner(s) ? s.designer.name : 'Freelancer');
+  const attachmentOf = (task, attId) => {
+    const att = task.attachments.find((a) => a.id === attId);
+    if (!att) throw new HttpError(404, 'Attachment not found');
+    return att;
+  };
+
+  route('POST', '/api/tasks/:id/attachments', 'staff', async ({ params, body, session, defer }) => {
+    const task = taskFor(session, params.id);
+    if (isDesigner(session) && task.assigneeId !== session.uid) throw new HttpError(403, 'Only the freelancer or the assigned designer can attach files');
+    const info = cleanAttachment(body, maxBytes);
+    const stale = store.purgeStaleAttachments();
+    defer(() => Promise.all(stale.map((a) => files.remove(a))));
+    const { att } = store.addPendingAttachment(task.id, { ...info, uploadedById: uploaderId(session), uploadedByName: uploaderName(session) });
+    return { status: 201, body: { attachmentId: att.id, upload: await files.createUpload(att, maxBytes) } };
+  });
+
+  route('POST', '/api/tasks/:id/attachments/:aid/complete', 'staff', async ({ params, session }) => {
+    const task = taskFor(session, params.id);
+    const att = attachmentOf(task, params.aid);
+    if (isDesigner(session) && att.uploadedById !== session.uid) throw new HttpError(403, 'Not your upload');
+    if (att.status === 'ready') return outTask(session, task);
+    const stat = await files.stat(att);
+    if (!stat) throw new HttpError(409, 'The upload didn’t finish. Please try again.');
+    if (stat.size > maxBytes) { // belt and braces: the signed URL already enforces this
+      await files.remove(att);
+      store.removeAttachment(task.id, att.id);
+      return { status: 413, body: { error: `Files can be at most ${Math.round(maxBytes / 1048576)} MB` } };
+    }
+    return outTask(session, store.completeAttachment(att.id, stat.size));
+  });
+
+  // Authorise here, then hand the browser a short-lived signed URL (Blob) or stream from disk (local).
+  route('GET', '/api/attachments/:aid/file', 'staff', async ({ params, session }) => {
+    const found = store.findAttachment(params.aid);
+    if (!found || found.att.status !== 'ready') throw new HttpError(404, 'Attachment not found');
+    visibleProject(session, found.task.projectId); // designers get a 404 for projects they can't open
+    const { att } = found;
+    if (files.kind === 'blob') {
+      const url = await files.downloadUrl(att);
+      return { after: (res) => { res.writeHead(302, { Location: url, ...SECURITY_HEADERS }); res.end(); } };
+    }
+    const disposition = `attachment; filename*=UTF-8''${encodeURIComponent(att.name)}`;
+    return { after: (res) => files.download(att, res, { ...SECURITY_HEADERS, 'Content-Disposition': disposition }) };
+  });
+
+  route('PUT', '/api/uploads/:aid', 'staff', ({ params, req, session }) => { // local development only
+    if (files.kind !== 'local') throw new HttpError(404, 'Not found');
+    const found = store.findAttachment(params.aid);
+    if (!found || found.att.status !== 'pending') throw new HttpError(404, 'Upload not found');
+    if (found.att.uploadedById !== uploaderId(session)) throw new HttpError(403, 'Not your upload');
+    visibleProject(session, found.task.projectId);
+    const { att } = found;
+    return {
+      after: async (res) => {
+        try { sendJson(res, 200, { ok: true, size: await files.receive(att, req, att.size) }); }
+        catch (e) { throw e.tooLarge ? new HttpError(413, 'That file is larger than it was declared to be') : e; }
+      },
+    };
+  }, { raw: true });
+
+  route('DELETE', '/api/tasks/:id/attachments/:aid', 'staff', ({ params, session, defer }) => {
+    const task = taskFor(session, params.id);
+    const att = attachmentOf(task, params.aid);
+    if (isDesigner(session) && att.uploadedById !== session.uid) throw new HttpError(403, 'You can only remove files you uploaded');
+    store.removeAttachment(task.id, att.id);
+    defer(() => files.remove(att));
+    return outTask(session, store.getTask(task.id));
+  });
 
   // ---- Task links (owner edits; designers only ever see links to projects they can access) ----
   route('POST', '/api/tasks/:id/links', 'owner', ({ params, body, session }) => {
@@ -261,15 +349,19 @@ function createApp(config) {
       // CSRF defence in depth (cookie is also SameSite=Strict): same-origin + JSON only.
       const origin = req.headers.origin;
       if (origin && new URL(origin).host !== req.headers.host) throw new HttpError(403, 'Cross-origin request blocked');
-      if (req.method !== 'DELETE' && !/^application\/json/i.test(req.headers['content-type'] || '')) {
-        throw new HttpError(415, 'Expected JSON');
+      if (!route_.raw) {
+        if (req.method !== 'DELETE' && !/^application\/json/i.test(req.headers['content-type'] || '')) {
+          throw new HttpError(415, 'Expected JSON');
+        }
+        body = await readBody(req); // read once: the step below may run again if another instance wrote first
       }
-      body = await readBody(req); // read once: the step below may run again if another instance wrote first
     }
     const match = route_.re.exec(pathname);
     const params = Object.fromEntries(route_.keys.map((k, i) => [k, decodeURIComponent(match[i + 1])]));
     // Everything that touches data (including checking a designer's session) runs inside one transaction.
-    const result = await store.transact(async () => {
+    // Side effects on files (deleting blobs, streaming a download) are queued and run only after the commit succeeds.
+    const { result, deferred } = await store.transact(async () => {
+      const deferred = [];
       const session = sessionOf(req);
       if (route_.access !== 'public') {
         if (!session) throw new HttpError(401, 'Please sign in');
@@ -278,8 +370,11 @@ function createApp(config) {
         }[route_.access];
         if (!allowed.includes(session.role)) throw new HttpError(403, 'Not allowed');
       }
-      return route_.handler({ req, res, params, body, session });
+      const result = await route_.handler({ req, res, params, body, session, defer: (fn) => deferred.push(fn) });
+      return { result, deferred };
     });
+    for (const fn of deferred) { try { await fn(); } catch (e) { console.error('post-commit step failed', e); } }
+    if (result && typeof result.after === 'function') return result.after(res);
     if (result && result.status && result.body !== undefined) sendJson(res, result.status, result.body);
     else sendJson(res, 200, result);
   }

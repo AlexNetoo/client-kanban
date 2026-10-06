@@ -3,6 +3,7 @@ import { Button, Select, TextArea, Text } from "./halaska-kit";
 import { api } from "./api";
 import { assigneeOptions } from "./dialogs";
 import { LinkedTasks } from "./LinkedTasks";
+import { Attachments } from "./Attachments";
 import { PriorityChip } from "./chips";
 import { EyeIcon, LockIcon, Person, WideModal, useToast, val } from "./ui";
 import { useMe } from "./session";
@@ -69,6 +70,8 @@ export function TaskModal({ task: t, projectName, designers, onClose, onChange, 
             {h("Description")}
             {t.description ? <p style={{ fontSize: 15, lineHeight: 1.65, whiteSpace: "pre-wrap", margin: 0 }}>{t.description}</p> : <Text size="sm" secondary>No description yet.</Text>}
           </section>
+
+          <Attachments task={t} onChange={onChange} />
 
           <LinkedTasks task={t} onChange={onChange} />
 

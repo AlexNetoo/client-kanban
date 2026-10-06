@@ -23,9 +23,10 @@ export interface TaskLink {
   id: string; type: "relates" | "blocks" | "duplicates"; label: string;
   task: { id: string; title: string; status: Column; projectId: string; projectName: string };
 }
+export interface Attachment { id: string; name: string; size: number; type: string; uploadedById: string; uploadedByName: string; uploadedAt: string }
 export interface TaskSearchResult { id: string; title: string; status: Column; projectId: string; projectName: string }
 export interface Task {
-  links: TaskLink[];
+  links: TaskLink[]; attachments: Attachment[];
   assigneeId: string; comments: Comment[];
   id: string; projectId: string; title: string; description: string; status: Column; priority: Priority; dueDate: string;
   clientUpdate: string; clientUpdateAt: string; privateNotes: string; createdAt: string; updatedAt: string;

@@ -30,7 +30,7 @@ export function App() {
   const [menu, setMenu] = useState(false);
   const route = useHash();
   const main = useRef<HTMLElement>(null);
-  useEffect(() => { api.session().then((s) => setMe({ role: s.role, designer: s.designer, expiresAt: s.expiresAt })).catch(() => {}); }, []);
+  useEffect(() => { api.session().then((s) => setMe({ role: s.role, designer: s.designer, expiresAt: s.expiresAt, maxUploadBytes: s.maxUploadBytes })).catch(() => {}); }, []);
   if (!me) return null;
   const role = me.role;
 

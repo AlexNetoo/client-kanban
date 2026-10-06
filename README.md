@@ -31,6 +31,7 @@ npm run dev:web     # optional Vite dev server on :5173 (proxies /api to :3000)
 | `SESSION_HOURS` | no | session lifetime, default `12` |
 | `DATA_FILE` | no | default `./data/db.json` (file backend) |
 | `BLOB_STORE_ID` | on Vercel | set by connecting a Blob store; switches storage to Vercel Blob |
+| `ATTACH_MAX_MB` | no | max attachment size in MB, default `25` |
 | `BLOB_DB_PATH` / `STORAGE` | no | blob pathname (default `client-kanban/db.json`) / `file` to force the file backend |
 | `COOKIE_SECURE` | no | defaults to true when `NODE_ENV=production`; keep it on behind HTTPS |
 | `TRUST_PROXY` | no | `true` if behind a proxy that sets `X-Forwarded-For` (used for login rate limiting) |
@@ -46,6 +47,16 @@ Clicking a task opens a wide scrollable view with the description, client update
 ## Linked tasks
 
 Open a task and use **Link a task** to relate it to any other task, in this or another project: *relates to*, *blocks* / *is blocked by*, *duplicates* / *is duplicated by*. A link is stored once and shown on both tasks with the matching wording. Each open task has its own address (`#/p/<project>/t/<task>`), so links open that task, Back closes it, and **Copy link** shares it. Only the freelancer can add or remove links. Designers see links only to tasks in projects they can open, and clients never see links. Deleting a task or project removes its links.
+
+## Attachments
+
+Open a task and use **Add files** (or drop files) in the Attachments section. Up to 20 files per task, 25 MB each (`ATTACH_MAX_MB`). Executable types (`.exe`, `.bat`, `.cmd`, `.com`, `.scr`, `.msi`, `.dll`, `.vbs`, `.ps1`, `.jar`) are refused.
+
+- **Who:** the freelancer on any task; a designer on tasks assigned to them. Designers can remove only their own uploads and can open files only in projects they can access. **Clients never see attachments.**
+- **On Vercel** the browser uploads straight to the private Blob store with a short-lived URL signed for exactly one path and size limit, so large files don't pass through (or hit the size cap of) a serverless function. Downloads are authorised by the app and then redirected to a signed URL that expires in 2 minutes. Files are always served as downloads.
+- **Locally** files are stored under `data/uploads/` and streamed through the server.
+- Uploads that never finish are dropped after an hour; deleting a task or project deletes its files.
+- Image thumbnails are shown for PNG, JPEG, GIF and WebP only (never SVG, which can carry scripts).
 
 ## Designer logins
 

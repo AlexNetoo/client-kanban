@@ -313,6 +313,90 @@ test('task links: shown on both tasks, validated, scoped for designers, hidden f
   await call('DELETE', `/api/projects/${P1.id}`, O); await call('DELETE', `/api/designers/${lee.id}`, O);
 });
 
+test('attachments: upload, download, limits, permissions, cleanup', async () => {
+  const owner = await login(OWNER_PW); const O = { cookie: owner.cookie };
+  const client = await login(CLIENT_PW);
+  const P = (await call('POST', '/api/projects', { ...O, body: { name: 'Files P', client: 'FileCo', status: 'active' } })).json;
+  const Q = (await call('POST', '/api/projects', { ...O, body: { name: 'Files Q', client: 'FileCo', status: 'active' } })).json;
+  const task = (await call('POST', `/api/projects/${P.id}/tasks`, { ...O, body: { title: 'Has files', status: 'todo', priority: 'low' } })).json;
+  const other = (await call('POST', `/api/projects/${P.id}/tasks`, { ...O, body: { title: 'Someone else', status: 'todo', priority: 'low' } })).json;
+  const qTask = (await call('POST', `/api/projects/${Q.id}/tasks`, { ...O, body: { title: 'Elsewhere', status: 'todo', priority: 'low' } })).json;
+  const tasksOf = async (id, cookie = owner.cookie) => (await call('GET', `/api/projects/${id}`, { cookie })).json.tasks;
+  const put = (url, bytes, cookie) => fetch(base + url, { method: 'PUT', headers: { Cookie: cookie, 'Content-Type': 'application/octet-stream' }, body: bytes });
+  const req = (taskId, body, cookie = owner.cookie) => call('POST', `/api/tasks/${taskId}/attachments`, { cookie, body });
+  const done = (taskId, attId, cookie = owner.cookie) => call('POST', `/api/tasks/${taskId}/attachments/${attId}/complete`, { cookie, body: {} });
+  const file = Buffer.from('hello world');
+
+  // happy path: request -> upload -> complete; pending uploads stay invisible; storage details never leak
+  const r = await req(task.id, { name: 'brief.pdf', size: file.length, type: 'application/pdf' });
+  assert.strictEqual(r.res.status, 201);
+  assert.strictEqual(r.json.upload.method, 'PUT');
+  assert.strictEqual((await tasksOf(P.id)).find((x) => x.id === task.id).attachments.length, 0);
+  assert.strictEqual((await done(task.id, r.json.attachmentId)).res.status, 409); // nothing uploaded yet
+  assert.strictEqual((await put(r.json.upload.url, file, owner.cookie)).status, 200);
+  const completed = await done(task.id, r.json.attachmentId);
+  assert.strictEqual(completed.res.status, 200);
+  assert.deepStrictEqual(completed.json.attachments.map((a) => [a.name, a.size, a.uploadedByName]), [['brief.pdf', 11, 'Freelancer']]);
+  assert.ok(!completed.text.includes('pathname') && !completed.text.includes('"status":"ready"'));
+  assert.ok(fs.existsSync(path.join(dir, 'uploads', r.json.attachmentId)));
+
+  // download: exact bytes, forced attachment, no sniffing
+  const dl = await fetch(`${base}/api/attachments/${r.json.attachmentId}/file`, { headers: { Cookie: owner.cookie } });
+  assert.strictEqual(dl.status, 200);
+  assert.strictEqual(Buffer.from(await dl.arrayBuffer()).toString(), 'hello world');
+  assert.match(dl.headers.get('content-disposition'), /^attachment; filename\*=UTF-8''brief\.pdf$/);
+  assert.strictEqual(dl.headers.get('x-content-type-options'), 'nosniff');
+
+  // validation
+  assert.strictEqual((await req(task.id, { name: 'big.zip', size: 26 * 1024 * 1024, type: 'application/zip' })).res.status, 413);
+  assert.strictEqual((await req(task.id, { name: 'virus.EXE', size: 10, type: 'application/x-msdownload' })).res.status, 400);
+  assert.strictEqual((await req(task.id, { name: 'empty.txt', size: 0, type: 'text/plain' })).res.status, 400);
+  const sneaky = await req(task.id, { name: '../../etc/passwd.txt', size: 3, type: 'text/plain' });
+  const sneakyAtt = (await put(sneaky.json.upload.url, Buffer.from('abc'), owner.cookie), await done(task.id, sneaky.json.attachmentId)).json.attachments.find((a) => a.id === sneaky.json.attachmentId);
+  assert.ok(!/[\\/]/.test(sneakyAtt.name), `path characters must be stripped, got ${sneakyAtt.name}`);
+  // a body bigger than declared is refused and leaves nothing behind
+  const liar = await req(task.id, { name: 'liar.txt', size: 5, type: 'text/plain' });
+  assert.strictEqual((await put(liar.json.upload.url, Buffer.alloc(500), owner.cookie)).status, 413);
+  assert.strictEqual((await done(task.id, liar.json.attachmentId)).res.status, 409);
+  assert.ok(!fs.existsSync(path.join(dir, 'uploads', liar.json.attachmentId)) && !fs.existsSync(path.join(dir, 'uploads', `${liar.json.attachmentId}.part`)));
+
+  // permissions
+  assert.strictEqual((await call('GET', `/api/attachments/${r.json.attachmentId}/file`, {})).res.status, 401);
+  assert.strictEqual((await req(task.id, { name: 'x.txt', size: 1, type: 'text/plain' }, client.cookie)).res.status, 403);
+  assert.strictEqual((await call('GET', `/api/attachments/${r.json.attachmentId}/file`, { cookie: client.cookie })).res.status, 403);
+  const kim = (await call('POST', '/api/designers', { ...O, body: { name: 'Kim', email: 'kim@example.com', password: 'kim-password-123' } })).json;
+  await call('PATCH', `/api/tasks/${task.id}`, { ...O, body: { assigneeId: kim.id } });
+  const kl = await login('kim-password-123', 'kim@example.com'); const K = { cookie: kl.cookie };
+  assert.strictEqual((await req(other.id, { name: 'x.txt', size: 1, type: 'text/plain' }, kl.cookie)).res.status, 403); // not assigned to Kim
+  assert.strictEqual((await req(qTask.id, { name: 'x.txt', size: 1, type: 'text/plain' }, kl.cookie)).res.status, 404); // project Kim can't open
+  assert.strictEqual((await fetch(`${base}/api/attachments/${r.json.attachmentId}/file`, { headers: K.cookie ? { Cookie: kl.cookie } : {} })).status, 200); // can read files in her project
+  const mine = await req(task.id, { name: 'comp.png', size: 4, type: 'image/png' }, kl.cookie);
+  assert.strictEqual(mine.res.status, 201);
+  await put(mine.json.upload.url, Buffer.from('png!'), kl.cookie);
+  const mineDone = await done(task.id, mine.json.attachmentId, kl.cookie);
+  assert.deepStrictEqual(mineDone.json.attachments.find((a) => a.name === 'comp.png').uploadedByName, 'Kim');
+  assert.strictEqual((await call('DELETE', `/api/tasks/${task.id}/attachments/${r.json.attachmentId}`, K)).res.status, 403); // not hers
+  assert.strictEqual((await put(`/api/uploads/${r.json.attachmentId}`, file, kl.cookie)).status, 404); // already complete
+  // the client view carries no attachments
+  const view = await call('GET', `/api/client/${P.shareToken}`, { cookie: client.cookie });
+  assert.ok(view.json.tasks.every((t) => !('attachments' in t)) && !view.text.includes('brief.pdf'));
+
+  // delete: designers their own, owner any; files leave the disk
+  assert.strictEqual((await call('DELETE', `/api/tasks/${task.id}/attachments/${mine.json.attachmentId}`, K)).res.status, 200);
+  assert.ok(!fs.existsSync(path.join(dir, 'uploads', mine.json.attachmentId)));
+  assert.strictEqual((await call('DELETE', `/api/tasks/${task.id}/attachments/${sneaky.json.attachmentId}`, O)).res.status, 200);
+  assert.strictEqual((await fetch(`${base}/api/attachments/${sneaky.json.attachmentId}/file`, { headers: { Cookie: owner.cookie } })).status, 404);
+  // deleting the task (and project) removes remaining files
+  assert.strictEqual((await call('DELETE', `/api/tasks/${task.id}`, O)).res.status, 200);
+  assert.ok(!fs.existsSync(path.join(dir, 'uploads', r.json.attachmentId)));
+  const again = await req(other.id, { name: 'again.txt', size: 2, type: 'text/plain' });
+  await put(again.json.upload.url, Buffer.from('ok'), owner.cookie); await done(other.id, again.json.attachmentId);
+  assert.ok(fs.existsSync(path.join(dir, 'uploads', again.json.attachmentId)));
+  await call('DELETE', `/api/projects/${P.id}`, O);
+  assert.ok(!fs.existsSync(path.join(dir, 'uploads', again.json.attachmentId)));
+  await call('DELETE', `/api/projects/${Q.id}`, O); await call('DELETE', `/api/designers/${kim.id}`, O);
+});
+
 test('cross-origin writes are blocked', async () => {
   const { cookie } = await login(OWNER_PW);
   const res = await fetch(base + '/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: cookie, Origin: 'https://evil.example' }, body: '{}' });

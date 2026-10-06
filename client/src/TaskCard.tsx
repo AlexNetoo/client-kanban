@@ -30,6 +30,7 @@ export function TaskCard({ task: t, designers, onOpen, onEdit, onMove }: Props) 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", fontSize: 12, color: pal.textSecondary }}>
         <PriorityChip priority={t.priority} />
         {t.dueDate && <DueLabel date={t.dueDate} done={t.status === "done"} />}
+        {(t.attachments?.length ?? 0) > 0 && <Badge>{t.attachments.length} {t.attachments.length === 1 ? "file" : "files"}</Badge>}
         {(t.links?.length ?? 0) > 0 && <Badge>{t.links.length} linked</Badge>}
         {t.comments.length > 0 && <Badge>{t.comments.length} {t.comments.length === 1 ? "comment" : "comments"}</Badge>}
         {t.clientUpdate && <Badge><EyeIcon /> Client update</Badge>}

@@ -1,5 +1,7 @@
 import type { ClientProject, ClientTask, Designer, Project, ProjectInput, Task, TaskInput, TaskLink, TaskSearchResult } from "./types";
 
+export interface UploadTarget { url: string; method: string; headers: Record<string, string> }
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
@@ -26,7 +28,7 @@ async function request<T>(method: string, url: string, body?: unknown): Promise<
 
 export const api = {
   login: (password: string, opts: { email?: string; as?: "owner" | "client" } = {}) => request<{ role: string }>("POST", "/api/login", opts.email ? { email: opts.email, password } : { password, as: opts.as }),
-  session: () => request<{ role: "owner" | "client" | "designer"; designer?: { id: string; name: string }; expiresAt?: number }>("GET", "/api/session"),
+  session: () => request<{ role: "owner" | "client" | "designer"; designer?: { id: string; name: string }; expiresAt?: number; maxUploadBytes?: number }>("GET", "/api/session"),
   logout: () => request<{ ok: true }>("POST", "/api/logout", {}),
   listProjects: () => request<Project[]>("GET", "/api/projects"),
   getProject: (id: string) => request<{ project: Project; tasks: Task[] }>("GET", `/api/projects/${id}`),
@@ -46,5 +48,26 @@ export const api = {
   addLink: (taskId: string, d: { targetId: string; type: TaskLink["type"]; inverse?: boolean }) => request<Task>("POST", `/api/tasks/${taskId}/links`, d),
   deleteLink: (taskId: string, linkId: string) => request<Task>("DELETE", `/api/tasks/${taskId}/links/${linkId}`),
   searchTasks: (q: string, exclude: string) => request<TaskSearchResult[]>("GET", `/api/task-search?q=${encodeURIComponent(q)}&exclude=${encodeURIComponent(exclude)}`),
+  requestAttachment: (taskId: string, d: { name: string; size: number; type: string }) => request<{ attachmentId: string; upload: UploadTarget }>("POST", `/api/tasks/${taskId}/attachments`, d),
+  completeAttachment: (taskId: string, attId: string) => request<Task>("POST", `/api/tasks/${taskId}/attachments/${attId}/complete`, {}),
+  deleteAttachment: (taskId: string, attId: string) => request<Task>("DELETE", `/api/tasks/${taskId}/attachments/${attId}`),
   clientView: (token: string) => request<{ project: ClientProject; tasks: ClientTask[] }>("GET", `/api/client/${encodeURIComponent(token)}`),
 };
+
+/** PUT a file to its upload target (our server in development, a signed Blob URL in production) with progress. */
+export function uploadFile(target: UploadTarget, file: File, onProgress: (fraction: number) => void): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(target.method, target.url);
+    for (const [k, v] of Object.entries(target.headers)) xhr.setRequestHeader(k, v);
+    xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(e.loaded / e.total); };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) return resolve();
+      let msg = "The upload failed.";
+      try { msg = JSON.parse(xhr.responseText).error || msg; } catch { /* not JSON (storage error) */ }
+      reject(new ApiError(xhr.status, msg));
+    };
+    xhr.onerror = () => reject(new ApiError(0, "Can’t reach the server. Check your connection and try again."));
+    xhr.send(file);
+  });
+}

@@ -34,6 +34,7 @@ function loadConfig(env = process.env) {
     // Vercel Blob is used automatically when a store is connected (BLOB_STORE_ID or BLOB_READ_WRITE_TOKEN),
     // unless STORAGE=file forces the local file.
     storage: env.STORAGE === 'file' ? 'file' : (env.BLOB_STORE_ID || env.BLOB_READ_WRITE_TOKEN) ? 'blob' : 'file',
+    attachMaxBytes: (Number(env.ATTACH_MAX_MB) || 25) * 1024 * 1024,
     blobPath: env.BLOB_DB_PATH || 'client-kanban/db.json',
     secureCookies: bool(env.COOKIE_SECURE, env.NODE_ENV === 'production'),
     trustProxy: bool(env.TRUST_PROXY, false),

@@ -75,6 +75,7 @@ class Store {
     if (!this.data.links) { this.data.links = []; changed = true; }
     for (const t of this.data.tasks) {
       if (!Array.isArray(t.comments)) { t.comments = []; changed = true; }
+      if (!Array.isArray(t.attachments)) { t.attachments = []; changed = true; }
       if (t.assigneeId === undefined) { t.assigneeId = ''; changed = true; }
     }
     if (changed) this.dirty = true;
@@ -191,6 +192,58 @@ class Store {
       .map(({ t, p }) => ({ id: t.id, title: t.title, status: t.status, projectId: p.id, projectName: p.name }));
   }
 
+  // ---- attachments (metadata here; the bytes live in a files driver) ----
+  addPendingAttachment(taskId, { name, size, type, uploadedById, uploadedByName }) {
+    const task = this.getTask(taskId);
+    if (task.attachments.length >= 20) throw new HttpError(400, 'A task can have at most 20 attachments');
+    const id = crypto.randomUUID();
+    const att = { id, name, size, type, uploadedById, uploadedByName, uploadedAt: new Date().toISOString(), status: 'pending', pathname: `client-kanban/attachments/${id}/${name}` };
+    task.attachments.push(att);
+    this.save();
+    return { task, att };
+  }
+
+  findAttachment(attId) {
+    for (const task of this.data.tasks) {
+      const att = task.attachments.find((a) => a.id === attId);
+      if (att) return { task, att };
+    }
+    return null;
+  }
+
+  completeAttachment(attId, size) {
+    const found = this.findAttachment(attId);
+    found.att.status = 'ready'; found.att.size = size; found.att.uploadedAt = new Date().toISOString();
+    this.save();
+    return found.task;
+  }
+
+  removeAttachment(taskId, attId) {
+    const task = this.getTask(taskId);
+    const att = task.attachments.find((a) => a.id === attId);
+    if (!att) throw new HttpError(404, 'Attachment not found');
+    task.attachments = task.attachments.filter((a) => a.id !== attId);
+    this.save();
+    return { task, att };
+  }
+
+  /** Uploads that were started but never finished (closed tab, lost connection). They are dropped after an hour. */
+  purgeStaleAttachments() {
+    const cutoff = Date.now() - 3600e3;
+    const gone = [];
+    for (const t of this.data.tasks) {
+      const stale = t.attachments.filter((a) => a.status === 'pending' && Date.parse(a.uploadedAt) < cutoff);
+      if (stale.length) { gone.push(...stale); t.attachments = t.attachments.filter((a) => !stale.includes(a)); }
+    }
+    if (gone.length) this.save();
+    return gone;
+  }
+
+  attachmentsOfTasks(taskIds) {
+    const ids = new Set(taskIds);
+    return this.data.tasks.filter((t) => ids.has(t.id)).flatMap((t) => t.attachments);
+  }
+
   // ---- comments (internal: never exposed through the client view) ----
   addComment(taskId, { text, authorId }) {
     const task = this.getTask(taskId);
@@ -290,7 +343,7 @@ class Store {
     const { position, ...rest } = fields;
     const task = {
       id: crypto.randomUUID(), projectId, description: '', clientUpdate: '', clientUpdateAt: '', privateNotes: '', dueDate: '', assigneeId: '', comments: [],
-      priority: 'medium', createdAt: now, updatedAt: now, ...rest,
+      priority: 'medium', attachments: [], createdAt: now, updatedAt: now, ...rest,
     };
     if (task.clientUpdate) task.clientUpdateAt = now;
     this.place(task, task.status || 'backlog', position);

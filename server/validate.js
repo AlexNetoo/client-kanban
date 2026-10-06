@@ -117,4 +117,16 @@ function cleanLink(body) {
   return { targetId: str(body, 'targetId', { max: 64, required: true }), type, inverse: body.inverse === true };
 }
 
-module.exports = { LINK_TYPES, cleanLink, cleanComment, cleanDesigner, COLUMNS, STATUSES, PROJECT_STATUSES, PRIORITIES, HttpError, cleanProject, cleanTask };
+function cleanAttachment(body, maxBytes) {
+  if (!body || typeof body !== 'object') throw new HttpError(400, 'Invalid body');
+  const { safeName, extOf, BLOCKED_EXT } = require('./files');
+  const name = safeName(str(body, 'name', { max: 255, required: true }));
+  if (BLOCKED_EXT.has(extOf(name))) throw new HttpError(400, `Files of type .${extOf(name)} can’t be attached`);
+  const size = body.size;
+  if (!Number.isInteger(size) || size < 1) throw new HttpError(400, 'That file is empty');
+  if (size > maxBytes) throw new HttpError(413, `Files can be at most ${Math.round(maxBytes / 1048576)} MB`);
+  const type = typeof body.type === 'string' && /^[\w.+-]+\/[\w.+-]+$/.test(body.type) ? body.type.slice(0, 100) : 'application/octet-stream';
+  return { name, size, type };
+}
+
+module.exports = { cleanAttachment, LINK_TYPES, cleanLink, cleanComment, cleanDesigner, COLUMNS, STATUSES, PROJECT_STATUSES, PRIORITIES, HttpError, cleanProject, cleanTask };
