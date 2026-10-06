@@ -19,7 +19,7 @@ const MIME = {
 };
 // Reachable without a session: only what the login page needs. No data lives in these files.
 // Built bundles under /assets are public too (static code, no data); the app shell (index.html) is not.
-const PUBLIC_FILES = new Set(['/login.html', '/favicon.svg']);
+const PUBLIC_FILES = new Set(['/login.html', '/favicon.svg', '/boot.js']);
 const isPublic = (rel) => PUBLIC_FILES.has(rel) || rel.startsWith('/assets/');
 
 const SECURITY_HEADERS = {
@@ -441,13 +441,17 @@ function createApp(config) {
     // /admin: the admin console for a signed-in admin, otherwise the admin sign-in (same page as /login, admin mode).
     const adminPage = pathname === '/admin' || pathname === '/admin/';
     if (adminPage) rel = session && session.role === 'owner' ? '/index.html' : '/login.html';
+    // /demo: the app shell for the in-browser demo project. It is public because it carries no data: the demo is answered
+    // entirely in the browser and every real API call still needs a real session.
+    const demoPage = pathname === '/demo' || pathname === '/demo/';
+    if (demoPage) rel = '/index.html';
     const file = path.normalize(path.join(PUBLIC_DIR, rel));
     const open = isPublic(rel);
     if (!file.startsWith(PUBLIC_DIR + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
       res.writeHead(404, { 'Content-Type': 'text/plain', ...SECURITY_HEADERS });
       return res.end('Not found');
     }
-    if (!open && !session && !adminPage) {
+    if (!open && !session && !adminPage && !demoPage) {
       // Fragment (#/c/token) is preserved by browsers across this redirect.
       res.writeHead(302, { Location: '/login', ...SECURITY_HEADERS });
       return res.end();

@@ -1,13 +1,16 @@
 import { StrictMode, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
+import { runIntro } from "./intro";
+import { HeroBackground } from "./HeroBackground";
+runIntro();
 import { Button, Heading, Tabs, Text, TextInput } from "./halaska-kit";
 import { api } from "./api";
 import { Providers, usePalette } from "./theme";
 import { val } from "./ui";
 
+const TAB_CLIENT = "Client"; // the main way in, so it comes first
 const TAB_DESIGNER = "Designer";
-const TAB_CLIENT = "Client";
 const COPY: Record<string, string> = {
   [TAB_DESIGNER]: "Sign in with the email and password you were given to see the tasks assigned to you.",
   [TAB_CLIENT]: "Sign in with your email and password to follow the progress of your projects.",
@@ -17,7 +20,7 @@ const ADMIN = location.pathname.replace(/\/+$/, "") === "/admin";
 
 function Login() {
   const pal = usePalette();
-  const [tab, setTab] = useState(TAB_DESIGNER);
+  const [tab, setTab] = useState(TAB_CLIENT);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(new URLSearchParams(location.search).get("expired") ? "Your session ended. Please sign in again." : "");
@@ -36,7 +39,8 @@ function Login() {
   };
 
   return (
-    <main className="login-wrap">
+    <main className="login-wrap hero">
+      <HeroBackground />
       <form onSubmit={submit} style={{ width: "min(100%, 380px)", display: "flex", flexDirection: "column", gap: 18 }} noValidate>
         <div style={{ display: "inline-flex", alignItems: "center", gap: 10, fontWeight: 800, letterSpacing: "-0.02em", marginBottom: 18 }}>
           <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="11" fill="currentColor" /></svg> NetoDesign
@@ -45,11 +49,15 @@ function Login() {
           <Heading level={1}>{ADMIN ? "Admin sign in" : "Sign in"}</Heading>
           <Text secondary>{ADMIN ? "Enter the admin password to manage accounts and projects." : COPY[tab]}</Text>
         </div>
-        {!ADMIN && <Tabs tabs={[TAB_DESIGNER, TAB_CLIENT]} value={tab} onChange={(t: string) => { setTab(t); setError(""); setPassword(""); }} />}
+        {!ADMIN && <Tabs tabs={[TAB_CLIENT, TAB_DESIGNER]} value={tab} onChange={(t: string) => { setTab(t); setError(""); setPassword(""); }} />}
         {error && <p role="alert" style={{ border: `1px solid ${pal.text}`, borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 600 }}>Error: {error}</p>}
         {!ADMIN && <TextInput label="Email" type="email" value={email} onChange={(e: never) => setEmail(val(e))} aria-label="Email" />}
         <TextInput label="Password" type="password" value={password} onChange={(e: never) => setPassword(val(e))} aria-label="Password" />
-        <Button type="submit" loading={busy} fullWidth>Sign in</Button>
+        <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ flex: 1 }}><Button type="submit" loading={busy} fullWidth>Sign in</Button></div>
+          {!ADMIN && <Button type="button" variant="secondary" onClick={() => { location.href = "/demo"; }} aria-label="Try the demo project, no account needed">Demo</Button>}
+        </div>
+        {!ADMIN && <Text size="sm" secondary>New here? Try the demo: a sample website project, no account needed.</Text>}
       </form>
     </main>
   );

@@ -10,6 +10,7 @@ import { Nav } from "./Sidebar";
 import { Settings } from "./Settings";
 import { SessionProvider, type Me } from "./session";
 import { usePalette } from "./theme";
+import { isDemo } from "./demo";
 
 function useHash() {
   const [hash, setHash] = useState(location.hash);
@@ -64,6 +65,7 @@ export function App() {
             <main id="main" ref={main} tabIndex={-1} className="page" style={{ maxWidth: 1280, margin: "0 auto", padding: "36px 28px 96px" }}>{view}</main>
           </div>
         </div>
+        {isDemo() && <div className="demo-pill" role="status"><span>Demo: a sample project. Nothing is saved.</span><button type="button" onClick={() => { location.href = "/login"; }}>Exit demo</button></div>}
         <Sheet open={menu} onClose={() => setMenu(false)} title="Menu" side="left"><div style={{ height: "calc(100vh - 110px)", display: "flex", flexDirection: "column" }}><Nav route={route} admin={admin} onNavigate={() => setMenu(false)} /></div></Sheet>
       </ProjectsProvider>
     </SessionProvider>

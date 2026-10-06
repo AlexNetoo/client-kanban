@@ -35,7 +35,7 @@ export function TaskModal({ task: t, projectName, designers, onClose, onChange, 
     try { onChange(await api.updateTask(t.id, data)); toast(message); } catch (e) { toast((e as Error).message, "error"); }
   };
   const copyLink = async () => {
-    try { await navigator.clipboard.writeText(`${location.origin}/#/p/${t.projectId}/t/${t.id}`); toast("Link copied"); }
+    try { await navigator.clipboard.writeText(`${location.origin}${location.pathname.replace(/\/$/, "")}#/p/${t.projectId}/t/${t.id}`); toast("Link copied"); }
     catch { toast("Couldn’t copy automatically. Copy the address bar instead.", "error"); }
   };
   const post = async () => {

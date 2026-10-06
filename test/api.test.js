@@ -65,6 +65,20 @@ test('pages redirect to login without a session; login assets are public', async
   assert.strictEqual((await call('GET', '/login')).res.status, 200);
 });
 
+test('/demo and the boot script are public, but grant no access to real data', async () => {
+  for (const p of ['/demo', '/demo/']) {
+    const r = await call('GET', p);
+    assert.strictEqual(r.res.status, 200, p);
+    assert.ok(r.text.includes('id="root"') && r.text.includes('id="intro"'));
+  }
+  const boot = await call('GET', '/boot.js');
+  assert.strictEqual(boot.res.status, 200);
+  assert.ok(/sessionStorage/.test(boot.text));
+  assert.strictEqual((await call('GET', '/api/projects')).res.status, 401); // the demo page does not open the API
+  assert.strictEqual((await call('GET', '/api/session')).res.status, 401);
+  assert.strictEqual((await call('GET', '/')).res.status, 302); // the real app still needs a session
+});
+
 test('wrong password is rejected; forged/expired cookies are rejected', async () => {
   assert.strictEqual((await login('nope')).status, 401);
   assert.strictEqual((await call('GET', '/api/projects', { cookie: 'sid=eyJyb2xlIjoib3duZXIifQ.bad' })).res.status, 401);

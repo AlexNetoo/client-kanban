@@ -43,7 +43,9 @@ export function Providers({ children }: { children: ReactNode }) {
 
 function Page({ children }: { children: ReactNode }) {
   const pal = usePal(useThemeContext());
+  const theme = useThemeContext();
   useEffect(() => { document.body.style.background = pal.bg; document.body.style.color = pal.text; }, [pal.bg, pal.text]);
+  useEffect(() => { document.documentElement.setAttribute("data-theme", theme); }, [theme]);
   return <div style={{ minHeight: "100vh", background: pal.bg, color: pal.text }}>{children}</div>;
 }
 

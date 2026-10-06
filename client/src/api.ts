@@ -1,3 +1,4 @@
+import { demoRequest, isDemo } from "./demo";
 import type { ClientAccount, ClientProject, ClientTask, Designer, Project, ProjectInput, Task, TaskInput, TaskLink, TaskSearchResult } from "./types";
 
 export interface UploadTarget { url: string; method: string; headers: Record<string, string> }
@@ -7,6 +8,7 @@ export class ApiError extends Error {
 }
 
 async function request<T>(method: string, url: string, body?: unknown): Promise<T> {
+  if (isDemo()) return demoRequest(method, url, body) as Promise<T>; // the demo never touches the server
   let res: Response;
   try {
     res = await fetch(url, {
