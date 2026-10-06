@@ -5,6 +5,7 @@ import { ProjectDialog } from "./dialogs";
 import { TeamDialog } from "./TeamDialog";
 import { CalendarIcon, ConfirmDialog, RepeatIcon, Loading, PlusIcon, StateBlock, useToast } from "./ui";
 import { usePalette } from "./theme";
+import { useMe } from "./session";
 import { formatDate, isOverdue } from "./lib/format";
 import { PROJECT_STATUS, type Project } from "./types";
 
@@ -61,6 +62,7 @@ export function ProjectMenu({ project, onChange, afterDelete }: { project: Proje
 
 export function Dashboard() {
   const pal = usePalette();
+  const owner = useMe().role === "owner";
   const [projects, setProjects] = useState<Project[] | null>(null);
   const [error, setError] = useState("");
   const [tab, setTab] = useState<"Active" | "Archived">("Active");
@@ -78,7 +80,7 @@ export function Dashboard() {
 
   const live = projects.filter((p) => !p.archived);
   const archived = projects.filter((p) => p.archived);
-  const shown = [...(tab === "Active" ? live : archived)].sort((a, b) => (a.dueDate || "9999").localeCompare(b.dueDate || "9999"));
+  const shown = [...(owner && tab === "Archived" ? archived : live)].sort((a, b) => (a.dueDate || "9999").localeCompare(b.dueDate || "9999"));
   const open = live.reduce((n, p) => n + p.total - p.counts.done, 0);
   const sum = (k: "in_progress" | "in_review") => live.reduce((n, p) => n + p.counts[k], 0);
 
@@ -86,29 +88,30 @@ export function Dashboard() {
     <>
       <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-start", gap: 16, marginBottom: 28 }}>
         <div>
-          <Heading level={1}>Projects</Heading>
-          <Text secondary>Everything in flight, and how it looks to each client.</Text>
+          <Heading level={1}>{owner ? "Projects" : "My projects"}</Heading>
+          <Text secondary>{owner ? "Everything in flight, and how it looks to each client." : "Projects with tasks assigned to you."}</Text>
         </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {owner && <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <Button variant="secondary" onClick={() => setTeam(true)}>Team</Button>
           <Button icon={<PlusIcon />} onClick={() => setCreating(true)}>New project</Button>
-        </div>
+        </div>}
       </div>
 
-      <div className="stats">
+      {owner && <div className="stats">
         <Stat label="Active projects" value={String(live.length)} />
         <Stat label="Open tasks" value={String(open)} />
         <Stat label="In progress" value={String(sum("in_progress"))} />
         <Stat label="Awaiting review" value={String(sum("in_review"))} />
-      </div>
+      </div>}
 
-      <div style={{ marginBottom: 24 }}>
+      {owner && <div style={{ marginBottom: 24 }}>
         <Tabs tabs={["Active", "Archived"]} value={tab} onChange={(t: string) => setTab(t as "Active" | "Archived")} />
         <span className="sr-only">{live.length} active, {archived.length} archived</span>
-      </div>
+      </div>}
 
       {shown.length === 0 ? (
-        tab === "Active"
+        !owner ? <StateBlock title="No projects yet" description="You’ll see a project here once a task is assigned to you." />
+        : tab === "Active"
           ? <StateBlock title="No projects yet" description="Create your first project to start a board and share progress with a client." action={<Button onClick={() => setCreating(true)}>New project</Button>} />
           : <StateBlock title="Nothing archived" description="Archived projects are kept here, hidden from clients." />
       ) : (
@@ -131,7 +134,7 @@ export function Dashboard() {
                   <DueLabel date={p.dueDate} recurring={p.recurring} done={p.status === "completed"} />
                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                     <Button size="sm" aria-label={`Open board for ${p.name}`} onClick={() => { location.hash = `#/p/${p.id}`; }}>Open board</Button>
-                    <ProjectMenu project={p} onChange={load} />
+                    {owner && <ProjectMenu project={p} onChange={load} />}
                   </div>
                 </div>
               </Card>

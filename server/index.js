@@ -3,7 +3,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { loadConfig, loadDotEnv, ROOT } = require('./config');
-const { verifyPassword, signSession, readSession, parseCookies } = require('./auth');
+const { hashPassword, verifyPassword, signSession, readSession, parseCookies } = require('./auth');
 const { Store } = require('./store');
 const { COLUMNS, HttpError, cleanProject, cleanTask, cleanComment, cleanDesigner } = require('./validate');
 
@@ -37,9 +37,16 @@ const clientTask = (t) => ({
   clientUpdate: t.clientUpdate, clientUpdateAt: t.clientUpdateAt,
 });
 
+// What a designer may see: no private notes, no client share links.
+const staffProject = ({ shareToken, ...p }) => p; // eslint-disable-line no-unused-vars
+const staffTask = ({ privateNotes, ...t }) => t; // eslint-disable-line no-unused-vars
+// Designers may only change the column/order of a task assigned to them.
+const DESIGNER_TASK_FIELDS = new Set(['status', 'position']);
+
 function createApp(config) {
   const store = new Store(config.dataFile);
-  const attempts = new Map(); // ip -> { n, reset }
+  const attempts = new Map(); // limiter key (ip, or email) -> { n, reset }
+  const DUMMY_HASH = hashPassword('unused-' + Math.random()); // equalises timing for unknown emails
   const routes = [];
 
   const route = (method, pattern, access, handler) => {
@@ -51,7 +58,23 @@ function createApp(config) {
   const clientIp = (req) => (config.trustProxy && req.headers['x-forwarded-for'])
     ? String(req.headers['x-forwarded-for']).split(',')[0].trim() : req.socket.remoteAddress;
 
-  const sessionOf = (req) => readSession(parseCookies(req.headers.cookie)[COOKIE], config.secret);
+  // Designer sessions are re-checked on every request, so removing a designer or changing their
+  // password/email revokes access immediately instead of waiting for the cookie to expire.
+  const sessionOf = (req) => {
+    const s = readSession(parseCookies(req.headers.cookie)[COOKIE], config.secret);
+    if (s && s.role === 'designer') {
+      const d = store.getDesigner(s.uid);
+      if (!d || !d.passwordHash || d.tokenVersion !== s.v) return null;
+      return { ...s, designer: { id: d.id, name: d.name } };
+    }
+    return s;
+  };
+
+  const tooMany = (key) => { const r = attempts.get(key); return r && r.reset > Date.now() && r.n >= 10; };
+  const fail = (key) => {
+    const now = Date.now(); const r = attempts.get(key);
+    attempts.set(key, { n: (r && r.reset > now ? r.n : 0) + 1, reset: r && r.reset > now ? r.reset : now + 15 * 60 * 1000 });
+  };
 
   const cookie = (value, maxAgeSec) => [
     `${COOKIE}=${value}`, 'HttpOnly', 'SameSite=Strict', 'Path=/', `Max-Age=${maxAgeSec}`,
@@ -61,53 +84,121 @@ function createApp(config) {
   // ---- Auth ----
   route('POST', '/api/login', 'public', ({ req, res, body }) => {
     const ip = clientIp(req);
-    const now = Date.now();
-    const rec = attempts.get(ip);
-    if (rec && rec.reset > now && rec.n >= 10) throw new HttpError(429, 'Too many attempts. Try again in a few minutes.');
     const password = typeof body.password === 'string' ? body.password : '';
-    const role = verifyPassword(password, config.ownerHash) ? 'owner'
-      : (config.clientHash && verifyPassword(password, config.clientHash)) ? 'client' : null;
-    if (!role) {
-      attempts.set(ip, { n: (rec && rec.reset > now ? rec.n : 0) + 1, reset: rec && rec.reset > now ? rec.reset : now + 15 * 60 * 1000 });
-      throw new HttpError(401, 'That password isn’t right.');
+    const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+    const keys = email ? [ip, `email:${email}`] : [ip];
+    if (keys.some(tooMany)) throw new HttpError(429, 'Too many attempts. Try again in a few minutes.');
+    let session = null;
+    if (email) {
+      const d = store.findDesignerByEmail(email);
+      const ok = verifyPassword(password, d && d.passwordHash ? d.passwordHash : DUMMY_HASH);
+      if (d && d.passwordHash && ok) session = { role: 'designer', uid: d.id, v: d.tokenVersion };
+    } else if (verifyPassword(password, config.ownerHash)) session = { role: 'owner' };
+    else if (config.clientHash && verifyPassword(password, config.clientHash)) session = { role: 'client' };
+    if (!session) {
+      keys.forEach(fail);
+      throw new HttpError(401, email ? 'That email or password isn’t right.' : 'That password isn’t right.');
     }
     attempts.delete(ip);
-    const token = signSession({ role, exp: now + config.sessionMs }, config.secret);
-    res.setHeader('Set-Cookie', cookie(token, Math.floor(config.sessionMs / 1000)));
-    return { role };
+    if (email) attempts.delete(`email:${email}`);
+    const exp = Date.now() + config.sessionMs;
+    res.setHeader('Set-Cookie', cookie(signSession({ ...session, exp }, config.secret), Math.floor(config.sessionMs / 1000)));
+    return { role: session.role };
   });
   route('POST', '/api/logout', 'public', ({ res }) => {
     res.setHeader('Set-Cookie', cookie('', 0));
     return { ok: true };
   });
-  route('GET', '/api/session', 'any', ({ session }) => ({ role: session.role, expiresAt: session.exp, columns: COLUMNS }));
+  route('GET', '/api/session', 'any', ({ session }) => ({ role: session.role, designer: session.designer, expiresAt: session.exp, columns: COLUMNS }));
 
-  // ---- Owner: projects ----
-  route('GET', '/api/projects', 'owner', () => store.listProjects());
+  const isDesigner = (s) => s.role === 'designer';
+  // A designer can reach a project only if they have a task in it; anything else looks like it doesn't exist.
+  const visibleProject = (s, projectId) => {
+    if (!isDesigner(s)) return store.getProject(projectId);
+    if (!store.projectIdsFor(s.uid).has(projectId)) throw new HttpError(404, 'Project not found');
+    return store.getProject(projectId);
+  };
+  const taskFor = (s, taskId) => {
+    const t = store.getTask(taskId);
+    visibleProject(s, t.projectId);
+    return t;
+  };
+  const outTask = (s, t) => (isDesigner(s) ? staffTask(t) : t);
+
+  // ---- Projects: owner sees all; a designer sees only their own, without private notes or share links ----
+  route('GET', '/api/projects', 'staff', ({ session }) => {
+    if (!isDesigner(session)) return store.listProjects();
+    const ids = store.projectIdsFor(session.uid);
+    return store.listProjects().filter((p) => ids.has(p.id)).map(staffProject);
+  });
   route('POST', '/api/projects', 'owner', ({ body }) => ({ status: 201, body: store.createProject(cleanProject(body)) }));
-  route('GET', '/api/projects/:id', 'owner', ({ params }) => {
-    const p = store.getProject(params.id);
-    return { project: store.withStats(p), tasks: store.tasksFor(p.id) };
+  route('GET', '/api/projects/:id', 'staff', ({ params, session }) => {
+    const p = visibleProject(session, params.id);
+    const tasks = store.tasksFor(p.id);
+    return isDesigner(session)
+      ? { project: staffProject(store.withStats(p)), tasks: tasks.map(staffTask) }
+      : { project: store.withStats(p), tasks };
   });
   route('PATCH', '/api/projects/:id', 'owner', ({ params, body }) =>
     store.updateProject(params.id, cleanProject(body, true), { resetToken: body.resetShareToken === true }));
   route('DELETE', '/api/projects/:id', 'owner', ({ params }) => { store.deleteProject(params.id); return { ok: true }; });
 
-  // ---- Owner: tasks ----
+  // ---- Tasks: owner edits everything; a designer may only move their own assigned tasks ----
   route('POST', '/api/projects/:id/tasks', 'owner', ({ params, body }) =>
     ({ status: 201, body: store.createTask(params.id, cleanTask(body)) }));
-  route('PATCH', '/api/tasks/:id', 'owner', ({ params, body }) => store.updateTask(params.id, cleanTask(body, true)));
+  route('PATCH', '/api/tasks/:id', 'staff', ({ params, body, session }) => {
+    if (!isDesigner(session)) return store.updateTask(params.id, cleanTask(body, true));
+    const task = taskFor(session, params.id);
+    if (task.assigneeId !== session.uid) throw new HttpError(403, 'You can only move tasks assigned to you');
+    if (Object.keys(body).some((k) => !DESIGNER_TASK_FIELDS.has(k))) throw new HttpError(403, 'Designers can only move tasks between columns');
+    const { status, position } = cleanTask(body, true);
+    return staffTask(store.updateTask(params.id, { status, position }));
+  });
   route('DELETE', '/api/tasks/:id', 'owner', ({ params }) => { store.deleteTask(params.id); return { ok: true }; });
 
-  // ---- Owner: designers and task comments (internal; never part of the client view) ----
-  route('GET', '/api/designers', 'owner', () => store.listDesigners());
-  route('POST', '/api/designers', 'owner', ({ body }) => ({ status: 201, body: store.createDesigner(cleanDesigner(body)) }));
+  // ---- Designers (accounts). Everyone signed in as staff can list names; only the owner manages logins. ----
+  route('GET', '/api/designers', 'staff', ({ session }) => store.listDesigners({ full: !isDesigner(session) }));
+  route('POST', '/api/designers', 'owner', ({ body }) => {
+    const { password, ...fields } = cleanDesigner(body);
+    return { status: 201, body: store.createDesigner({ ...fields, passwordHash: password ? hashPassword(password) : '' }) };
+  });
+  route('PATCH', '/api/designers/:id', 'owner', ({ params, body }) => {
+    if (body && body.removeLogin === true) return store.updateDesigner(params.id, { email: '', passwordHash: '' }); // keeps the person and their history, drops access
+    const { password, ...fields } = cleanDesigner(body, true);
+    return store.updateDesigner(params.id, { ...fields, ...(password ? { passwordHash: hashPassword(password) } : {}) });
+  });
   route('DELETE', '/api/designers/:id', 'owner', ({ params }) => { store.deleteDesigner(params.id); return { ok: true }; });
-  route('POST', '/api/tasks/:id/comments', 'owner', ({ params, body }) => ({ status: 201, body: store.addComment(params.id, cleanComment(body)) }));
-  route('DELETE', '/api/tasks/:id/comments/:cid', 'owner', ({ params }) => store.deleteComment(params.id, params.cid));
+
+  // A designer changes their own password (the owner's lives in the environment). Other sessions are revoked.
+  route('POST', '/api/me/password', 'staff', ({ res, body, session }) => {
+    if (!isDesigner(session)) throw new HttpError(403, 'The freelancer password is changed in the server environment settings');
+    const d = store.getDesigner(session.uid);
+    const current = typeof body.current === 'string' ? body.current : '';
+    if (tooMany(`pw:${d.id}`)) throw new HttpError(429, 'Too many attempts. Try again in a few minutes.');
+    if (!verifyPassword(current, d.passwordHash)) { fail(`pw:${d.id}`); throw new HttpError(401, 'Your current password isn’t right.'); }
+    const { password } = cleanDesigner({ password: body.next }, true);
+    if (!password) throw new HttpError(400, 'Password must be at least 10 characters');
+    store.updateDesigner(d.id, { passwordHash: hashPassword(password) });
+    const exp = Date.now() + config.sessionMs;
+    res.setHeader('Set-Cookie', cookie(signSession({ role: 'designer', uid: d.id, v: store.getDesigner(d.id).tokenVersion, exp }, config.secret), Math.floor(config.sessionMs / 1000)));
+    return { ok: true };
+  });
+
+  // ---- Comments: internal, authored by whoever is signed in (never taken from the request) ----
+  route('POST', '/api/tasks/:id/comments', 'staff', ({ params, body, session }) => {
+    taskFor(session, params.id);
+    const { text } = cleanComment(body);
+    return { status: 201, body: outTask(session, store.addComment(params.id, { text, authorId: isDesigner(session) ? session.uid : 'owner' })) };
+  });
+  route('DELETE', '/api/tasks/:id/comments/:cid', 'staff', ({ params, session }) => {
+    const task = taskFor(session, params.id);
+    const comment = task.comments.find((c) => c.id === params.cid);
+    if (comment && isDesigner(session) && comment.authorId !== session.uid) throw new HttpError(403, 'You can only delete your own comments');
+    return outTask(session, store.deleteComment(params.id, params.cid));
+  });
 
   // ---- Client view (owner or client session). Addressed by unguessable share token. ----
-  route('GET', '/api/client/:token', 'any', ({ params }) => {
+  route('GET', '/api/client/:token', 'viewer', ({ params }) => {
     const p = store.withStats(store.getProjectByToken(params.token));
     return { project: clientProject(p), tasks: store.tasksFor(p.id).map(clientTask) };
   });
@@ -143,7 +234,10 @@ function createApp(config) {
     }
     if (route_.access !== 'public') {
       if (!session) throw new HttpError(401, 'Please sign in');
-      if (route_.access === 'owner' && session.role !== 'owner') throw new HttpError(403, 'Not allowed');
+      const allowed = {
+        any: ['owner', 'client', 'designer'], staff: ['owner', 'designer'], owner: ['owner'], viewer: ['owner', 'client'],
+      }[route_.access];
+      if (!allowed.includes(session.role)) throw new HttpError(403, 'Not allowed');
     }
     let body = {};
     if (req.method !== 'GET') {

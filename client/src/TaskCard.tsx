@@ -5,6 +5,7 @@ import { DueLabel } from "./Dashboard";
 import { assigneeOptions } from "./dialogs";
 import { EyeIcon, LockIcon, Person, useToast, val } from "./ui";
 import { usePalette } from "./theme";
+import { useMe } from "./session";
 import { formatDateTime } from "./lib/format";
 import { COLUMNS, PRIORITY, columnLabel, type Column, type Designer, type Task } from "./types";
 
@@ -23,7 +24,9 @@ interface Props {
 export function TaskCard({ task: t, designers, expanded, onToggle, onEdit, onDelete, onMove, onChange }: Props) {
   const pal = usePalette();
   const toast = useToast();
-  const [postAs, setPostAs] = useState("owner");
+  const me = useMe();
+  const owner = me.role === "owner";
+  const mine = t.assigneeId === me.designer?.id;
   const [text, setText] = useState("");
   const [posting, setPosting] = useState(false);
   const assignee = designers.find((d) => d.id === t.assigneeId);
@@ -36,7 +39,7 @@ export function TaskCard({ task: t, designers, expanded, onToggle, onEdit, onDel
   const post = async () => {
     if (!text.trim()) return;
     setPosting(true);
-    try { onChange(await api.addComment(t.id, { text, authorId: postAs })); setText(""); toast("Comment posted"); }
+    try { onChange(await api.addComment(t.id, { text })); setText(""); toast("Comment posted"); }
     catch (e) { toast((e as Error).message, "error"); } finally { setPosting(false); }
   };
   const removeComment = async (id: string) => {
@@ -71,7 +74,9 @@ export function TaskCard({ task: t, designers, expanded, onToggle, onEdit, onDel
         <div id={panelId} style={{ display: "flex", flexDirection: "column", gap: 16, borderTop: `1px solid ${pal.border}`, paddingTop: 14, cursor: "auto" }}>
           <div>{label("Description")}{t.description ? <p style={{ fontSize: 14, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{t.description}</p> : <Text size="sm" secondary>No description yet.</Text>}</div>
 
-          <Select label="Assigned designer" value={t.assigneeId} onChange={assign} options={assigneeOptions(designers)} />
+          {owner
+            ? <Select label="Assigned designer" value={t.assigneeId} onChange={assign} options={assigneeOptions(designers)} />
+            : <div>{label("Assigned to")}<Text size="sm">{assignee ? (mine ? `${assignee.name} (you)` : assignee.name) : "Unassigned"}</Text></div>}
 
           {t.clientUpdate && (
             <section aria-label="Client-visible update" style={{ border: `1px solid ${pal.text}`, borderRadius: 12, padding: 12 }}>
@@ -96,7 +101,7 @@ export function TaskCard({ task: t, designers, expanded, onToggle, onEdit, onDel
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
                       <span style={{ fontWeight: 600, fontSize: 13 }}>{c.authorName} <time dateTime={c.createdAt} style={{ fontWeight: 400, color: pal.textTertiary, fontSize: 12 }}>· {formatDateTime(c.createdAt)}</time></span>
-                      <Button variant="ghost" size="sm" aria-label={`Delete comment by ${c.authorName}`} onClick={() => removeComment(c.id)}>Delete</Button>
+                      {(owner || c.authorId === me.designer?.id) && <Button variant="ghost" size="sm" aria-label={`Delete comment by ${c.authorName}`} onClick={() => removeComment(c.id)}>Delete</Button>}
                     </div>
                     <p style={{ fontSize: 14, lineHeight: 1.5, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{c.text}</p>
                   </div>
@@ -104,16 +109,15 @@ export function TaskCard({ task: t, designers, expanded, onToggle, onEdit, onDel
               ))}
             </ul>
             <form onSubmit={(e) => { e.preventDefault(); post(); }} style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
-              <Select label="Posting as" value={postAs} onChange={setPostAs} options={[{ value: "owner", label: "Freelancer" }, ...designers.map((d) => ({ value: d.id, label: d.name }))]} />
-              <TextArea label="Add a comment" rows={2} value={text} onChange={(e: never) => setText(val(e))} aria-label="Add a comment" />
+              <TextArea label={`Add a comment as ${owner ? "Freelancer" : me.designer?.name ?? "you"}`} rows={2} value={text} onChange={(e: never) => setText(val(e))} aria-label={`Add a comment as ${owner ? "Freelancer" : me.designer?.name ?? "you"}`} />
               <div><Button type="button" size="sm" loading={posting} onClick={post}>Post comment</Button></div>
             </form>
           </section>
 
-          <div style={{ display: "flex", gap: 8, justifyContent: "space-between", flexWrap: "wrap" }}>
+          {owner && <div style={{ display: "flex", gap: 8, justifyContent: "space-between", flexWrap: "wrap" }}>
             <Button variant="secondary" size="sm" aria-label={`Delete task ${t.title}`} onClick={onDelete}>Delete task</Button>
             <Button size="sm" aria-label={`Edit task ${t.title}`} onClick={onEdit}>Edit task</Button>
-          </div>
+          </div>}
         </div>
       )}
 
@@ -123,10 +127,10 @@ export function TaskCard({ task: t, designers, expanded, onToggle, onEdit, onDel
           {!expanded && !assignee && <span>Unassigned</span>}
         </span>
         <span style={{ display: "inline-flex", gap: 4 }}>
-          {!expanded && <Button variant="ghost" size="sm" aria-label={`Edit task ${t.title}`} onClick={onEdit}>Edit</Button>}
-          <DropdownMenu
+          {owner && !expanded && <Button variant="ghost" size="sm" aria-label={`Edit task ${t.title}`} onClick={onEdit}>Edit</Button>}
+          {(owner || mine) && <DropdownMenu
             trigger={<Button variant="ghost" size="sm" aria-label={`Move “${t.title}” to another column`}>Move to…</Button>}
-            items={COLUMNS.filter((c) => c.id !== t.status).map((c) => ({ label: c.label, onClick: () => onMove(c.id) }))} />
+            items={COLUMNS.filter((c) => c.id !== t.status).map((c) => ({ label: c.label, onClick: () => onMove(c.id) }))} />}
         </span>
       </div>
     </Card>

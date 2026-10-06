@@ -7,10 +7,14 @@ import { TeamDialog } from "./TeamDialog";
 import { DueLabel, ProjectMenu } from "./Dashboard";
 import { ConfirmDialog, EyeIcon, Loading, LockIcon, PlusIcon, StateBlock, useToast } from "./ui";
 import { usePalette } from "./theme";
+import { useMe } from "./session";
 import { COLUMNS, PROJECT_STATUS, columnLabel, type Column, type Designer, type Project, type Task } from "./types";
 
 export function Board({ id }: { id: string }) {
   const pal = usePalette();
+  const me = useMe();
+  const owner = me.role === "owner";
+  const canMove = (t: Task) => owner || t.assigneeId === me.designer?.id;
   const toast = useToast();
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -80,7 +84,7 @@ export function Board({ id }: { id: string }) {
   const onDrop = (e: DragEvent<HTMLUListElement>, col: Column) => {
     e.preventDefault(); setDropCol(null);
     const task = tasks.find((t) => t.id === dragId.current);
-    if (!task) return;
+    if (!task || !canMove(task)) return;
     const cards = [...e.currentTarget.querySelectorAll<HTMLElement>(".task:not(.dragging)")];
     const position = cards.filter((c) => e.clientY > c.getBoundingClientRect().top + c.getBoundingClientRect().height / 2).length;
     move(task, col, position);
@@ -88,7 +92,8 @@ export function Board({ id }: { id: string }) {
 
   return (
     <div ref={root}>
-      <a href="#/" style={{ display: "inline-block", marginBottom: 14, color: pal.textSecondary, fontSize: 14 }}>← All projects</a>
+      <a href="#/" style={{ display: "inline-block", marginBottom: 14, color: pal.textSecondary, fontSize: 14 }}>← {owner ? "All projects" : "My projects"}</a>
+      {!owner && <p style={{ marginBottom: 14, fontSize: 14, color: pal.textSecondary }}>You can move your own tasks between columns and comment on any task here.</p>}
       <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-start", gap: 16, marginBottom: 20 }}>
         <div>
           <Heading level={1}>{project.name}</Heading>
@@ -98,12 +103,12 @@ export function Board({ id }: { id: string }) {
             {project.archived && <Badge>Archived</Badge>}
           </div>
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+        {owner && <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
           <Button icon={<PlusIcon />} onClick={() => setEditing({ status: "todo" })}>Add task</Button>
           <Button variant="secondary" icon={<EyeIcon />} onClick={() => { location.hash = `#/c/${project.shareToken}`; }}>Client view</Button>
           <Button variant="secondary" onClick={() => setTeam(true)}>Team</Button>
           <ProjectMenu project={project} onChange={() => load()} afterDelete={() => { location.hash = "#/"; }} />
-        </div>
+        </div>}
       </div>
 
       <div style={{ maxWidth: 480, marginBottom: 28 }}>
@@ -111,7 +116,7 @@ export function Board({ id }: { id: string }) {
         <p style={{ marginTop: 8, fontSize: 13, color: pal.textSecondary }}>{project.progress}% complete · {project.counts.done} of {project.total} tasks done</p>
       </div>
 
-      {project.total === 0 && <div style={{ marginBottom: 20 }}><StateBlock title="No tasks yet" description="Add the first task to start this board." action={<Button onClick={() => setEditing({ status: "todo" })}>Add task</Button>} /></div>}
+      {owner && project.total === 0 && <div style={{ marginBottom: 20 }}><StateBlock title="No tasks yet" description="Add the first task to start this board." action={<Button onClick={() => setEditing({ status: "todo" })}>Add task</Button>} /></div>}
 
       <div className="board" role="group" aria-label="Kanban board"
         style={{ gridTemplateColumns: COLUMNS.map((c) => (tasks.some((t) => t.status === c.id && openIds.has(t.id)) ? "minmax(340px, 1.5fr)" : "minmax(235px, 1fr)")).join(" ") }}>
@@ -123,14 +128,14 @@ export function Board({ id }: { id: string }) {
                 <h2 id={`col-${col.id}`} style={{ margin: 0, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.09em", fontWeight: 700 }}>
                   {col.label} <span aria-label={`${items.length} tasks`} style={{ color: pal.textTertiary, marginLeft: 6 }}>{items.length}</span>
                 </h2>
-                <Button variant="ghost" size="sm" icon={<PlusIcon />} aria-label={`Add task to ${col.label}`} onClick={() => setEditing({ status: col.id })}>Add</Button>
+                {owner && <Button variant="ghost" size="sm" icon={<PlusIcon />} aria-label={`Add task to ${col.label}`} onClick={() => setEditing({ status: col.id })}>Add</Button>}
               </div>
               <ul className={`cards${dropCol === col.id ? " drop-target" : ""}`} aria-labelledby={`col-${col.id}`}
                 onDragOver={(e) => { if (dragId.current) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDropCol(col.id); } }}
                 onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropCol(null); }}
                 onDrop={(e) => onDrop(e, col.id)}>
                 {items.map((t) => (
-                  <li key={t.id} className="task" data-task-id={t.id} draggable={!openIds.has(t.id)}
+                  <li key={t.id} className="task" data-task-id={t.id} draggable={!openIds.has(t.id) && canMove(t)}
                     onDragStart={(e) => { dragId.current = t.id; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", t.id); e.currentTarget.classList.add("dragging"); }}
                     onDragEnd={(e) => { dragId.current = null; setDropCol(null); e.currentTarget.classList.remove("dragging"); }}>
                     <TaskCard task={t} designers={designers} expanded={openIds.has(t.id)} onToggle={() => toggle(t.id)}

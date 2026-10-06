@@ -17,7 +17,7 @@ export interface Project {
   id: string; shareToken: string; name: string; client: string; status: ProjectStatus; dueDate: string; recurring: boolean; summary: string;
   archived: boolean; createdAt: string; updatedAt: string; counts: Record<Column, number>; total: number; progress: number;
 }
-export interface Designer { id: string; name: string; role: string }
+export interface Designer { id: string; name: string; role: string; email?: string; hasLogin?: boolean }
 export interface Comment { id: string; authorId: string; authorName: string; text: string; createdAt: string }
 export interface Task {
   assigneeId: string; comments: Comment[];

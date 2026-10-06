@@ -76,12 +76,32 @@ function cleanTask(body, partial = false) {
 
 function cleanComment(body) {
   if (!body || typeof body !== 'object') throw new HttpError(400, 'Invalid body');
-  return { text: str(body, 'text', { max: 1000, required: true }), authorId: str(body, 'authorId', { max: 64 }) || 'owner' };
+  // The author is never taken from the request: it comes from the signed-in session.
+  return { text: str(body, 'text', { max: 1000, required: true }) };
 }
 
-function cleanDesigner(body) {
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MIN_PASSWORD = 10;
+
+// partial=true (PATCH): only validate fields that are present.
+function cleanDesigner(body, partial = false) {
   if (!body || typeof body !== 'object') throw new HttpError(400, 'Invalid body');
-  return { name: str(body, 'name', { max: 80, required: true }), role: str(body, 'role', { max: 80 }) };
+  const has = (k) => !partial || k in body;
+  const out = {};
+  if (has('name')) out.name = str(body, 'name', { max: 80, required: true });
+  if (has('role')) out.role = str(body, 'role', { max: 80 });
+  if (has('email')) {
+    const email = str(body, 'email', { max: 120 }).toLowerCase();
+    if (email && !EMAIL.test(email)) throw new HttpError(400, 'Enter a valid email address');
+    out.email = email;
+  }
+  if ('password' in body && body.password !== '' && body.password !== undefined) {
+    if (typeof body.password !== 'string' || body.password.length < MIN_PASSWORD || body.password.length > 200) {
+      throw new HttpError(400, `Password must be at least ${MIN_PASSWORD} characters`);
+    }
+    out.password = body.password;
+  }
+  return out;
 }
 
 module.exports = { cleanComment, cleanDesigner, COLUMNS, STATUSES, PROJECT_STATUSES, PRIORITIES, HttpError, cleanProject, cleanTask };

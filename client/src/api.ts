@@ -16,7 +16,7 @@ async function request<T>(method: string, url: string, body?: unknown): Promise<
     throw new ApiError(0, "Can’t reach the server. Check your connection and try again.");
   }
   const data = await res.json().catch(() => ({}));
-  if (res.status === 401 && !url.endsWith("/login")) {
+  if (res.status === 401 && !url.endsWith("/login") && !url.endsWith("/me/password")) { // those 401s mean a wrong password, not an expired session
     location.replace("/login?expired=1" + location.hash);
     throw new ApiError(401, "Your session ended. Please sign in again.");
   }
@@ -25,8 +25,8 @@ async function request<T>(method: string, url: string, body?: unknown): Promise<
 }
 
 export const api = {
-  login: (password: string) => request<{ role: string }>("POST", "/api/login", { password }),
-  session: () => request<{ role: "owner" | "client" }>("GET", "/api/session"),
+  login: (password: string, email?: string) => request<{ role: string }>("POST", "/api/login", email ? { email, password } : { password }),
+  session: () => request<{ role: "owner" | "client" | "designer"; designer?: { id: string; name: string } }>("GET", "/api/session"),
   logout: () => request<{ ok: true }>("POST", "/api/logout", {}),
   listProjects: () => request<Project[]>("GET", "/api/projects"),
   getProject: (id: string) => request<{ project: Project; tasks: Task[] }>("GET", `/api/projects/${id}`),
@@ -37,9 +37,11 @@ export const api = {
   updateTask: (id: string, d: Partial<TaskInput> & { position?: number }) => request<Task>("PATCH", `/api/tasks/${id}`, d),
   deleteTask: (id: string) => request<{ ok: true }>("DELETE", `/api/tasks/${id}`),
   listDesigners: () => request<Designer[]>("GET", "/api/designers"),
-  createDesigner: (d: { name: string; role: string }) => request<Designer>("POST", "/api/designers", d),
+  createDesigner: (d: { name: string; role: string; email?: string; password?: string }) => request<Designer>("POST", "/api/designers", d),
+  updateDesigner: (id: string, d: { name?: string; role?: string; email?: string; password?: string; removeLogin?: boolean }) => request<Designer>("PATCH", `/api/designers/${id}`, d),
+  changePassword: (current: string, next: string) => request<{ ok: true }>("POST", "/api/me/password", { current, next }),
   deleteDesigner: (id: string) => request<{ ok: true }>("DELETE", `/api/designers/${id}`),
-  addComment: (taskId: string, d: { text: string; authorId: string }) => request<Task>("POST", `/api/tasks/${taskId}/comments`, d),
+  addComment: (taskId: string, d: { text: string }) => request<Task>("POST", `/api/tasks/${taskId}/comments`, d),
   deleteComment: (taskId: string, commentId: string) => request<Task>("DELETE", `/api/tasks/${taskId}/comments/${commentId}`),
   clientView: (token: string) => request<{ project: ClientProject; tasks: ClientTask[] }>("GET", `/api/client/${encodeURIComponent(token)}`),
 };

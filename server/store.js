@@ -19,10 +19,15 @@ class Store {
     this.migrate();
   }
 
-  // Older data files predate designers, assignees and comments.
+  // Older data files predate designers, logins, assignees and comments.
   migrate() {
     let changed = false;
     if (!this.data.designers) { this.data.designers = seedDesigners(); changed = true; }
+    for (const d of this.data.designers) {
+      if (d.email === undefined) { d.email = ''; changed = true; }
+      if (d.passwordHash === undefined) { d.passwordHash = ''; changed = true; }
+      if (d.tokenVersion === undefined) { d.tokenVersion = 0; changed = true; }
+    }
     for (const t of this.data.tasks) {
       if (!Array.isArray(t.comments)) { t.comments = []; changed = true; }
       if (t.assigneeId === undefined) { t.assigneeId = ''; changed = true; }
@@ -34,21 +39,64 @@ class Store {
     if (id && !this.data.designers.some((d) => d.id === id)) throw new HttpError(400, 'Unknown designer');
   }
 
-  // ---- designers ----
-  listDesigners() { return this.data.designers; }
+  // ---- designers (accounts) ----
+  getDesigner(id) { return this.data.designers.find((d) => d.id === id); }
 
-  createDesigner(fields) {
-    const d = { id: crypto.randomUUID(), ...fields };
+  findDesignerByEmail(email) {
+    const e = String(email || '').trim().toLowerCase();
+    return e ? this.data.designers.find((d) => d.email === e) : undefined;
+  }
+
+  /** Never includes the password hash. */
+  publicDesigner(d, { full = false } = {}) {
+    const base = { id: d.id, name: d.name, role: d.role };
+    return full ? { ...base, email: d.email, hasLogin: !!(d.email && d.passwordHash) } : base;
+  }
+
+  listDesigners(opts) { return this.data.designers.map((d) => this.publicDesigner(d, opts)); }
+
+  assertEmailFree(email, exceptId) {
+    if (email && this.data.designers.some((d) => d.email === email && d.id !== exceptId)) throw new HttpError(409, 'Another designer already uses that email');
+  }
+
+  createDesigner({ name, role = '', email = '', passwordHash = '' }) {
+    if (email && !passwordHash) throw new HttpError(400, 'Set a password for this login');
+    if (passwordHash && !email) throw new HttpError(400, 'Add an email for this login');
+    this.assertEmailFree(email);
+    const d = { id: crypto.randomUUID(), name, role, email, passwordHash, tokenVersion: 0 };
     this.data.designers.push(d);
     this.save();
-    return d;
+    return this.publicDesigner(d, { full: true });
+  }
+
+  /** Changing the email or password bumps tokenVersion, which signs the designer out everywhere. */
+  updateDesigner(id, { name, role, email, passwordHash }) {
+    const d = this.getDesigner(id);
+    if (!d) throw new HttpError(404, 'Designer not found');
+    const nextEmail = email !== undefined ? email : d.email;
+    const nextHash = passwordHash !== undefined ? passwordHash : d.passwordHash;
+    if (nextEmail && !nextHash) throw new HttpError(400, 'Set a password for this login');
+    if (nextHash && !nextEmail) throw new HttpError(400, 'Add an email for this login');
+    this.assertEmailFree(nextEmail, id);
+    if (name !== undefined) d.name = name;
+    if (role !== undefined) d.role = role;
+    if (nextEmail !== d.email || nextHash !== d.passwordHash) d.tokenVersion += 1;
+    d.email = nextEmail; d.passwordHash = nextHash;
+    this.save();
+    return this.publicDesigner(d, { full: true });
   }
 
   deleteDesigner(id) {
-    if (!this.data.designers.some((d) => d.id === id)) throw new HttpError(404, 'Designer not found');
-    this.data.designers = this.data.designers.filter((d) => d.id !== id);
+    if (!this.getDesigner(id)) throw new HttpError(404, 'Designer not found');
+    this.data.designers = this.data.designers.filter((d) => d.id !== id); // their sessions stop validating immediately
     this.data.tasks.forEach((t) => { if (t.assigneeId === id) t.assigneeId = ''; }); // past comments keep the author's name
     this.save();
+  }
+
+  /** Projects (non-archived) in which the designer has at least one assigned task. */
+  projectIdsFor(designerId) {
+    const ids = new Set(this.data.tasks.filter((t) => t.assigneeId === designerId).map((t) => t.projectId));
+    return new Set([...ids].filter((pid) => this.data.projects.some((p) => p.id === pid && !p.archived)));
   }
 
   // ---- comments (internal: never exposed through the client view) ----

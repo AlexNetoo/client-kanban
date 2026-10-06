@@ -35,6 +35,19 @@ npm run dev:web     # optional Vite dev server on :5173 (proxies /api to :3000)
 
 `.env` and `data/` are git-ignored. Never commit them.
 
+## Designer logins
+
+Designers sign in on the **Designer** tab of the login page with an email and password. The freelancer creates them in **Team** (name, optional role, login email and a password of 10+ characters) and shares the password privately. A designer can then change it under **Change password**.
+
+What a designer can do, enforced on the server:
+- See only projects where a task is assigned to them, never archived ones.
+- Move tasks assigned to them between columns (status/position only), and comment on tasks in their projects. The comment author always comes from their login.
+- Delete only their own comments.
+
+What they never get: private notes, client share links, the client view, or any create/edit/delete of projects, tasks or team members.
+
+Changing a designer's password or email, removing their login, or deleting them signs them out immediately (sessions are re-checked on every request). Passwords are scrypt hashes; failed sign-ins are rate limited per IP and per email.
+
 ## Sharing with clients
 
 Open a project → **Client view** → **More → Copy client link**. Give the client the link and the client password.
@@ -65,6 +78,8 @@ scripts/  setup.js      test/  api.test.js
 
 ## Limitations
 
-- Sessions are stateless: sign-out clears the cookie but a copied cookie stays valid until it expires (rotate `SESSION_SECRET` to revoke all).
+- Freelancer and client sessions are stateless: sign-out clears the cookie but a copied cookie stays valid until it expires (rotate `SESSION_SECRET` to revoke all). Designer sessions are revoked immediately (see above).
+- Designer accounts live in the same data file, so on hosts with ephemeral disks (the Vercel demo) they disappear when the instance restarts. Use persistent storage before relying on designer logins.
+- No email invites or password-reset emails: the freelancer sets and resets designer passwords.
 - Rate limiting is per process and in memory; single-process storage (no concurrent writers).
 - No real-time sync between browser tabs, no file attachments, no per-client passwords (one client password for all clients; isolation is by link token).
