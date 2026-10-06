@@ -139,7 +139,7 @@ export function Brand({ href = "#/" }: { href?: string }) {
   const pal = usePalette();
   return (
     <div>
-      <a href={href} className="nav__brand" aria-label="Alex Neto - Client Portal, home"><span className="nav__mark" />Alex Neto</a>
+      <a href={href} className="nav__brand" aria-label="Alex Neto - Client Portal, home"><span className="nav__mark" /><span className="nav__word">Alex Neto</span></a>
       <span className="brand-sub" style={{ color: pal.textTertiary }}>Client Portal</span>
     </div>
   );

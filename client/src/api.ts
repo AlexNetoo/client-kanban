@@ -1,5 +1,5 @@
 import { demoRequest, isDemo } from "./demo";
-import type { ClientAccount, ClientProject, ClientTask, Designer, Project, ProjectInput, Task, TaskInput, TaskLink, TaskSearchResult } from "./types";
+import type { ProjectRequest, RequestInput, ClientAccount, ClientProject, ClientTask, Designer, Project, ProjectInput, Task, TaskInput, TaskLink, TaskSearchResult } from "./types";
 
 export interface UploadTarget { url: string; method: string; headers: Record<string, string> }
 
@@ -58,6 +58,11 @@ export const api = {
   createClient: (d: { name: string; company?: string; email: string; password: string; projectIds: string[] }) => request<ClientAccount>("POST", "/api/clients", d),
   updateClient: (id: string, d: { name?: string; company?: string; email?: string; password?: string; projectIds?: string[] }) => request<ClientAccount>("PATCH", `/api/clients/${id}`, d),
   deleteClient: (id: string) => request<{ ok: true }>("DELETE", `/api/clients/${id}`),
+  listRequests: () => request<ProjectRequest[]>("GET", "/api/requests"),
+  createRequest: (d: RequestInput) => request<ProjectRequest>("POST", "/api/requests", d),
+  acceptRequest: (id: string) => request<ProjectRequest>("POST", `/api/requests/${id}/accept`, {}),
+  declineRequest: (id: string) => request<ProjectRequest>("POST", `/api/requests/${id}/decline`, {}),
+  deleteRequest: (id: string) => request<{ ok: true }>("DELETE", `/api/requests/${id}`),
   clientView: (token: string) => request<{ project: ClientProject; tasks: ClientTask[] }>("GET", `/api/client/${encodeURIComponent(token)}`),
 };
 

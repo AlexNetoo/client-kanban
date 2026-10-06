@@ -7,7 +7,8 @@ const { hashPassword, verifyPassword, signSession, readSession, parseCookies } =
 const { Store } = require('./store');
 const { FilePersistence, BlobPersistence } = require('./persist');
 const { LocalFiles, BlobFiles } = require('./files');
-const { COLUMNS, HttpError, cleanProject, cleanTask, cleanComment, cleanDesigner, cleanLink, cleanAttachment, cleanClient } = require('./validate');
+const { COLUMNS, HttpError, cleanProject, cleanTask, cleanComment, cleanDesigner, cleanLink, cleanAttachment, cleanClient, cleanRequest, MAX_REQUEST_DAYS } = require('./validate');
+const { estimate, daysBetween } = require('./pricing');
 
 const crypto = require('crypto');
 const PUBLIC_DIR = path.join(ROOT, 'web');
@@ -308,6 +309,20 @@ function createApp(config) {
     return store.updateDesigner(params.id, { ...fields, ...(password ? { passwordHash: hashPassword(password) } : {}) });
   });
   route('DELETE', '/api/designers/:id', 'owner', ({ params }) => { store.deleteDesigner(params.id); return { ok: true }; });
+
+  // ---- Project requests: clients submit a brief (the server prices it), the admin accepts or declines ----
+  route('GET', '/api/requests', 'viewer', ({ session }) => store.listRequests(isClient(session) ? session.uid : undefined));
+  route('POST', '/api/requests', 'client', ({ body, session }) => {
+    const fields = cleanRequest(body);
+    const days = daysBetween(fields.startDate, fields.dueDate);
+    if (days > MAX_REQUEST_DAYS) throw new HttpError(400, 'Projects longer than two years need a conversation first. Shorten the dates or contact us.');
+    const client = store.getClient(session.uid);
+    if (!client) throw new HttpError(401, 'Please sign in');
+    return { status: 201, body: store.createRequest(client, fields, estimate(days)) };
+  });
+  route('POST', '/api/requests/:id/accept', 'owner', ({ params }) => store.acceptRequest(params.id));
+  route('POST', '/api/requests/:id/decline', 'owner', ({ params }) => store.declineRequest(params.id));
+  route('DELETE', '/api/requests/:id', 'owner', ({ params }) => { store.deleteRequest(params.id); return { ok: true }; });
 
   // ---- Client accounts (admin only): each client has their own login and sees only the projects assigned to them ----
   route('GET', '/api/clients', 'owner', () => store.listClients());

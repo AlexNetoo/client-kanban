@@ -24,7 +24,7 @@ class Store {
   async load() {
     if (!this.p.shared && this.data) return;
     const r = await this.p.load();
-    if (r) { this.data = JSON.parse(r.text); this.version = r.version; this.dirty = false; } else { this.data = this.seedDemo ? seed() : { projects: [], tasks: [], designers: [], links: [], clients: [] }; this.version = null; this.dirty = true; }
+    if (r) { this.data = JSON.parse(r.text); this.version = r.version; this.dirty = false; } else { this.data = this.seedDemo ? seed() : { projects: [], tasks: [], designers: [], links: [], clients: [], requests: [] }; this.version = null; this.dirty = true; }
     this.migrate();
   }
 
@@ -75,6 +75,7 @@ class Store {
     }
     if (!this.data.links) { this.data.links = []; changed = true; }
     if (!this.data.clients) { this.data.clients = []; changed = true; }
+    if (!this.data.requests) { this.data.requests = []; changed = true; }
     for (const t of this.data.tasks) for (const a of t.attachments || []) {
       if (a.uploadedById === 'owner' && a.uploadedByName === 'Freelancer') { a.uploadedByName = 'Admin'; changed = true; }
       if (!a.visibility) { a.visibility = 'internal'; changed = true; } // files were team-only until sharing existed
@@ -177,6 +178,51 @@ class Store {
     const c = this.getClient(clientId);
     if (!c) return [];
     return this.data.projects.filter((p) => !p.archived && c.projectIds.includes(p.id));
+  }
+
+  // ---- project requests (client onboarding): clients submit, the admin accepts into a real project or declines ----
+  listRequests(clientId) {
+    const all = this.data.requests.slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return clientId ? all.filter((r) => r.clientId === clientId) : all;
+  }
+
+  createRequest(client, fields, est) {
+    const r = {
+      id: crypto.randomUUID(), clientId: client.id, clientName: client.name, company: client.company || '', ...fields,
+      days: est.days, estimate: est, status: 'new', projectId: '', createdAt: new Date().toISOString(),
+    };
+    this.data.requests.push(r);
+    this.save();
+    return r;
+  }
+
+  /** Turns a request into a planning project assigned to the client, with one backlog task per goal. */
+  acceptRequest(id) {
+    const r = this.data.requests.find((x) => x.id === id);
+    if (!r) throw new HttpError(404, 'Request not found');
+    if (r.status !== 'new') throw new HttpError(409, 'This request was already handled');
+    const project = this.createProject({ name: r.name, client: r.company || r.clientName, status: 'planning', summary: r.description, dueDate: r.dueDate });
+    r.goals.forEach((g, i) => this.createTask(project.id, { title: g, status: 'backlog', priority: 'high', description: i === 0 ? `Important goal from the project brief (${r.type}).` : 'Important goal from the project brief.' }));
+    const c = this.getClient(r.clientId);
+    if (c && !c.projectIds.includes(project.id)) c.projectIds.push(project.id);
+    r.status = 'accepted'; r.projectId = project.id;
+    this.save();
+    return r;
+  }
+
+  declineRequest(id) {
+    const r = this.data.requests.find((x) => x.id === id);
+    if (!r) throw new HttpError(404, 'Request not found');
+    if (r.status !== 'new') throw new HttpError(409, 'This request was already handled');
+    r.status = 'declined';
+    this.save();
+    return r;
+  }
+
+  deleteRequest(id) {
+    if (!this.data.requests.some((x) => x.id === id)) throw new HttpError(404, 'Request not found');
+    this.data.requests = this.data.requests.filter((x) => x.id !== id);
+    this.save();
   }
 
   createDesigner({ name, role = '', email = '', passwordHash = '' }) {

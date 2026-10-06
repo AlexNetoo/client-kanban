@@ -40,3 +40,10 @@ export type ProjectInput = Pick<Project, "name" | "client" | "status" | "dueDate
 export type TaskInput = Pick<Task, "title" | "description" | "status" | "priority" | "dueDate" | "clientUpdate" | "privateNotes" | "assigneeId">;
 
 export interface ClientAccount { id: string; name: string; company: string; email: string; hasLogin: boolean; projectIds: string[] }
+
+export const REQUEST_TYPES = ["Website design & development", "Branding & identity", "Product / app design", "Marketing & campaign", "Other"] as const;
+export interface RequestInput { name: string; type: string; description: string; goals: string[]; references: string; notes: string; startDate: string; dueDate: string }
+export interface ProjectRequest extends RequestInput {
+  id: string; clientId: string; clientName: string; company: string; days: number; status: "new" | "accepted" | "declined"; projectId: string; createdAt: string;
+  estimate: { days: number; total: number; lines: { unit: "month" | "week" | "day"; qty: number; rate: number; subtotal: number }[] };
+}

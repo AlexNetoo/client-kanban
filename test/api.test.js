@@ -712,6 +712,40 @@ test('a fresh install starts empty; sample data only appears when SEED_DEMO_DATA
   } finally { c.server.close(); }
 });
 
+test('client onboarding: server prices the brief, the admin approves it into a project', async () => {
+  const owner = (await login(OWNER_PW)).cookie;
+  const c = await newClient(owner);
+  const brief = { name: 'New site', type: 'Website design & development', description: 'A marketing site', goals: ['More leads', ' ', 'Faster pages'], references: '', notes: '', startDate: '2030-01-01', dueDate: '2030-02-04' };
+  // 35 days = 1 month (4500) + 5 days (1250 > a week) -> 1 month + 1 week = 5700
+  const r = await call('POST', '/api/requests', { cookie: c.cookie, body: { ...brief, estimate: { total: 1 } } });
+  assert.strictEqual(r.res.status, 201, r.text);
+  assert.strictEqual(r.json.days, 35);
+  assert.strictEqual(r.json.estimate.total, 5700);
+  assert.deepStrictEqual(r.json.goals, ['More leads', 'Faster pages']);
+  const day = async (due) => (await call('POST', '/api/requests', { cookie: c.cookie, body: { ...brief, dueDate: due } })).json.estimate;
+  assert.strictEqual((await day('2030-01-01')).total, 250); // 1 day
+  assert.strictEqual((await day('2030-01-05')).total, 1200); // 5 days cost a week, not 1250
+  assert.strictEqual((await day('2030-01-28')).total, 4500); // 4 weeks would be 4800: a month is cheaper
+  assert.strictEqual((await day('2030-01-31')).total, 4750); // 31 days: 1 month + 1 day
+  // validation and access
+  for (const bad of [{ goals: [] }, { name: '' }, { dueDate: '2029-12-31' }, { dueDate: '2033-01-01' }, { type: 'Nope' }]) {
+    assert.strictEqual((await call('POST', '/api/requests', { cookie: c.cookie, body: { ...brief, ...bad } })).res.status, 400, JSON.stringify(bad));
+  }
+  assert.strictEqual((await call('POST', '/api/requests', { cookie: owner, body: brief })).res.status, 403);
+  const other = await newClient(owner);
+  assert.strictEqual((await call('GET', '/api/requests', { cookie: other.cookie })).json.length, 0); // clients only see their own
+  assert.ok((await call('GET', '/api/requests', { cookie: c.cookie })).json.length >= 1);
+  assert.strictEqual((await call('POST', `/api/requests/${r.json.id}/accept`, { cookie: c.cookie, body: {} })).res.status, 403);
+  // approving creates a planning project, one task per goal, and gives the client access
+  const ok = await call('POST', `/api/requests/${r.json.id}/accept`, { cookie: owner, body: {} });
+  assert.strictEqual(ok.res.status, 200, ok.text);
+  assert.strictEqual(ok.json.status, 'accepted');
+  const mine = (await call('GET', '/api/projects', { cookie: c.cookie })).json.find((p) => p.id === ok.json.projectId);
+  assert.ok(mine && mine.status === 'planning' && mine.total === 2);
+  assert.strictEqual((await call('POST', `/api/requests/${r.json.id}/accept`, { cookie: owner, body: {} })).res.status, 409);
+  assert.strictEqual((await call('DELETE', `/api/requests/${r.json.id}`, { cookie: owner })).res.status, 200);
+});
+
 test('admin sign-in locks out after 5 wrong passwords, even for the right one', async () => {
   const bad = async () => (await call('POST', '/api/login', { body: { password: 'definitely-wrong-1' } })).res.status;
   for (let i = 0; i < 5; i += 1) assert.strictEqual(await bad(), 401);

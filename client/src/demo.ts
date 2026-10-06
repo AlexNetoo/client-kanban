@@ -1,3 +1,5 @@
+import { daysBetween, estimate } from "./lib/pricing";
+import type { ProjectRequest } from "./types";
 import type { Column, Comment, Priority, Project, Task, TaskLink } from "./types";
 
 /**
@@ -95,6 +97,7 @@ function projectView(): Project {
   };
 }
 
+const requests: ProjectRequest[] = [];
 const fail = (status: number, message: string) => Object.assign(new Error(message), { status });
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 
@@ -112,6 +115,17 @@ export async function demoRequest(method: string, url: string, body?: unknown): 
     if (m[1] !== PID) throw fail(404, "Project not found");
     const { shareToken, ...project } = projectView(); void shareToken;
     return clone({ project, tasks: state.tasks.map(taskView) });
+  }
+  if (method === "GET" && path === "/api/requests") return clone(requests);
+  if (method === "POST" && path === "/api/requests") {
+    const str = (k: string) => (typeof json[k] === "string" ? (json[k] as string).trim() : "");
+    const goals = Array.isArray(json.goals) ? (json.goals as unknown[]).filter((g): g is string => typeof g === "string" && !!g.trim()) : [];
+    if (!str("name") || !str("description") || !goals.length || !str("startDate") || !str("dueDate")) throw fail(400, "Please complete the required fields");
+    const days = daysBetween(str("startDate"), str("dueDate"));
+    if (days < 1) throw fail(400, "The due date must be on or after the start date");
+    const r: ProjectRequest = { id: `r${++state.counter}`, clientId: ME.id, clientName: ME.name, company: "Northwind Studio", name: str("name"), type: str("type"), description: str("description"), goals, references: str("references"), notes: str("notes"), startDate: str("startDate"), dueDate: str("dueDate"), days, estimate: estimate(days), status: "new", projectId: "", createdAt: new Date().toISOString() };
+    requests.unshift(r);
+    return clone(r);
   }
   if (method === "GET" && path === "/api/designers") return clone(DESIGNERS);
   if (method === "POST" && (m = path.match(/^\/api\/tasks\/([^/]+)\/comments$/))) {

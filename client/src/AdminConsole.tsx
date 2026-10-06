@@ -6,7 +6,8 @@ import { StatusChip } from "./chips";
 import { ConfirmDialog, Loading, Person, StateBlock, TypedConfirmDialog, useToast } from "./ui";
 import { usePalette } from "./theme";
 import { generatePassword } from "./lib/password";
-import type { ClientAccount, Designer, Project } from "./types";
+import { RequestList } from "./Requests";
+import type { ClientAccount, Designer, Project, ProjectRequest } from "./types";
 
 const MIN = 10;
 type Revealed = { who: string; password: string } | null;
@@ -267,18 +268,18 @@ function ProjectsPanel({ projects, reload }: { projects: Project[]; reload: () =
 }
 
 // ============================== Console ==============================
-const TABS = ["Designers", "Clients", "Projects"];
+const TABS = ["Designers", "Clients", "Projects", "Requests"];
 
 export function AdminConsole() {
   const [tab, setTab] = useState(TABS[0]);
-  const [data, setData] = useState<{ designers: Designer[]; clients: ClientAccount[]; projects: Project[] } | null>(null);
+  const [data, setData] = useState<{ designers: Designer[]; clients: ClientAccount[]; projects: Project[]; requests: ProjectRequest[] } | null>(null);
   const [error, setError] = useState("");
   const [revealed, setRevealed] = useState<Revealed>(null);
 
   const load = useCallback(async () => {
     try {
-      const [designers, clients, projects] = await Promise.all([api.listDesigners(), api.listClients(), api.listProjects()]);
-      setData({ designers, clients, projects }); setError("");
+      const [designers, clients, projects, requests] = await Promise.all([api.listDesigners(), api.listClients(), api.listProjects(), api.listRequests()]);
+      setData({ designers, clients, projects, requests }); setError("");
     } catch (e) { setError((e as Error).message); }
   }, []);
   useEffect(() => { document.title = "Admin console · Alex Neto - Client Portal"; load(); }, [load]);
@@ -297,12 +298,16 @@ export function AdminConsole() {
         <Stat label="Designers" value={String(data.designers.length)} />
         <Stat label="Clients" value={String(data.clients.length)} />
         <Stat label="Projects" value={String(data.projects.length)} />
+        <Stat label="New requests" value={String(data.requests.filter((r) => r.status === "new").length)} />
         <Stat label="Open tasks" value={String(openTasks)} />
       </div>
       <div style={{ marginBottom: 20 }}><Tabs tabs={TABS} value={tab} onChange={(t: string) => { setTab(t); setRevealed(null); }} /></div>
       <RevealBanner revealed={revealed} onDismiss={() => setRevealed(null)} />
       {tab === "Designers" && <DesignersPanel designers={data.designers} reload={load} setRevealed={setRevealed} />}
       {tab === "Clients" && <ClientsPanel clients={data.clients} projects={data.projects} reload={load} setRevealed={setRevealed} />}
+      {tab === "Requests" && (data.requests.length === 0
+        ? <StateBlock title="No requests yet" description="When a client submits a project brief from their account it appears here with its estimate." />
+        : <RequestList requests={data.requests} admin onChange={load} />)}
       {tab === "Projects" && <ProjectsPanel projects={data.projects} reload={load} />}
     </div>
   );

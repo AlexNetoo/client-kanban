@@ -2,13 +2,14 @@ import { useCallback, useEffect, useState } from "react";
 import { Badge, Button, Card, DropdownMenu, Heading, Progress, Stat, Tabs, Text } from "./halaska-kit";
 import { api } from "./api";
 import { ProjectDialog } from "./dialogs";
+import { RequestList } from "./Requests";
 import { StatusChip } from "./chips";
 import { useProjectsNav } from "./nav";
 import { CalendarIcon, ConfirmDialog, RepeatIcon, Loading, PlusIcon, StateBlock, useToast } from "./ui";
 import { usePalette } from "./theme";
 import { useMe } from "./session";
 import { formatDate, isOverdue } from "./lib/format";
-import { type Project } from "./types";
+import { type Project, type ProjectRequest } from "./types";
 
 export const clientLink = (p: Project) => `${location.origin}/#/c/${p.shareToken}`;
 
@@ -70,10 +71,11 @@ export function Dashboard() {
   const [tab, setTab] = useState<"Active" | "Archived">("Active");
   const [creating, setCreating] = useState(false);
   const nav = useProjectsNav();
+  const [requests, setRequests] = useState<ProjectRequest[]>([]);
 
   const load = useCallback(async () => {
     setError("");
-    try { setProjects(await api.listProjects()); nav.reload(); } catch (e) { setError((e as Error).message); }
+    try { setProjects(await api.listProjects()); nav.reload(); if (me.role === "client") api.listRequests().then(setRequests).catch(() => {}); } catch (e) { setError((e as Error).message); }
   }, []);
   useEffect(() => { document.title = "Projects · Alex Neto - Client Portal"; load(); }, [load]);
 
@@ -97,6 +99,7 @@ export function Dashboard() {
           <Button variant="secondary" onClick={() => { location.href = "/admin"; }}>Admin console</Button>
           <Button icon={<PlusIcon />} onClick={() => setCreating(true)}>New project</Button>
         </div>}
+        {me.role === "client" && <Button icon={<PlusIcon />} onClick={() => { location.hash = "#/new"; }}>New project</Button>}
       </div>
 
       {owner && <div className="stats">
@@ -112,7 +115,7 @@ export function Dashboard() {
       </div>}
 
       {shown.length === 0 ? (
-        !owner ? <StateBlock title="No projects yet" description={me.role === "client" ? "Projects will appear here as soon as they are shared with you." : "You’ll see a project here once a task is assigned to you."} />
+        !owner ? <StateBlock title="No projects yet" action={me.role === "client" ? <Button onClick={() => { location.hash = "#/new"; }}>Start a new project</Button> : undefined} description={me.role === "client" ? "Projects appear here once they are approved. Start by telling us about your project." : "You’ll see a project here once a task is assigned to you."} />
         : tab === "Active"
           ? <StateBlock title="No projects yet" description="Create your first project to start a board and share progress with a client." action={<Button onClick={() => setCreating(true)}>New project</Button>} />
           : <StateBlock title="Nothing archived" description="Archived projects are kept here, hidden from clients." />
@@ -120,7 +123,7 @@ export function Dashboard() {
         <ul className="grid" aria-label={`${tab} projects`}>
           {shown.map((p) => (
             <li key={p.id} style={{ display: "flex" }}>
-              <Card padding={22} style={{ width: "100%", display: "flex", flexDirection: "column", gap: 18, borderRadius: 16 }}>
+              <div className="lift"><Card padding={22} style={{ width: "100%", display: "flex", flexDirection: "column", gap: 18, borderRadius: 16 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
                   <div>
                     <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, letterSpacing: "-0.02em" }}><a href={`#/p/${p.id}`} style={{ textDecoration: "none" }}>{p.name}</a></h2>
@@ -139,10 +142,17 @@ export function Dashboard() {
                     {owner && <ProjectMenu project={p} onChange={load} />}
                   </div>
                 </div>
-              </Card>
+              </Card></div>
             </li>
           ))}
         </ul>
+      )}
+      {me.role === "client" && requests.length > 0 && (
+        <section style={{ marginTop: 40 }} aria-label="Your project requests">
+          <Heading level={2}>Your requests</Heading>
+          <p style={{ margin: "4px 0 16px" }}><Text secondary>Briefs you’ve sent. Approved ones become projects.</Text></p>
+          <RequestList requests={requests} />
+        </section>
       )}
       {creating && <ProjectDialog onClose={() => setCreating(false)} onSaved={load} />}
     </>

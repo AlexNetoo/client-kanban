@@ -156,4 +156,28 @@ function cleanClient(body, partial = false) {
   return out;
 }
 
-module.exports = { cleanClient, cleanAttachment, LINK_TYPES, cleanLink, cleanComment, cleanDesigner, COLUMNS, STATUSES, PROJECT_STATUSES, PRIORITIES, HttpError, cleanProject, cleanTask };
+const REQUEST_TYPES = ['Website design & development', 'Branding & identity', 'Product / app design', 'Marketing & campaign', 'Other'];
+const MAX_REQUEST_DAYS = 730;
+
+/** A project request from the client onboarding flow. The estimate is never taken from the client: the server recomputes it. */
+function cleanRequest(body) {
+  if (!body || typeof body !== 'object') throw new HttpError(400, 'Invalid body');
+  const out = {
+    name: str(body, 'name', { max: 120, required: true }),
+    type: oneOf(body, 'type', REQUEST_TYPES),
+    description: str(body, 'description', { max: 2000, required: true }),
+    references: str(body, 'references', { max: 1000 }),
+    notes: str(body, 'notes', { max: 1000 }),
+    startDate: date(body, 'startDate'),
+    dueDate: date(body, 'dueDate'),
+  };
+  if (!out.startDate || !out.dueDate) throw new HttpError(400, 'Start and due dates are required');
+  if (out.dueDate < out.startDate) throw new HttpError(400, 'The due date must be on or after the start date');
+  if (!Array.isArray(body.goals)) throw new HttpError(400, 'goals must be a list');
+  out.goals = body.goals.map((g) => (typeof g === 'string' ? g.trim() : '')).filter(Boolean);
+  if (out.goals.length < 1) throw new HttpError(400, 'Add at least one important goal');
+  if (out.goals.length > 8 || out.goals.some((g) => g.length > 200)) throw new HttpError(400, 'Use up to 8 goals of 200 characters or fewer');
+  return out;
+}
+
+module.exports = { cleanRequest, REQUEST_TYPES, MAX_REQUEST_DAYS, cleanClient, cleanAttachment, LINK_TYPES, cleanLink, cleanComment, cleanDesigner, COLUMNS, STATUSES, PROJECT_STATUSES, PRIORITIES, HttpError, cleanProject, cleanTask };
