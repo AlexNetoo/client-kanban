@@ -16,6 +16,7 @@ export function TaskCard({ task: t, designers, onOpen, onEdit, onMove }: Props) 
   const pal = usePalette();
   const me = useMe();
   const owner = me.role === "owner";
+  const canEdit = me.role !== "client";
   const mine = t.assigneeId === me.designer?.id;
   const assignee = designers.find((d) => d.id === t.assigneeId);
 
@@ -42,8 +43,8 @@ export function TaskCard({ task: t, designers, onOpen, onEdit, onMove }: Props) 
           {assignee ? <><Person name={assignee.name} size={22} /><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{assignee.name}</span></> : "Unassigned"}
         </span>
         <span data-no-open style={{ display: "inline-flex", gap: 4 }}>
-          {owner && <Button variant="ghost" size="sm" aria-label={`Edit task ${t.title}`} onClick={onEdit}>Edit</Button>}
-          {(owner || mine) && <DropdownMenu
+          {canEdit && <Button variant="ghost" size="sm" aria-label={`Edit task ${t.title}`} onClick={onEdit}>Edit</Button>}
+          {canEdit && <DropdownMenu
             trigger={<Button variant="ghost" size="sm" aria-label={`Move “${t.title}” to another column`}>Move to…</Button>}
             items={COLUMNS.filter((c) => c.id !== t.status).map((c) => ({ label: c.label, onClick: () => onMove(c.id) }))} />}
         </span>

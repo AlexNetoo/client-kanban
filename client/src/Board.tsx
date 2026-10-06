@@ -17,7 +17,7 @@ export function Board({ id, taskId }: { id: string; taskId?: string }) {
   const me = useMe();
   const owner = me.role === "owner";
   const canAdd = me.role !== "client"; // the admin and designers add tasks; clients only read and comment
-  const canMove = (t: Task) => owner || t.assigneeId === me.designer?.id;
+  const canMove = (_t: Task) => me.role !== "client"; // admin and designers can move any task in the project
   const toast = useToast();
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -152,7 +152,7 @@ export function Board({ id, taskId }: { id: string; taskId?: string }) {
 
       {editing && (
         <TaskDialog projectId={id} task={editing.task} designers={designers} defaultStatus={editing.status} onClose={() => setEditing(null)}
-          onSaved={(t) => load(t.id)} onDelete={(t) => { setEditing(null); setDeleting(t); }} />
+          onSaved={(t) => load(t.id)} onDelete={owner ? (t) => { setEditing(null); setDeleting(t); } : undefined} />
       )}
       {viewingId && tasks.find((x) => x.id === viewingId) && (
         <TaskModal task={tasks.find((x) => x.id === viewingId)!} projectName={project.name} designers={designers} onClose={closeTask}

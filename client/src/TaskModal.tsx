@@ -24,6 +24,7 @@ export function TaskModal({ task: t, projectName, designers, onClose, onChange, 
   const toast = useToast();
   const me = useMe();
   const owner = me.role === "owner";
+  const canEdit = me.role !== "client"; // the admin and designers edit; clients read and comment
   const isClient = me.role === "client";
   const who = owner ? "Admin" : me.designer?.name ?? me.client?.name ?? "you";
   const mine = t.assigneeId === me.designer?.id;
@@ -65,7 +66,7 @@ export function TaskModal({ task: t, projectName, designers, onClose, onChange, 
             <h2 style={{ margin: 0, fontSize: 24, fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1.25 }}>{t.title}</h2>
             <div style={{ display: "flex", gap: 8 }}>
               <Button size="sm" variant="ghost" aria-label={`Copy link to ${t.title}`} onClick={copyLink}>Copy link</Button>
-              {owner && <Button size="sm" variant="secondary" aria-label={`Edit task ${t.title}`} onClick={onEdit}>Edit</Button>}
+              {canEdit && <Button size="sm" variant="secondary" aria-label={`Edit task ${t.title}`} onClick={onEdit}>Edit</Button>}
               {owner && <Button size="sm" variant="secondary" aria-label={`Delete task ${t.title}`} onClick={onDelete}>Delete</Button>}
             </div>
           </div>
@@ -128,18 +129,18 @@ export function TaskModal({ task: t, projectName, designers, onClose, onChange, 
         </div>
 
         <aside className="task-side" aria-label="Task details">
-          {(owner || mine)
-            ? <Select label="Status" value={t.status} onChange={(v: string) => (owner ? patch({ status: v as Column }, "Status updated") : onMove(t, v as Column))} options={COLUMN_OPTIONS} />
+          {canEdit
+            ? <Select label="Status" value={t.status} onChange={(v: string) => patch({ status: v as Column }, "Status updated")} options={COLUMN_OPTIONS} />
             : <div>{h("Status")}<Text>{COLUMNS.find((c) => c.id === t.status)?.label}</Text></div>}
           <div style={{ border: `1px solid ${pal.border}`, borderRadius: 16, padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
             <h3 style={{ margin: "0 0 6px", fontSize: 15, fontWeight: 700 }}>Details</h3>
-            {row("Assignee", owner
+            {row("Assignee", canEdit
               ? <Select label="Assignee" value={t.assigneeId} onChange={(v: string) => patch({ assigneeId: v }, v ? "Task assigned" : "Task unassigned")} options={assigneeOptions(designers)} />
-              : assignee ? <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 14 }}><Person name={assignee.name} size={24} />{assignee.name}{mine ? " (you)" : ""}</span> : <Text size="sm" secondary>Unassigned</Text>, owner)}
-            {row("Priority", owner
+              : assignee ? <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 14 }}><Person name={assignee.name} size={24} />{assignee.name}{mine ? " (you)" : ""}</span> : <Text size="sm" secondary>Unassigned</Text>, canEdit)}
+            {row("Priority", canEdit
               ? <Select label="Priority" value={t.priority} onChange={(v: string) => patch({ priority: v as Priority }, "Priority updated")} options={PRIORITY_OPTIONS} />
-              : <PriorityChip priority={t.priority} />, owner)}
-            {row("Due date", owner
+              : <PriorityChip priority={t.priority} />, canEdit)}
+            {row("Due date", canEdit
               ? <DateField label="Due date" clearable value={t.dueDate} onChange={(v) => patch({ dueDate: v }, "Due date updated")} />
               : <span style={{ fontSize: 14 }}>{t.dueDate ? formatDate(t.dueDate) : "No due date"}</span>)}
           </div>

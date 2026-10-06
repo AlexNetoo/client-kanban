@@ -241,9 +241,14 @@ test('designer logins: scoped access, forced authorship, immediate revocation', 
 
   // moves: own task only, and only status/position
   assert.strictEqual((await call('PATCH', `/api/tasks/${mine.id}`, { ...D, body: { status: 'in_review' } })).json.status, 'in_review');
-  assert.strictEqual((await call('PATCH', `/api/tasks/${mine.id}`, { ...D, body: { title: 'renamed' } })).res.status, 403);
-  assert.strictEqual((await call('PATCH', `/api/tasks/${mine.id}`, { ...D, body: { assigneeId: '' } })).res.status, 403);
-  assert.strictEqual((await call('PATCH', `/api/tasks/${notMine.id}`, { ...D, body: { status: 'done' } })).res.status, 403);
+  // designers edit working fields of any task in their projects, but never private notes or client updates
+  assert.strictEqual((await call('PATCH', `/api/tasks/${mine.id}`, { ...D, body: { privateNotes: 'x' } })).res.status, 403);
+  assert.strictEqual((await call('PATCH', `/api/tasks/${mine.id}`, { ...D, body: { clientUpdate: 'x' } })).res.status, 403);
+  const edited = await call('PATCH', `/api/tasks/${notMine.id}`, { ...D, body: { title: 'renamed', priority: 'high', dueDate: '2030-05-05', description: 'd' } });
+  assert.strictEqual(edited.res.status, 200, edited.text);
+  assert.deepStrictEqual([edited.json.title, edited.json.priority, edited.json.dueDate], ['renamed', 'high', '2030-05-05']);
+  assert.strictEqual((await call('PATCH', `/api/tasks/${notMine.id}`, { ...D, body: { status: 'done' } })).res.status, 200);
+  assert.strictEqual((await call('PATCH', `/api/tasks/${mine.id}`, { ...D, body: { title: '' } })).res.status, 400);
   assert.strictEqual((await call('PATCH', `/api/tasks/${otherProject.id}`, { ...D, body: { status: 'done' } })).res.status, 404);
 
   // comments: author is forced to the signed-in designer; can delete only own

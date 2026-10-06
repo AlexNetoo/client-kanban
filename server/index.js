@@ -45,7 +45,8 @@ const clientTask = (t) => ({
 const staffProject = ({ shareToken, ...p }) => p; // eslint-disable-line no-unused-vars
 const staffTask = ({ privateNotes, ...t }) => t; // eslint-disable-line no-unused-vars
 // Designers may only change the column/order of a task assigned to them.
-const DESIGNER_TASK_FIELDS = new Set(['status', 'position']);
+// Designers edit the working fields of tasks in their projects; private notes, client updates, deleting and links stay with the admin.
+const DESIGNER_TASK_FIELDS = new Set(['title', 'description', 'status', 'priority', 'dueDate', 'assigneeId', 'position']);
 
 function createApp(config) {
   const store = new Store(config.storage === 'blob' ? new BlobPersistence(config.blobPath) : new FilePersistence(config.dataFile), { seedDemo: !!config.seedDemo });
@@ -181,7 +182,7 @@ function createApp(config) {
     return { ok: true };
   });
 
-  // ---- Tasks: owner edits everything; a designer may add tasks and move their own assigned tasks ----
+  // ---- Tasks: owner edits everything; a designer may add and edit tasks in their projects (not delete them or touch private notes / client updates) ----
   // Designers may add tasks to projects they can open. They can't write private notes or client updates, and an unassigned task becomes theirs.
   route('POST', '/api/projects/:id/tasks', 'staff', ({ params, body, session }) => {
     const fields = cleanTask(body);
@@ -194,11 +195,9 @@ function createApp(config) {
   });
   route('PATCH', '/api/tasks/:id', 'staff', ({ params, body, session }) => {
     if (!isDesigner(session)) return outTask(session, store.updateTask(params.id, cleanTask(body, true)));
-    const task = taskFor(session, params.id);
-    if (task.assigneeId !== session.uid) throw new HttpError(403, 'You can only move tasks assigned to you');
-    if (Object.keys(body).some((k) => !DESIGNER_TASK_FIELDS.has(k))) throw new HttpError(403, 'Designers can only move tasks between columns');
-    const { status, position } = cleanTask(body, true);
-    return outTask(session, store.updateTask(params.id, { status, position }));
+    taskFor(session, params.id); // 404 unless the task is in one of their projects
+    if (Object.keys(body).some((k) => !DESIGNER_TASK_FIELDS.has(k))) throw new HttpError(403, 'Designers can’t change private notes or client updates');
+    return outTask(session, store.updateTask(params.id, cleanTask(body, true)));
   });
   route('DELETE', '/api/tasks/:id', 'owner', ({ params, defer }) => {
     const atts = store.attachmentsOfTasks([params.id]);
