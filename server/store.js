@@ -1,22 +1,66 @@
 'use strict';
-const fs = require('fs');
-const path = require('path');
 const crypto = require('crypto');
 const { STATUSES, HttpError } = require('./validate');
 const { seed, seedDesigners } = require('./seed');
+const { ConflictError } = require('./persist');
 
 const newToken = () => crypto.randomBytes(18).toString('base64url');
 
 class Store {
-  constructor(file) {
-    this.file = file;
-    if (fs.existsSync(file)) {
-      this.data = JSON.parse(fs.readFileSync(file, 'utf8'));
-    } else {
-      this.data = seed();
-      this.save();
-    }
+  /** `persistence` is a FilePersistence or BlobPersistence (see persist.js). */
+  constructor(persistence) {
+    this.p = persistence;
+    this.data = null;
+    this.version = null; // ETag of what we last read/wrote (shared stores only)
+    this.dirty = false;
+    this.chain = Promise.resolve();
+  }
+
+  /**
+   * Single-process stores load once. Shared stores (Blob, several serverless instances) re-read the latest
+   * copy at the start of every request, so no instance works from stale data.
+   */
+  async load() {
+    if (!this.p.shared && this.data) return;
+    const r = await this.p.load();
+    if (r) { this.data = JSON.parse(r.text); this.version = r.version; this.dirty = false; } else { this.data = seed(); this.version = null; this.dirty = true; }
     this.migrate();
+  }
+
+  /** Persist pending changes. File storage writes straight away; shared storage writes once per request in flush(). */
+  save() {
+    this.dirty = true;
+    if (!this.p.shared) { this.p.save(JSON.stringify(this.data, null, 2)); this.dirty = false; }
+  }
+
+  async flush() {
+    if (!this.dirty) return;
+    this.version = await this.p.save(JSON.stringify(this.data, null, 2), this.version);
+    this.dirty = false;
+  }
+
+  /**
+   * Run `fn` against fresh data, then commit. Requests in one instance run one at a time; across instances a
+   * conflicting write is detected by the ETag and the whole step is retried on newer data.
+   */
+  transact(fn) {
+    const run = async () => {
+      for (let attempt = 0; ; attempt += 1) {
+        await this.load();
+        try {
+          const result = await fn();
+          await this.flush();
+          return result;
+        } catch (e) {
+          if (this.p.shared) { this.data = null; this.dirty = false; } // never keep half-applied changes
+          if (e instanceof ConflictError && attempt < 5) { await new Promise((r) => setTimeout(r, 30 * (attempt + 1) + Math.random() * 40)); continue; }
+          throw e;
+        }
+      }
+    };
+    const next = this.chain.then(run);
+    this.chain = next.catch(() => {});
+    return next;
   }
 
   // Older data files predate designers, logins, assignees and comments.
@@ -32,7 +76,7 @@ class Store {
       if (!Array.isArray(t.comments)) { t.comments = []; changed = true; }
       if (t.assigneeId === undefined) { t.assigneeId = ''; changed = true; }
     }
-    if (changed) this.save();
+    if (changed) this.dirty = true;
   }
 
   checkAssignee(id) {
@@ -119,14 +163,6 @@ class Store {
     task.comments = task.comments.filter((c) => c.id !== commentId);
     this.save();
     return task;
-  }
-
-  // Atomic write so a crash can't leave a half-written file.
-  save() {
-    fs.mkdirSync(path.dirname(this.file), { recursive: true });
-    const tmp = `${this.file}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(this.data, null, 2), { mode: 0o600 });
-    fs.renameSync(tmp, this.file);
   }
 
   withStats(p) {

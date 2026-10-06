@@ -31,6 +31,10 @@ function loadConfig(env = process.env) {
     secret: env.SESSION_SECRET,
     sessionMs: (Number(env.SESSION_HOURS) || 12) * 3600 * 1000,
     dataFile: path.resolve(ROOT, env.DATA_FILE || './data/db.json'),
+    // Vercel Blob is used automatically when a store is connected (BLOB_STORE_ID or BLOB_READ_WRITE_TOKEN),
+    // unless STORAGE=file forces the local file.
+    storage: env.STORAGE === 'file' ? 'file' : (env.BLOB_STORE_ID || env.BLOB_READ_WRITE_TOKEN) ? 'blob' : 'file',
+    blobPath: env.BLOB_DB_PATH || 'client-kanban/db.json',
     secureCookies: bool(env.COOKIE_SECURE, env.NODE_ENV === 'production'),
     trustProxy: bool(env.TRUST_PROXY, false),
   };

@@ -13,5 +13,8 @@
     "test": "node --test test/",
     "build:web": "npm --prefix client install && npm --prefix client run build",
     "dev:web": "npm --prefix client run dev"
+  },
+  "dependencies": {
+    "@vercel/blob": "^2.8.1"
   }
 }

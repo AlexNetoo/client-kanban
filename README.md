@@ -29,7 +29,9 @@ npm run dev:web     # optional Vite dev server on :5173 (proxies /api to :3000)
 | `CLIENT_PASSWORD_HASH` | no | scrypt hash of a client password (read-only). Without it clients cannot sign in |
 | `PORT` | no | default `3000` |
 | `SESSION_HOURS` | no | session lifetime, default `12` |
-| `DATA_FILE` | no | default `./data/db.json` |
+| `DATA_FILE` | no | default `./data/db.json` (file backend) |
+| `BLOB_STORE_ID` | on Vercel | set by connecting a Blob store; switches storage to Vercel Blob |
+| `BLOB_DB_PATH` / `STORAGE` | no | blob pathname (default `client-kanban/db.json`) / `file` to force the file backend |
 | `COOKIE_SECURE` | no | defaults to true when `NODE_ENV=production`; keep it on behind HTTPS |
 | `TRUST_PROXY` | no | `true` if behind a proxy that sets `X-Forwarded-For` (used for login rate limiting) |
 
@@ -63,7 +65,20 @@ The owner password also opens client views (shown with a preview banner).
 
 ## Storage
 
-A single JSON file (`DATA_FILE`), written atomically (temp file + rename). The seed is created if the file doesn't exist; delete the file to reseed. Suitable for one freelancer and tens of projects. On hosts with ephemeral disks (e.g. serverless), point `DATA_FILE` at a persistent volume or swap `server/store.js` for a database.
+Two backends, chosen automatically:
+
+- **Local file (default for `npm start` / `npm run dev`)**: one JSON file at `DATA_FILE` (default `./data/db.json`), written atomically. The seed is created if the file doesn't exist; delete it to reseed.
+- **Vercel Blob (private store)**: used whenever `BLOB_STORE_ID` (or `BLOB_READ_WRITE_TOKEN`) is present, which is what connecting a Blob store to the project sets. The whole database is one private JSON blob (`BLOB_DB_PATH`, default `client-kanban/db.json`). Every request reads the latest copy and writes back conditionally on its ETag, so two serverless instances can't overwrite each other: a conflicting write is detected and the step is retried on fresh data. Set `STORAGE=file` to force the file backend.
+
+Set up persistence on Vercel (once):
+
+```bash
+vercel storage create client-kanban-data --type blob --access private
+vercel storage connect client-kanban-data -e production -y   # OIDC credentials: no long-lived secret
+vercel deploy --prod
+```
+
+The first request after connecting creates the blob with the sample data. Back it up by downloading `client-kanban/db.json` from the store (`vercel blob get client-kanban/db.json`). It contains password hashes and private notes, so keep the store private.
 
 ## Security notes
 
@@ -85,7 +100,6 @@ scripts/  setup.js      test/  api.test.js
 ## Limitations
 
 - Freelancer and client sessions are stateless: sign-out clears the cookie but a copied cookie stays valid until it expires (rotate `SESSION_SECRET` to revoke all). Designer sessions are revoked immediately (see above).
-- Designer accounts live in the same data file, so on hosts with ephemeral disks (the Vercel demo) they disappear when the instance restarts. Use persistent storage before relying on designer logins.
 - No email invites or password-reset emails: the freelancer sets and resets designer passwords.
-- Rate limiting is per process and in memory; single-process storage (no concurrent writers).
+- Rate limiting is per process and in memory, so on serverless it is per instance (best effort). The whole database is one document: fine for a freelancer-sized team, not for heavy concurrent writing.
 - No real-time sync between browser tabs, no file attachments, no per-client passwords (one client password for all clients; isolation is by link token).

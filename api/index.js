@@ -1,8 +1,7 @@
 'use strict';
 // Vercel entry point: wraps the same request handler used by `npm start`.
-// Vercel's filesystem is read-only except /tmp, so data lives in /tmp/db.json:
-// it is reseeded whenever the function instance is recycled. Fine for a demo,
-// not for real client data (see README).
+// Data lives in the connected Vercel Blob store (private) so it survives restarts and deploys. Without a
+// connected store the fallback is /tmp/db.json, which Vercel wipes whenever an instance is recycled.
 const { createApp } = require('../server/index');
 const { loadConfig } = require('../server/config');
 

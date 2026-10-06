@@ -5,6 +5,7 @@ const path = require('path');
 const { loadConfig, loadDotEnv, ROOT } = require('./config');
 const { hashPassword, verifyPassword, signSession, readSession, parseCookies } = require('./auth');
 const { Store } = require('./store');
+const { FilePersistence, BlobPersistence } = require('./persist');
 const { COLUMNS, HttpError, cleanProject, cleanTask, cleanComment, cleanDesigner } = require('./validate');
 
 const PUBLIC_DIR = path.join(ROOT, 'web');
@@ -44,7 +45,7 @@ const staffTask = ({ privateNotes, ...t }) => t; // eslint-disable-line no-unuse
 const DESIGNER_TASK_FIELDS = new Set(['status', 'position']);
 
 function createApp(config) {
-  const store = new Store(config.dataFile);
+  const store = new Store(config.storage === 'blob' ? new BlobPersistence(config.blobPath) : new FilePersistence(config.dataFile));
   const attempts = new Map(); // limiter key (ip, or email) -> { n, reset }
   const DUMMY_HASH = hashPassword('unused-' + Math.random()); // equalises timing for unknown emails
   const routes = [];
@@ -230,18 +231,10 @@ function createApp(config) {
   };
 
   async function handleApi(req, res, pathname) {
-    const session = sessionOf(req);
     const route_ = routes.find((r) => r.method === req.method && r.re.test(pathname));
     if (!route_) {
       if (routes.some((r) => r.re.test(pathname))) throw new HttpError(405, 'Method not allowed');
       throw new HttpError(404, 'Not found');
-    }
-    if (route_.access !== 'public') {
-      if (!session) throw new HttpError(401, 'Please sign in');
-      const allowed = {
-        any: ['owner', 'client', 'designer'], staff: ['owner', 'designer'], owner: ['owner'], viewer: ['owner', 'client'],
-      }[route_.access];
-      if (!allowed.includes(session.role)) throw new HttpError(403, 'Not allowed');
     }
     let body = {};
     if (req.method !== 'GET') {
@@ -251,17 +244,35 @@ function createApp(config) {
       if (req.method !== 'DELETE' && !/^application\/json/i.test(req.headers['content-type'] || '')) {
         throw new HttpError(415, 'Expected JSON');
       }
-      body = await readBody(req);
+      body = await readBody(req); // read once: the step below may run again if another instance wrote first
     }
     const match = route_.re.exec(pathname);
     const params = Object.fromEntries(route_.keys.map((k, i) => [k, decodeURIComponent(match[i + 1])]));
-    const result = await route_.handler({ req, res, params, body, session });
+    // Everything that touches data (including checking a designer's session) runs inside one transaction.
+    const result = await store.transact(async () => {
+      const session = sessionOf(req);
+      if (route_.access !== 'public') {
+        if (!session) throw new HttpError(401, 'Please sign in');
+        const allowed = {
+          any: ['owner', 'client', 'designer'], staff: ['owner', 'designer'], owner: ['owner'], viewer: ['owner', 'client'],
+        }[route_.access];
+        if (!allowed.includes(session.role)) throw new HttpError(403, 'Not allowed');
+      }
+      return route_.handler({ req, res, params, body, session });
+    });
     if (result && result.status && result.body !== undefined) sendJson(res, result.status, result.body);
     else sendJson(res, 200, result);
   }
 
-  function serveStatic(req, res, pathname) {
-    const session = sessionOf(req);
+  // Owner and client sessions are self-contained; a designer's must be checked against the stored account.
+  async function sessionForPage(req) {
+    const raw = readSession(parseCookies(req.headers.cookie)[COOKIE], config.secret);
+    if (!raw) return null;
+    return raw.role === 'designer' ? store.transact(() => sessionOf(req)) : raw;
+  }
+
+  async function serveStatic(req, res, pathname) {
+    const session = await sessionForPage(req);
     let rel = pathname === '/' ? '/index.html' : pathname;
     if (rel === '/login') rel = '/login.html';
     const file = path.normalize(path.join(PUBLIC_DIR, rel));
@@ -287,7 +298,7 @@ function createApp(config) {
     try {
       const { pathname } = new URL(req.url, 'http://localhost');
       if (pathname.startsWith('/api/')) await handleApi(req, res, pathname);
-      else if (req.method === 'GET' || req.method === 'HEAD') serveStatic(req, res, pathname);
+      else if (req.method === 'GET' || req.method === 'HEAD') await serveStatic(req, res, pathname);
       else throw new HttpError(405, 'Method not allowed');
     } catch (err) {
       if (res.headersSent) return res.end();
