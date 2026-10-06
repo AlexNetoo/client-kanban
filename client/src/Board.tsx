@@ -33,6 +33,7 @@ export function Board({ id, taskId }: { id: string; taskId?: string }) {
   const closeTask = () => { location.hash = `#/p/${id}`; };
   const nav = useProjectsNav();
   const [dropCol, setDropCol] = useState<Column | null>(null);
+  const [dropBefore, setDropBefore] = useState<string>("end"); // the card the dragged one would land above, or "end"
   const dragId = useRef<string | null>(null);
   const root = useRef<HTMLDivElement>(null);
 
@@ -71,7 +72,7 @@ export function Board({ id, taskId }: { id: string; taskId?: string }) {
     focusTask(task.id);
     try {
       await api.updateTask(task.id, { status, ...(position !== undefined ? { position } : {}) });
-      toast(`Moved “${task.title}” to ${columnLabel(status)}`);
+      toast(status === task.status ? `Reordered “${task.title}”` : `Moved “${task.title}” to ${columnLabel(status)}`);
     } catch (e) { setTasks(before); toast((e as Error).message, "error"); load(task.id); }
   };
 
@@ -84,13 +85,17 @@ export function Board({ id, taskId }: { id: string; taskId?: string }) {
   );
   if (!project) return <Loading rows={1} />;
 
+  /** Where a drag at this height would land: the card it would sit above (or "end") and its index among the other cards. */
+  const dropTarget = (list: HTMLElement, y: number) => {
+    const cards = [...list.querySelectorAll<HTMLElement>(".task:not(.dragging)")];
+    const idx = cards.findIndex((c) => { const r = c.getBoundingClientRect(); return y < r.top + r.height / 2; });
+    return { before: idx === -1 ? "end" : cards[idx].dataset.taskId!, position: idx === -1 ? cards.length : idx };
+  };
   const onDrop = (e: DragEvent<HTMLUListElement>, col: Column) => {
     e.preventDefault(); setDropCol(null);
     const task = tasks.find((t) => t.id === dragId.current);
     if (!task || !canMove(task)) return;
-    const cards = [...e.currentTarget.querySelectorAll<HTMLElement>(".task:not(.dragging)")];
-    const position = cards.filter((c) => e.clientY > c.getBoundingClientRect().top + c.getBoundingClientRect().height / 2).length;
-    move(task, col, position);
+    move(task, col, dropTarget(e.currentTarget, e.clientY).position);
   };
 
   return (
@@ -135,15 +140,16 @@ export function Board({ id, taskId }: { id: string; taskId?: string }) {
                 </h2>
                 {canAdd && <Button variant="ghost" size="sm" icon={<PlusIcon />} aria-label={`Add task to ${col.label}`} onClick={() => setEditing({ status: col.id })}>Add</Button>}
               </div>
-              <ul className={`cards${dropCol === col.id ? " drop-target" : ""}`} aria-labelledby={`col-${col.id}`}
-                onDragOver={(e) => { if (dragId.current) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDropCol(col.id); } }}
+              <ul className={`cards${dropCol === col.id ? " drop-target" : ""}${dropCol === col.id && dropBefore === "end" ? " drop-end" : ""}`} aria-labelledby={`col-${col.id}`}
+                onDragOver={(e) => { if (dragId.current) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDropCol(col.id); setDropBefore(dropTarget(e.currentTarget, e.clientY).before); } }}
                 onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropCol(null); }}
                 onDrop={(e) => onDrop(e, col.id)}>
                 {items.map((t) => (
-                  <li key={t.id} className="task" data-task-id={t.id} draggable={canMove(t)}
+                  <li key={t.id} className={`task${dropCol === col.id && dropBefore === t.id && dragId.current !== t.id ? " drop-before" : ""}`} data-task-id={t.id} draggable={canMove(t)}
                     onDragStart={(e) => { dragId.current = t.id; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", t.id); e.currentTarget.classList.add("dragging"); }}
                     onDragEnd={(e) => { dragId.current = null; setDropCol(null); e.currentTarget.classList.remove("dragging"); }}>
-                    <TaskCard task={t} designers={designers} onOpen={() => openTask(t.id)} onEdit={() => setEditing({ task: t })} onMove={(s) => move(t, s)} />
+                    <TaskCard task={t} designers={designers} onOpen={() => openTask(t.id)} onEdit={() => setEditing({ task: t })} onMove={(s) => move(t, s)}
+                      onReorder={(dir) => { const at = items.indexOf(t) + dir; if (at >= 0 && at < items.length) move(t, t.status, at); }} canUp={items.indexOf(t) > 0} canDown={items.indexOf(t) < items.length - 1} />
                   </li>
                 ))}
                 {items.length === 0 && <li style={{ fontSize: 13, color: pal.textTertiary, textAlign: "center", padding: 16, border: `1px dashed ${pal.border}`, borderRadius: 14 }}>Nothing here yet</li>}

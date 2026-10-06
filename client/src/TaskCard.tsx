@@ -9,10 +9,11 @@ import { COLUMNS, type Column, type Designer, type Task } from "./types";
 interface Props {
   task: Task; designers: Designer[];
   onOpen: () => void; onEdit: () => void; onMove: (status: Column) => void;
+  onReorder: (direction: -1 | 1) => void; canUp: boolean; canDown: boolean;
 }
 
 /** Compact board card. Clicking the title opens the full task view (TaskModal). */
-export function TaskCard({ task: t, designers, onOpen, onEdit, onMove }: Props) {
+export function TaskCard({ task: t, designers, onOpen, onEdit, onMove, onReorder, canUp, canDown }: Props) {
   const pal = usePalette();
   const me = useMe();
   const owner = me.role === "owner";
@@ -46,7 +47,12 @@ export function TaskCard({ task: t, designers, onOpen, onEdit, onMove }: Props) 
           {canEdit && <Button variant="ghost" size="sm" aria-label={`Edit task ${t.title}`} onClick={onEdit}>Edit</Button>}
           {canEdit && <DropdownMenu
             trigger={<Button variant="ghost" size="sm" aria-label={`Move “${t.title}” to another column`}>Move to…</Button>}
-            items={COLUMNS.filter((c) => c.id !== t.status).map((c) => ({ label: c.label, onClick: () => onMove(c.id) }))} />}
+            items={[
+              ...(canUp ? [{ label: "Move up", onClick: () => onReorder(-1) }] : []),
+              ...(canDown ? [{ label: "Move down", onClick: () => onReorder(1) }] : []),
+              ...((canUp || canDown) ? [{ separator: true }] : []),
+              ...COLUMNS.filter((c) => c.id !== t.status).map((c) => ({ label: c.label, onClick: () => onMove(c.id) })),
+            ]} />}
         </span>
       </div>
     </Card>
