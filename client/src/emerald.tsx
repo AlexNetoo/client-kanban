@@ -4,8 +4,12 @@ import "./index.css";
 import { Button, Heading, Text, TextInput } from "./halaska-kit";
 import { api } from "./api";
 import { Timesheet } from "./Timesheet";
+import { HeroBackground } from "./HeroBackground";
+import { markReady } from "./intro";
 import { Providers, usePalette } from "./theme";
 import { ToastProvider, Loading, val } from "./ui";
+
+markReady(); // there is no intro here, so the drifting-lines background can fade in straight away
 
 /** The Emerald timesheet as its own small site (neto.design/emerald): its own password, its own session, no portal around it. */
 function Mark() {
@@ -23,7 +27,8 @@ function SignIn({ onDone }: { onDone: () => void }) {
     try { await api.emeraldLogin(password); onDone(); } catch (ex) { setError((ex as Error).message); setPassword(""); setBusy(false); }
   };
   return (
-    <main className="login-wrap">
+    <main className="login-wrap hero">
+      <HeroBackground />
       <form onSubmit={submit} style={{ width: "min(100%, 360px)", display: "flex", flexDirection: "column", gap: 18 }} noValidate>
         <div style={{ marginBottom: 14 }}><Mark /></div>
         <div><Heading level={1}>Sign in</Heading><Text secondary>This page is private. Enter the password to open the timesheet.</Text></div>
@@ -42,13 +47,14 @@ function Site() {
   if (state === "checking") return <div style={{ padding: 32 }}><Loading rows={1} /></div>;
   if (state === "out") return <SignIn onDone={() => setState("in")} />;
   return (
-    <>
+    <div className="emerald-shell">
+      <div className="emerald-bg" aria-hidden="true"><HeroBackground /></div>
       <header className="emerald-top" style={{ borderBottom: `1px solid ${pal.border}` }}>
         <Mark />
         <Button variant="secondary" size="sm" onClick={async () => { try { await api.emeraldLogout(); } finally { setState("out"); } }}>Sign out</Button>
       </header>
       <main className="emerald-main"><Timesheet /></main>
-    </>
+    </div>
   );
 }
 

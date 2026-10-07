@@ -314,3 +314,9 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus, text
 .emerald-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 24px; position: sticky; top: 0; z-index: 20; background: var(--bg); }
 .emerald-main { max-width: 1040px; margin: 0 auto; padding: 32px 20px 96px; animation: rise 0.45s var(--ease) backwards; }
 @media print { .emerald-top { display: none !important; } .emerald-main { padding: 0; } }
+.emerald-shell { position: relative; min-height: 100vh; }
+.emerald-bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.55; }
+.emerald-top, .emerald-main { position: relative; z-index: 1; }
+.emerald-top { background: color-mix(in srgb, var(--bg) 86%, transparent); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+.emerald-shell .ts-week, .emerald-shell .ts-total { background: var(--bg); }
+@media print { .emerald-bg { display: none; } }
