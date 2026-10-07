@@ -24,7 +24,7 @@ class Store {
   async load() {
     if (!this.p.shared && this.data) return;
     const r = await this.p.load();
-    if (r) { this.data = JSON.parse(r.text); this.version = r.version; this.dirty = false; } else { this.data = this.seedDemo ? seed() : { projects: [], tasks: [], designers: [], links: [], clients: [], requests: [] }; this.version = null; this.dirty = true; }
+    if (r) { this.data = JSON.parse(r.text); this.version = r.version; this.dirty = false; } else { this.data = this.seedDemo ? seed() : { projects: [], tasks: [], designers: [], links: [], clients: [], requests: [], timesheet: {} }; this.version = null; this.dirty = true; }
     this.migrate();
   }
 
@@ -78,6 +78,7 @@ class Store {
     if (!this.data.links) { this.data.links = []; changed = true; }
     if (!this.data.clients) { this.data.clients = []; changed = true; }
     if (!this.data.requests) { this.data.requests = []; changed = true; }
+    if (!this.data.timesheet) { this.data.timesheet = {}; changed = true; }
     for (const c of this.data.clients) if (c.notify === undefined) { c.notify = true; c.resetHash = ''; c.resetExpires = 0; changed = true; }
     for (const p of this.data.projects) if (p.status === 'planning') { p.status = 'active'; changed = true; } // the Planning status was removed
     for (const t of this.data.tasks) for (const a of t.attachments || []) {
@@ -227,6 +228,18 @@ class Store {
     if (!this.data.requests.some((x) => x.id === id)) throw new HttpError(404, 'Request not found');
     this.data.requests = this.data.requests.filter((x) => x.id !== id);
     this.save();
+  }
+
+  // ---- timesheet (the /emerald page): hours and notes per day, keyed by date ----
+  timesheetMonth(month) {
+    return Object.fromEntries(Object.entries(this.data.timesheet).filter(([d]) => d.startsWith(`${month}-`)).sort(([a], [b]) => a.localeCompare(b)));
+  }
+
+  setTimesheetEntry(date, { hours, note }) {
+    if (hours === 0 && note === '') delete this.data.timesheet[date];
+    else this.data.timesheet[date] = { hours, note, updatedAt: new Date().toISOString() };
+    this.save();
+    return this.data.timesheet[date] || { hours: 0, note: '' };
   }
 
   // ---- email: password links, notification preference, due-date reminders ----

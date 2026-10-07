@@ -1012,6 +1012,39 @@ test('email: welcome, password reset, project approved and due-date reminders', 
   } finally { s7.close(); fs.rmSync(dir7, { recursive: true, force: true }); }
 });
 
+test('timesheet (/emerald): admin only, validated, totals at the hourly rate', async () => {
+  const owner = (await login(OWNER_PW)).cookie;
+  // the page needs the admin password (and a designer/client can't use it)
+  const anon = await call('GET', '/emerald');
+  assert.strictEqual(anon.res.status, 200);
+  assert.ok(anon.text.includes('assets/login-'), 'signed-out visitors get the sign-in page');
+  assert.strictEqual((await call('GET', '/api/timesheet?month=2026-09')).res.status, 401);
+  const client = await newClient(owner);
+  assert.strictEqual((await call('GET', '/api/timesheet?month=2026-09', { cookie: client.cookie })).res.status, 403);
+  assert.strictEqual((await call('PUT', '/api/timesheet/2026-09-08', { cookie: client.cookie, body: { hours: 3, note: 'x' } })).res.status, 403);
+  assert.ok((await call('GET', '/emerald', { cookie: client.cookie })).text.includes('assets/login-')); // a client session still gets the admin sign-in, not the timesheet
+  const page = await call('GET', '/emerald', { cookie: owner });
+  assert.ok(page.res.status === 200 && page.text.includes('assets/index-'), 'the admin gets the app');
+
+  const put = (date, body) => call('PUT', `/api/timesheet/${date}`, { cookie: owner, body });
+  assert.strictEqual((await put('2026-09-08', { hours: 3, note: 'Platform e-mail centralisation' })).res.status, 200);
+  assert.strictEqual((await put('2026-09-09', { hours: '2,5', note: 'Design revisions' })).json.hours, 2.5); // comma decimals and numeric strings are accepted
+  assert.strictEqual((await put('2026-09-10', { hours: 1.25, note: '' })).json.hours, 1.25);
+  assert.strictEqual((await put('2026-10-01', { hours: 4, note: 'next month' })).res.status, 200);
+  for (const bad of [{ hours: -1 }, { hours: 25 }, { hours: 1.1 }, { hours: 'abc' }, { hours: 2, note: 'x'.repeat(501) }]) assert.strictEqual((await put('2026-09-11', bad)).res.status, 400, JSON.stringify(bad));
+  assert.strictEqual((await put('2026-13-40', { hours: 1 })).res.status, 400);
+  assert.strictEqual((await put('2026-02-30', { hours: 1 })).res.status, 400);
+  const sep = (await call('GET', '/api/timesheet?month=2026-09', { cookie: owner })).json;
+  assert.deepStrictEqual([sep.rate, sep.hours, sep.amount], [30, 6.75, 202.5]);
+  assert.deepStrictEqual(Object.keys(sep.entries), ['2026-09-08', '2026-09-09', '2026-09-10']);
+  assert.strictEqual(sep.entries['2026-09-08'].note, 'Platform e-mail centralisation');
+  assert.strictEqual((await call('GET', '/api/timesheet?month=2026-10', { cookie: owner })).json.amount, 120);
+  assert.strictEqual((await call('GET', '/api/timesheet?month=nope', { cookie: owner })).res.status, 400);
+  // clearing a day removes it
+  assert.strictEqual((await put('2026-09-10', { hours: 0, note: '' })).res.status, 200);
+  assert.strictEqual((await call('GET', '/api/timesheet?month=2026-09', { cookie: owner })).json.hours, 5.5);
+});
+
 test('admin sign-in locks out after 5 wrong passwords, even for the right one', async () => {
   const bad = async () => (await call('POST', '/api/login', { body: { password: 'definitely-wrong-1' } })).res.status;
   for (let i = 0; i < 5; i += 1) assert.strictEqual(await bad(), 401);

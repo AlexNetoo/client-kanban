@@ -165,3 +165,20 @@ URLs in task descriptions, client updates and comments become clickable links th
 3. The **AI assistant** button now answers using the local model. Nothing leaves your computer.
 
 Ollama is deliberately limited to `localhost`: a deployed site (Vercel) can't reach your computer, and the app refuses any other Ollama address so a server can never be pointed at an open Ollama by mistake. If both `ANTHROPIC_API_KEY` and `OLLAMA_MODEL` are set, Anthropic is used unless `AI_PROVIDER=ollama`.
+
+## Emerald timesheet (`/emerald`)
+
+A password-protected timesheet for the admin (it uses the admin password, so the admin session also opens it; designers and clients can't). Pick a month, then type the hours worked (quarter hours are fine, for example `1.5`) and a note about what was done for each day. Entries save by themselves. Each week and the month show the hours and the amount at **€30 per hour** (`TIMESHEET_RATE` in `server/validate.js`). Days outside the month and weekends are greyed out. **Print** produces a clean copy (or a PDF). Data lives in the same database as everything else.
+
+## Email notifications
+
+Set `RESEND_API_KEY` and `EMAIL_FROM` (an address on a domain verified in [Resend](https://resend.com)) to turn on email. Without them nothing is sent in production, and in development each email is printed to the terminal.
+
+| Email | When |
+|---|---|
+| Welcome | The admin creates a designer or client with *Send a welcome email* ticked. The person gets a link (valid 7 days) to choose their own password, so no password has to be shared. |
+| Password reset | *Forgot your password?* on the sign-in pages (`/forgot`). The link works for one hour and once. The answer is the same whether or not the email has an account. |
+| Project approved | The admin approves a client's project request. |
+| Task due today | A daily job (`/api/cron/reminders`, 07:00 UTC, set in `vercel.json`) emails the assigned designer, and each client of the project, about open tasks due today. Needs `CRON_SECRET` (Vercel sends it automatically). Each task is reminded once per due date. Time zone: `REMINDER_TZ` (default `Europe/Lisbon`). |
+
+Designers and clients can switch reminders and project updates off in **Settings**. Optional: `PUBLIC_URL` (the address used in links; defaults to the Vercel production domain).

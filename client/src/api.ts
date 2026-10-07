@@ -70,6 +70,8 @@ export const api = {
   forgotPassword: (email: string) => request<{ ok: true }>("POST", "/api/password/forgot", { email }),
   resetPassword: (token: string, password: string) => request<{ ok: true; signIn: string }>("POST", "/api/password/reset", { token, password }),
   setNotifications: (enabled: boolean) => request<{ notify: boolean }>("PATCH", "/api/me/notifications", { enabled }),
+  getTimesheet: (month: string) => request<{ month: string; rate: number; entries: Record<string, { hours: number; note: string }>; hours: number; amount: number }>("GET", `/api/timesheet?month=${month}`),
+  saveTimesheetDay: (date: string, d: { hours: number; note: string }) => request<{ date: string; hours: number; note: string }>("PUT", `/api/timesheet/${date}`, d),
   clientView: (token: string) => request<{ project: ClientProject; tasks: ClientTask[] }>("GET", `/api/client/${encodeURIComponent(token)}`),
 };
 

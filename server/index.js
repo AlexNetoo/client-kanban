@@ -7,7 +7,7 @@ const { hashPassword, verifyPassword, signSession, readSession, parseCookies } =
 const { Store } = require('./store');
 const { FilePersistence, BlobPersistence } = require('./persist');
 const { LocalFiles, BlobFiles } = require('./files');
-const { COLUMNS, HttpError, cleanProject, cleanTask, cleanComment, cleanDesigner, cleanLink, cleanAttachment, cleanClient, cleanRequest, MAX_REQUEST_DAYS } = require('./validate');
+const { COLUMNS, HttpError, cleanProject, cleanTask, cleanComment, cleanDesigner, cleanLink, cleanAttachment, cleanClient, cleanRequest, MAX_REQUEST_DAYS, cleanTimesheetEntry, cleanIsoDate, TIMESHEET_RATE } = require('./validate');
 const { estimate, daysBetween } = require('./pricing');
 const { assist } = require('./ai');
 const { createMailer } = require('./mailer');
@@ -411,6 +411,20 @@ function createApp(config) {
     return { after: async (res) => sendJson(res, 200, await assist(config.ai, input)) };
   });
 
+  // ---- Timesheet (/emerald): admin only. Hours per day at a fixed hourly rate. ----
+  route('GET', '/api/timesheet', 'owner', ({ req }) => {
+    const month = new URL(req.url, 'http://localhost').searchParams.get('month') || '';
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new HttpError(400, 'month must look like 2026-09');
+    const entries = store.timesheetMonth(month);
+    const hours = Object.values(entries).reduce((n, e) => n + e.hours, 0);
+    return { month, rate: TIMESHEET_RATE, entries, hours, amount: hours * TIMESHEET_RATE };
+  });
+  route('PUT', '/api/timesheet/:date', 'owner', ({ params, body }) => {
+    const date = cleanIsoDate(params.date);
+    const entry = store.setTimesheetEntry(date, cleanTimesheetEntry(body));
+    return { date, hours: entry.hours, note: entry.note };
+  });
+
   // ---- Euro to US dollar rate for the estimate's currency switch (ECB reference rate via frankfurter.dev, cached 6 hours) ----
   let fxCache = null;
   route('GET', '/api/fx', 'public', async () => {
@@ -578,7 +592,7 @@ function createApp(config) {
     const resetPage = pathname === '/forgot' || pathname === '/reset'; // reachable even while signed in
     if (rel === '/login' || rel === '/designer' || resetPage) rel = '/login.html';
     // /admin: the admin console for a signed-in admin, otherwise the admin sign-in (same page as /login, admin mode).
-    const adminPage = pathname === '/admin' || pathname === '/admin/';
+    const adminPage = ['/admin', '/admin/', '/emerald', '/emerald/'].includes(pathname); // /emerald (the timesheet) is admin-only too
     if (adminPage) rel = session && session.role === 'owner' ? '/index.html' : '/login.html';
     // /demo: the app shell for the in-browser demo project. It is public because it carries no data: the demo is answered
     // entirely in the browser and every real API call still needs a real session.

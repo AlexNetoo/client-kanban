@@ -263,3 +263,39 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus, text
 .ai-send:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 .ai-hint { font-size: 11px; padding-left: 4px; }
 @media (max-width: 520px) { .ai-starters { grid-template-columns: 1fr; } .ai-prop__fields > div { grid-template-columns: 1fr; gap: 0; } }
+
+/* Emerald timesheet */
+.ts { max-width: 980px; }
+.ts-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 16px; margin-bottom: 22px; }
+.ts-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ts-weeks { display: flex; flex-direction: column; gap: 18px; }
+.ts-week { border: 1px solid; border-radius: 16px; overflow: hidden; animation: rise 0.4s var(--ease) backwards; }
+.ts-week__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; padding: 10px 16px; border-bottom: 1px solid; font-size: 14px; }
+.ts-week__total { margin-left: auto; font-variant-numeric: tabular-nums; }
+.ts-cols, .ts-row { display: grid; grid-template-columns: 52px 104px 84px minmax(0, 1fr) 70px; align-items: center; gap: 10px; padding: 0 16px; }
+.ts-cols { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding-top: 8px; padding-bottom: 4px; }
+.ts-row { min-height: 46px; border-top: 1px solid; transition: background-color 0.2s; }
+.ts-row.is-today { box-shadow: inset 3px 0 0 currentColor; }
+.ts-row.is-out { opacity: 0.45; }
+.ts-day { font-weight: 600; font-size: 14px; }
+.ts-date { font-size: 13px; font-variant-numeric: tabular-nums; }
+.ts-row input { font: inherit; font-size: 14px; color: inherit; border-radius: 10px; padding: 7px 10px; min-width: 0; width: 100%; }
+.ts-row input.ts-hours { text-align: center; font-variant-numeric: tabular-nums; font-weight: 600; }
+.ts-row input:disabled { background: transparent !important; border-color: transparent !important; }
+.ts-row.is-weekend input:not(:focus):placeholder-shown { background: transparent !important; border-color: transparent !important; }
+.ts-state { font-size: 11px; text-align: right; opacity: 0; transition: opacity 0.25s; }
+.ts-state.is-saving, .ts-state.is-saved, .ts-state.is-error { opacity: 0.8; }
+.ts-state.is-error { font-weight: 700; opacity: 1; }
+.ts-total { border: 2px solid; border-radius: 16px; padding: 18px 20px; display: flex; flex-wrap: wrap; gap: 20px 56px; }
+.ts-total__big { font-size: 32px; font-weight: 600; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; line-height: 1.15; }
+@media (max-width: 640px) {
+  .ts-cols { display: none; }
+  .ts-row { grid-template-columns: 44px minmax(0, 1fr) 76px; grid-template-areas: "day date hours" "note note note"; row-gap: 6px; padding-top: 8px; padding-bottom: 10px; }
+  .ts-day { grid-area: day; } .ts-date { grid-area: date; } .ts-row .ts-hours { grid-area: hours; } .ts-row .ts-note { grid-area: note; } .ts-state { display: none; }
+}
+@media print {
+  .sidebar, .topbar, .demo-pill, .ts-nav, .ts-state, .skip-link { display: none !important; }
+  .shell { display: block !important; } .page { padding: 0 !important; max-width: none !important; }
+  .ts-row input { border: 0 !important; background: transparent !important; padding-left: 0; }
+  .ts-week { break-inside: avoid; animation: none; }
+}

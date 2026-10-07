@@ -186,4 +186,20 @@ function cleanRequest(body) {
   return out;
 }
 
-module.exports = { cleanRequest, REQUEST_TYPES, MAX_REQUEST_DAYS, cleanClient, cleanAttachment, LINK_TYPES, cleanLink, cleanComment, cleanDesigner, COLUMNS, STATUSES, PROJECT_STATUSES, PRIORITIES, HttpError, cleanProject, cleanTask };
+const TIMESHEET_RATE = 30; // euro per hour
+
+/** One day of the timesheet: hours in quarter-hour steps (0 to 24) and a short note about what was done. */
+function cleanTimesheetEntry(body) {
+  if (!body || typeof body !== 'object') throw new HttpError(400, 'Invalid body');
+  const hours = typeof body.hours === 'string' && body.hours.trim() !== '' ? Number(body.hours.replace(',', '.')) : body.hours === undefined || body.hours === null || body.hours === '' ? 0 : body.hours;
+  if (typeof hours !== 'number' || !Number.isFinite(hours) || hours < 0 || hours > 24 || Math.abs(hours * 4 - Math.round(hours * 4)) > 1e-9) {
+    throw new HttpError(400, 'Hours must be between 0 and 24, in steps of 0.25');
+  }
+  return { hours: Math.round(hours * 4) / 4, note: str(body, 'note', { max: 500 }) };
+}
+function cleanIsoDate(v) {
+  if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v) || Number.isNaN(Date.parse(v)) || new Date(v + 'T00:00:00Z').toISOString().slice(0, 10) !== v) throw new HttpError(400, 'Not a valid date');
+  return v;
+}
+
+module.exports = { cleanTimesheetEntry, cleanIsoDate, TIMESHEET_RATE, cleanRequest, REQUEST_TYPES, MAX_REQUEST_DAYS, cleanClient, cleanAttachment, LINK_TYPES, cleanLink, cleanComment, cleanDesigner, COLUMNS, STATUSES, PROJECT_STATUSES, PRIORITIES, HttpError, cleanProject, cleanTask };
