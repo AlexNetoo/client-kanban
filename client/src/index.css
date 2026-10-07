@@ -270,9 +270,20 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus, text
 .ts-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .ts-weeks { display: flex; flex-direction: column; gap: 18px; }
 .ts-week { border: 1px solid; border-radius: 16px; overflow: hidden; animation: rise 0.4s var(--ease) backwards; }
-.ts-week__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; padding: 10px 16px; border-bottom: 1px solid; font-size: 14px; }
+.ts-week__title { margin: 0; font-size: inherit; font-weight: inherit; }
+.ts-week__head { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; padding: 10px 16px; border-bottom: 1px solid; font-size: 14px; transition: filter 0.2s; }
+.ts-week__head:hover { filter: brightness(0.97); }
+.ts-week__head:focus-visible { outline: 2px solid currentColor; outline-offset: -3px; border-radius: 14px; }
+.ts-chev { transition: transform 0.3s var(--ease); flex: none; }
+.ts-week.is-collapsed .ts-chev { transform: rotate(-90deg); }
+.ts-week.is-collapsed .ts-week__head { border-bottom-color: transparent; }
+.ts-body { display: grid; grid-template-rows: 1fr; transition: grid-template-rows 0.35s var(--ease); }
+.ts-body__inner { min-height: 0; overflow: hidden; }
+.ts-week.is-collapsed .ts-body { grid-template-rows: 0fr; }
 .ts-week__total { margin-left: auto; font-variant-numeric: tabular-nums; }
-.ts-cols, .ts-row { display: grid; grid-template-columns: 52px 104px 84px minmax(0, 1fr) 70px; align-items: center; gap: 10px; padding: 0 16px; }
+.ts-cols, .ts-row { display: grid; grid-template-columns: 52px 104px 84px minmax(0, 1fr) 56px 36px; align-items: center; gap: 10px; padding: 0 16px; }
+.ts-off { display: flex; justify-content: center; }
+.ts-cols span:last-child { text-align: center; }
 .ts-cols { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding-top: 8px; padding-bottom: 4px; }
 .ts-row { min-height: 46px; border-top: 1px solid; transition: background-color 0.2s; }
 .ts-row.is-today { box-shadow: inset 3px 0 0 currentColor; }
@@ -281,8 +292,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus, text
 .ts-date { font-size: 13px; font-variant-numeric: tabular-nums; }
 .ts-row input { font: inherit; font-size: 14px; color: inherit; border-radius: 10px; padding: 7px 10px; min-width: 0; width: 100%; }
 .ts-row input.ts-hours { text-align: center; font-variant-numeric: tabular-nums; font-weight: 600; }
-.ts-row input:disabled { background: transparent !important; border-color: transparent !important; }
-.ts-row.is-weekend input:not(:focus):placeholder-shown { background: transparent !important; border-color: transparent !important; }
+.ts .ts-row input:disabled { background: transparent !important; border-color: transparent !important; }
 .ts-state { font-size: 11px; text-align: right; opacity: 0; transition: opacity 0.25s; }
 .ts-state.is-saving, .ts-state.is-saved, .ts-state.is-error { opacity: 0.8; }
 .ts-state.is-error { font-weight: 700; opacity: 1; }
@@ -290,8 +300,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus, text
 .ts-total__big { font-size: 32px; font-weight: 600; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; line-height: 1.15; }
 @media (max-width: 640px) {
   .ts-cols { display: none; }
-  .ts-row { grid-template-columns: 44px minmax(0, 1fr) 76px; grid-template-areas: "day date hours" "note note note"; row-gap: 6px; padding-top: 8px; padding-bottom: 10px; }
-  .ts-day { grid-area: day; } .ts-date { grid-area: date; } .ts-row .ts-hours { grid-area: hours; } .ts-row .ts-note { grid-area: note; } .ts-state { display: none; }
+  .ts-row { grid-template-columns: 44px minmax(0, 1fr) 76px 32px; grid-template-areas: "day date hours off" "note note note note"; row-gap: 6px; padding-top: 8px; padding-bottom: 10px; }
+  .ts-day { grid-area: day; } .ts-date { grid-area: date; } .ts-row .ts-hours { grid-area: hours; } .ts-row .ts-note { grid-area: note; } .ts-off { grid-area: off; } .ts-state { display: none; }
 }
 @media print {
   .sidebar, .topbar, .demo-pill, .ts-nav, .ts-state, .skip-link { display: none !important; }

@@ -1043,6 +1043,18 @@ test('timesheet (/emerald): admin only, validated, totals at the hourly rate', a
   // clearing a day removes it
   assert.strictEqual((await put('2026-09-10', { hours: 0, note: '' })).res.status, 200);
   assert.strictEqual((await call('GET', '/api/timesheet?month=2026-09', { cookie: owner })).json.hours, 5.5);
+  // days off: a day off (or a normal weekend) doesn't count, a worked weekend does; off can be switched back
+  assert.strictEqual((await put('2026-09-14', { hours: 5, note: 'Monday', off: null })).json.off, null);
+  assert.strictEqual((await call('GET', '/api/timesheet?month=2026-09', { cookie: owner })).json.hours, 10.5);
+  assert.strictEqual((await put('2026-09-14', { hours: 5, note: 'Monday', off: true })).json.off, true);
+  assert.strictEqual((await call('GET', '/api/timesheet?month=2026-09', { cookie: owner })).json.hours, 5.5); // the day off is excluded, the entry is kept
+  assert.strictEqual((await put('2026-09-19', { hours: 2, note: 'Saturday', off: null })).res.status, 200); // a weekend entry without a flag is still a day off
+  assert.strictEqual((await call('GET', '/api/timesheet?month=2026-09', { cookie: owner })).json.hours, 5.5);
+  assert.strictEqual((await put('2026-09-19', { hours: 2, note: 'Saturday', off: false })).res.status, 200); // a worked weekend counts
+  assert.strictEqual((await call('GET', '/api/timesheet?month=2026-09', { cookie: owner })).json.hours, 7.5);
+  assert.strictEqual((await put('2026-09-14', { hours: 5, note: 'Monday', off: 'yes' })).res.status, 400);
+  assert.strictEqual((await put('2026-09-14', { hours: 0, note: '', off: null })).res.status, 200); // back to the default and empty: removed
+  assert.ok(!('2026-09-14' in (await call('GET', '/api/timesheet?month=2026-09', { cookie: owner })).json.entries));
 });
 
 test('admin sign-in locks out after 5 wrong passwords, even for the right one', async () => {

@@ -416,13 +416,15 @@ function createApp(config) {
     const month = new URL(req.url, 'http://localhost').searchParams.get('month') || '';
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new HttpError(400, 'month must look like 2026-09');
     const entries = store.timesheetMonth(month);
-    const hours = Object.values(entries).reduce((n, e) => n + e.hours, 0);
+    // A day off doesn't count. Weekends are off unless the entry says off:false (a weekend that was worked).
+    const isOff = (date, e) => (typeof e.off === 'boolean' ? e.off : [0, 6].includes(new Date(`${date}T00:00:00Z`).getUTCDay()));
+    const hours = Object.entries(entries).reduce((n, [d, e]) => n + (isOff(d, e) ? 0 : e.hours), 0);
     return { month, rate: TIMESHEET_RATE, entries, hours, amount: hours * TIMESHEET_RATE };
   });
   route('PUT', '/api/timesheet/:date', 'owner', ({ params, body }) => {
     const date = cleanIsoDate(params.date);
     const entry = store.setTimesheetEntry(date, cleanTimesheetEntry(body));
-    return { date, hours: entry.hours, note: entry.note };
+    return { date, hours: entry.hours, note: entry.note, off: typeof entry.off === 'boolean' ? entry.off : null };
   });
 
   // ---- Euro to US dollar rate for the estimate's currency switch (ECB reference rate via frankfurter.dev, cached 6 hours) ----

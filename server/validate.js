@@ -195,7 +195,9 @@ function cleanTimesheetEntry(body) {
   if (typeof hours !== 'number' || !Number.isFinite(hours) || hours < 0 || hours > 24 || Math.abs(hours * 4 - Math.round(hours * 4)) > 1e-9) {
     throw new HttpError(400, 'Hours must be between 0 and 24, in steps of 0.25');
   }
-  return { hours: Math.round(hours * 4) / 4, note: str(body, 'note', { max: 500 }) };
+  if (body.off !== undefined && body.off !== null && typeof body.off !== 'boolean') throw new HttpError(400, 'off must be true, false or empty');
+  // off: true = day off, false = a working day even though it would normally be off (a weekend), null = the default for that weekday
+  return { hours: Math.round(hours * 4) / 4, note: str(body, 'note', { max: 500 }), off: typeof body.off === 'boolean' ? body.off : null };
 }
 function cleanIsoDate(v) {
   if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v) || Number.isNaN(Date.parse(v)) || new Date(v + 'T00:00:00Z').toISOString().slice(0, 10) !== v) throw new HttpError(400, 'Not a valid date');

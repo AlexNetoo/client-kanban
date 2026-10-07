@@ -235,9 +235,9 @@ class Store {
     return Object.fromEntries(Object.entries(this.data.timesheet).filter(([d]) => d.startsWith(`${month}-`)).sort(([a], [b]) => a.localeCompare(b)));
   }
 
-  setTimesheetEntry(date, { hours, note }) {
-    if (hours === 0 && note === '') delete this.data.timesheet[date];
-    else this.data.timesheet[date] = { hours, note, updatedAt: new Date().toISOString() };
+  setTimesheetEntry(date, { hours, note, off }) {
+    if (hours === 0 && note === '' && off === null) delete this.data.timesheet[date];
+    else this.data.timesheet[date] = { hours, note, ...(off === null ? {} : { off }), updatedAt: new Date().toISOString() };
     this.save();
     return this.data.timesheet[date] || { hours: 0, note: '' };
   }
