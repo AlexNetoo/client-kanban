@@ -80,6 +80,12 @@ class Store {
     if (!this.data.requests) { this.data.requests = []; changed = true; }
     if (!this.data.timesheet) { this.data.timesheet = {}; changed = true; }
     for (const c of this.data.clients) if (c.notify === undefined) { c.notify = true; c.resetHash = ''; c.resetExpires = 0; changed = true; }
+    for (const p of this.data.projects) { // projects approved before the brief details were kept on the project get them from their request
+      if (p.type !== undefined) continue;
+      const r = this.data.requests.find((x) => x.projectId === p.id);
+      Object.assign(p, { type: r ? r.type : '', startDate: r ? r.startDate : '', budget: r ? r.estimate.total : null, references: r ? r.references || '' : '', notes: r ? r.notes || '' : '' });
+      changed = true;
+    }
     for (const p of this.data.projects) if (p.status === 'planning') { p.status = 'active'; changed = true; } // the Planning status was removed
     for (const t of this.data.tasks) for (const a of t.attachments || []) {
       if (a.uploadedById === 'owner' && a.uploadedByName === 'Freelancer') { a.uploadedByName = 'Admin'; changed = true; }
@@ -206,7 +212,7 @@ class Store {
     const r = this.data.requests.find((x) => x.id === id);
     if (!r) throw new HttpError(404, 'Request not found');
     if (r.status !== 'new') throw new HttpError(409, 'This request was already handled');
-    const project = this.createProject({ name: r.name, client: r.company || r.clientName, status: 'active', summary: r.description, dueDate: r.dueDate });
+    const project = this.createProject({ name: r.name, client: r.company || r.clientName, status: 'active', summary: r.description, dueDate: r.dueDate, type: r.type, startDate: r.startDate, budget: r.estimate.total, references: r.references || '', notes: r.notes || '', requestId: r.id });
     r.goals.forEach((g, i) => this.createTask(project.id, { title: g, status: 'backlog', priority: 'high', description: i === 0 ? `Important goal from the project brief (${r.type}).` : 'Important goal from the project brief.' }));
     const c = this.getClient(r.clientId);
     if (c && !c.projectIds.includes(project.id)) c.projectIds.push(project.id);
@@ -511,7 +517,7 @@ class Store {
 
   createProject(fields) {
     const now = new Date().toISOString();
-    const p = { id: crypto.randomUUID(), shareToken: newToken(), archived: false, createdAt: now, updatedAt: now, status: 'active', summary: '', dueDate: '', recurring: false, ...fields };
+    const p = { id: crypto.randomUUID(), shareToken: newToken(), archived: false, createdAt: now, updatedAt: now, status: 'active', summary: '', dueDate: '', recurring: false, type: '', startDate: '', budget: null, references: '', notes: '', ...fields };
     this.data.projects.push(p);
     this.save();
     return this.withStats(p);

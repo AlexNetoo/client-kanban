@@ -320,3 +320,9 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus, text
 .emerald-top { background: color-mix(in srgb, var(--bg) 86%, transparent); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
 .emerald-shell .ts-week, .emerald-shell .ts-total { background: var(--bg); }
 @media print { .emerald-bg { display: none; } }
+
+/* Project details strip on the board */
+.proj-details { display: flex; flex-wrap: wrap; gap: 10px 32px; margin: 0 0 22px; padding: 14px 18px; border: 1px solid; border-radius: 14px; font-size: 14px; }
+.proj-details > div { min-width: 0; } .proj-details > div.wide { flex-basis: 100%; }
+.proj-details dt { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 2px; }
+.proj-details dd { margin: 0; line-height: 1.5; }

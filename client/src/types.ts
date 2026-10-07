@@ -16,6 +16,7 @@ export const PRIORITY: Record<Priority, string> = { low: "Low", medium: "Medium"
 export interface Project {
   id: string; shareToken: string; name: string; client: string; status: ProjectStatus; dueDate: string; recurring: boolean; summary: string;
   archived: boolean; createdAt: string; updatedAt: string; counts: Record<Column, number>; total: number; progress: number;
+  type?: string; startDate?: string; budget?: number | null; references?: string; notes?: string; // budget is only sent to the admin
 }
 export interface Designer { id: string; name: string; role: string; email?: string; hasLogin?: boolean; projectIds?: string[] }
 export interface Comment { id: string; authorId: string; authorName: string; authorRole: "owner" | "designer" | "client"; visibility: "internal" | "client"; text: string; createdAt: string }
@@ -39,7 +40,7 @@ export interface ClientTask { id: string; title: string; description: string; st
 export type AiAction =
   | { type: "create_task"; fields: Partial<TaskInput> & { title: string } }
   | { type: "update_task"; taskId: string; taskTitle: string; fields: Partial<TaskInput> };
-export type ProjectInput = Pick<Project, "name" | "client" | "status" | "dueDate" | "recurring" | "summary">;
+export type ProjectInput = Pick<Project, "name" | "client" | "status" | "dueDate" | "recurring" | "summary"> & Partial<Pick<Project, "type" | "startDate" | "budget" | "references" | "notes">>;
 export type TaskInput = Pick<Task, "title" | "description" | "status" | "priority" | "dueDate" | "clientUpdate" | "privateNotes" | "assigneeId">;
 
 export interface ClientAccount { id: string; name: string; company: string; email: string; hasLogin: boolean; projectIds: string[] }

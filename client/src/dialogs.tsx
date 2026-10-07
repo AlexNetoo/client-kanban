@@ -5,7 +5,7 @@ import { Area, DateField, Text1 } from "./fields";
 import { EyeIcon, LockIcon, Modal, useToast } from "./ui";
 import { usePalette } from "./theme";
 import { useMe } from "./session";
-import { COLUMNS, PRIORITY, PROJECT_STATUS, type Column, type Designer, type Priority, type Project, type ProjectStatus, type Task } from "./types";
+import { COLUMNS, PRIORITY, PROJECT_STATUS, REQUEST_TYPES, type Column, type Designer, type Priority, type Project, type ProjectStatus, type Task } from "./types";
 
 const toOptions = (m: Record<string, string>) => Object.entries(m).map(([value, label]) => ({ value, label }));
 
@@ -40,9 +40,14 @@ export function ProjectDialog({ project, onClose, onSaved }: { project?: Project
   const [dueDate, setDue] = useState(project?.dueDate ?? "");
   const [recurring, setRecurring] = useState(project?.recurring ?? false);
   const [summary, setSummary] = useState(project?.summary ?? "");
+  const [type, setType] = useState(project?.type ?? "");
+  const [startDate, setStart] = useState(project?.startDate ?? "");
+  const [budget, setBudget] = useState(project?.budget != null ? String(project.budget) : "");
+  const [references, setReferences] = useState(project?.references ?? "");
+  const [notes, setNotes] = useState(project?.notes ?? "");
   const { busy, error, run } = useSave(onClose);
   const save = () => run(async () => {
-    const data = { name, client, status, dueDate: recurring ? "" : dueDate, recurring, summary };
+    const data = { name, client, status, dueDate: recurring ? "" : dueDate, recurring, summary, type, startDate, budget: budget.trim() === "" ? null : Number(budget.replace(",", ".")), references, notes };
     if (project) await api.updateProject(project.id, data); else await api.createProject(data);
     toast(project ? "Project updated" : "Project created");
     onSaved();
@@ -61,6 +66,13 @@ export function ProjectDialog({ project, onClose, onSaved }: { project?: Project
         </div>
         <Checkbox checked={recurring} onChange={(c: boolean) => { setRecurring(c); if (c) setDue(""); }} label="Recurring project (no due date)" aria-label="Recurring project (no due date)" />
         <Area label="Summary (visible to the client)" value={summary} onChange={setSummary} />
+        <div className="row2">
+          <Select label="Type of project" value={type} onChange={(v: string) => setType(v)} options={[{ value: "", label: "Not set" }, ...REQUEST_TYPES.map((t) => ({ value: t, label: t })), ...(type && !(REQUEST_TYPES as readonly string[]).includes(type) ? [{ value: type, label: type }] : [])]} />
+          <DateField label="Start date" clearable value={startDate} onChange={setStart} />
+        </div>
+        <Text1 label="Budget in € (private, only you see it)" type="number" value={budget} onChange={setBudget} />
+        <Area label="Inspiration or links" rows={2} value={references} onChange={setReferences} />
+        <Area label="Notes from the brief" rows={2} value={notes} onChange={setNotes} />
       </Form>
     </Modal>
   );

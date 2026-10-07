@@ -1067,6 +1067,30 @@ test('timesheet (/emerald): admin only, validated, totals at the hourly rate', a
   assert.ok(!('2026-09-14' in (await call('GET', '/api/timesheet?month=2026-09', { cookie: owner })).json.entries));
 });
 
+test('project details survive approval and can be edited afterwards; the budget stays with the admin', async () => {
+  const owner = (await login(OWNER_PW)).cookie;
+  const client = await newClient(owner);
+  const req = await call('POST', '/api/requests', { cookie: client.cookie, body: { name: 'Detail site', type: 'Branding & identity', description: 'Brand work', goals: ['One goal'], references: 'https://example.com/ref', notes: 'Launch before Q2', startDate: '2031-03-01', dueDate: '2031-03-31' } });
+  assert.strictEqual(req.res.status, 201, req.text);
+  const acc = await call('POST', `/api/requests/${req.json.id}/accept`, { cookie: owner, body: {} });
+  const pid = acc.json.projectId;
+  const p = (await call('GET', `/api/projects/${pid}`, { cookie: owner })).json.project;
+  assert.deepStrictEqual([p.type, p.startDate, p.budget, p.references, p.notes], ['Branding & identity', '2031-03-01', req.json.estimate.total, 'https://example.com/ref', 'Launch before Q2']);
+  // edit after approval
+  const up = await call('PATCH', `/api/projects/${pid}`, { cookie: owner, body: { name: 'Detail site v2', type: 'Other', startDate: '2031-03-05', dueDate: '2031-04-10', budget: '5200,50', notes: 'Updated notes', summary: 'New summary' } });
+  assert.strictEqual(up.res.status, 200, up.text);
+  assert.deepStrictEqual([up.json.name, up.json.type, up.json.startDate, up.json.dueDate, up.json.budget, up.json.notes, up.json.summary], ['Detail site v2', 'Other', '2031-03-05', '2031-04-10', 5200.5, 'Updated notes', 'New summary']);
+  for (const bad of [{ budget: -5 }, { budget: 'lots' }, { budget: 99999999 }, { startDate: '2031-05-01', dueDate: '2031-04-01' }]) assert.strictEqual((await call('PATCH', `/api/projects/${pid}`, { cookie: owner, body: bad })).res.status, 400, JSON.stringify(bad));
+  assert.strictEqual((await call('PATCH', `/api/projects/${pid}`, { cookie: owner, body: { budget: null } })).json.budget, null);
+  assert.strictEqual((await call('PATCH', `/api/projects/${pid}`, { cookie: client.cookie, body: { name: 'hack' } })).res.status, 403);
+  await call('PATCH', `/api/projects/${pid}`, { cookie: owner, body: { budget: 4000 } });
+  // the budget never reaches the client or designers
+  const asClient = await call('GET', `/api/projects/${pid}`, { cookie: client.cookie });
+  assert.ok(!('budget' in asClient.json.project) && !asClient.text.includes('4000'));
+  assert.ok(!(await call('GET', '/api/projects', { cookie: client.cookie })).text.includes('"budget"'));
+  assert.ok(!(await call('GET', `/api/client/${p.shareToken}`)).text.includes('budget'));
+});
+
 test('admin sign-in locks out after 5 wrong passwords, even for the right one', async () => {
   const bad = async () => (await call('POST', '/api/login', { body: { password: 'definitely-wrong-1' } })).res.status;
   for (let i = 0; i < 5; i += 1) assert.strictEqual(await bad(), 401);

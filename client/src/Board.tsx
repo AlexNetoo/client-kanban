@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type DragEvent } from "react";
 import { Badge, Button, Heading, Progress } from "./halaska-kit";
 import { api } from "./api";
-import { TaskDialog } from "./dialogs";
+import { ProjectDialog, TaskDialog } from "./dialogs";
+import { Linkify } from "./Linkify";
+import { formatDate } from "./lib/format";
 import { Assistant } from "./Assistant";
 import { useTouchDrag } from "./useTouchDrag";
 import { TaskCard } from "./TaskCard";
@@ -25,6 +27,7 @@ export function Board({ id, taskId }: { id: string; taskId?: string }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [error, setError] = useState<{ status: number; message: string } | null>(null);
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState(false);
   const [editing, setEditing] = useState<{ task?: Task; status?: Column } | null>(null);
   const [deleting, setDeleting] = useState<Task | null>(null);
   const [designers, setDesigners] = useState<Designer[]>([]);
@@ -137,12 +140,23 @@ export function Board({ id, taskId }: { id: string; taskId?: string }) {
           <Button icon={<PlusIcon />} onClick={() => setEditing({ status: "todo" })}>Add task</Button>
           <Button variant="secondary" icon={<SparkIcon />} onClick={() => setAssistantOpen(true)}>AI assistant</Button>
           {owner && <>
+          <Button variant="secondary" onClick={() => setEditingProject(true)}>Edit project</Button>
           <Button variant="secondary" icon={<EyeIcon />} onClick={() => { location.hash = `#/c/${project.shareToken}`; }}>Client view</Button>
           <Button variant="secondary" onClick={() => { location.href = "/admin"; }}>Admin console</Button>
           <ProjectMenu project={project} onChange={() => load()} afterDelete={() => { location.hash = "#/"; }} />
           </>}
         </div>}
       </div>
+
+      {(project.type || project.startDate || project.references || project.notes || (owner && project.budget != null)) && (
+        <dl className="proj-details" aria-label="Project details" style={{ borderColor: pal.border }}>
+          {project.type && <div><dt style={{ color: pal.textTertiary }}>Type</dt><dd>{project.type}</dd></div>}
+          {(project.startDate || project.dueDate) && <div><dt style={{ color: pal.textTertiary }}>Dates</dt><dd>{project.startDate ? formatDate(project.startDate) : "—"} → {project.recurring ? "ongoing" : project.dueDate ? formatDate(project.dueDate) : "no due date"}</dd></div>}
+          {owner && project.budget != null && <div><dt style={{ color: pal.textTertiary }}>Budget (private)</dt><dd>{new Intl.NumberFormat("en-IE", { style: "currency", currency: "EUR", maximumFractionDigits: 2 }).format(project.budget)}</dd></div>}
+          {project.references && <div className="wide"><dt style={{ color: pal.textTertiary }}>Links</dt><dd style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}><Linkify text={project.references} /></dd></div>}
+          {project.notes && <div className="wide"><dt style={{ color: pal.textTertiary }}>Notes</dt><dd style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}><Linkify text={project.notes} /></dd></div>}
+        </dl>
+      )}
 
       <div style={{ maxWidth: 480, marginBottom: 28 }}>
         <Progress value={project.progress} />
@@ -181,6 +195,7 @@ export function Board({ id, taskId }: { id: string; taskId?: string }) {
         })}
       </div>
 
+      {editingProject && <ProjectDialog project={project} onClose={() => setEditingProject(false)} onSaved={() => load()} />}
       {assistantOpen && <Assistant projectId={id} projectName={project.name} tasks={tasks} designers={designers} enabled={!!me.ai} isAdmin={owner} onClose={() => setAssistantOpen(false)} onApplied={() => load()} />}
       {editing && (
         <TaskDialog projectId={id} task={editing.task} designers={designers} defaultStatus={editing.status} onClose={() => setEditing(null)}

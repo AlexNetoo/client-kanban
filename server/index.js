@@ -46,7 +46,7 @@ const clientTask = (t) => ({
 });
 
 // What a designer may see: no private notes, no client share links.
-const staffProject = ({ shareToken, ...p }) => p; // eslint-disable-line no-unused-vars
+const staffProject = ({ shareToken, budget, ...p }) => p; // eslint-disable-line no-unused-vars -- the budget is for the admin only
 const staffTask = ({ privateNotes, ...t }) => t; // eslint-disable-line no-unused-vars
 // Designers may only change the column/order of a task assigned to them.
 // Designers edit the working fields of tasks in their projects; private notes, client updates, deleting and links stay with the admin.

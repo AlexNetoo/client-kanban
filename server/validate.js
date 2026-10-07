@@ -49,9 +49,24 @@ function cleanProject(body, partial = false) {
   if (has('summary')) out.summary = str(body, 'summary', { max: 1000 });
   if (has('dueDate')) out.dueDate = date(body, 'dueDate');
   if (has('status')) out.status = partial || body.status ? oneOf(body, 'status', PROJECT_STATUSES) : 'active';
+  // Details that come from the client's brief (or that the admin adds later). The budget is private to the admin.
+  if ('type' in body) out.type = str(body, 'type', { max: 60 });
+  if ('startDate' in body) out.startDate = date(body, 'startDate');
+  if ('references' in body) out.references = str(body, 'references', { max: 1000 });
+  if ('notes' in body) out.notes = str(body, 'notes', { max: 1000 });
+  if ('budget' in body) {
+    const b = body.budget;
+    if (b === null || b === '' || b === undefined) out.budget = null;
+    else {
+      const n = typeof b === 'number' ? b : Number(String(b).replace(',', '.'));
+      if (!Number.isFinite(n) || n < 0 || n > 10_000_000) throw new HttpError(400, 'Budget must be an amount between 0 and 10,000,000');
+      out.budget = Math.round(n * 100) / 100;
+    }
+  }
   if ('archived' in body) out.archived = body.archived === true;
   if ('recurring' in body) out.recurring = body.recurring === true;
   if (out.recurring) out.dueDate = ''; // a recurring project has no end date
+  if (out.startDate && out.dueDate && out.dueDate < out.startDate) throw new HttpError(400, 'The due date must be on or after the start date');
   return out;
 }
 
