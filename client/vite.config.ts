@@ -9,7 +9,7 @@ export default defineConfig({
     outDir: "../web",
     emptyOutDir: true,
     rollupOptions: {
-      input: { index: resolve(__dirname, "index.html"), login: resolve(__dirname, "login.html") },
+      input: { index: resolve(__dirname, "index.html"), login: resolve(__dirname, "login.html"), emerald: resolve(__dirname, "emerald.html") },
       // Keep the licensed font files together so they can be left out of git.
       output: { assetFileNames: (a) => (/\.woff2?$/.test(a.name ?? "") ? "assets/fonts/[name]-[hash][extname]" : "assets/[name]-[hash][extname]") },
     },

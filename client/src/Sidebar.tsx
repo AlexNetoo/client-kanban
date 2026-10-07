@@ -21,7 +21,7 @@ const Icon = ({ d }: { d: ReactNode }) => (
 );
 
 /** Primary navigation: projects, team (owner) and settings. Shown as a sidebar on desktop and inside a drawer on phones. */
-export function Nav({ route, admin = false, emerald = false, collapsed = false, onNavigate }: { route: string; admin?: boolean; emerald?: boolean; collapsed?: boolean; onNavigate?: () => void }) {
+export function Nav({ route, admin = false, collapsed = false, onNavigate }: { route: string; admin?: boolean; collapsed?: boolean; onNavigate?: () => void }) {
   const pal = usePalette();
   const scheme = useTheme();
   const me = useMe();
@@ -52,8 +52,8 @@ export function Nav({ route, admin = false, emerald = false, collapsed = false, 
       )}
 
       <div style={{ height: 1, background: pal.border, margin: "8px 4px" }} />
-      {owner && <Item href="/emerald" active={emerald} label="Timesheet" icon={<Icon d={<><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>} />} />}
-      {owner && <Item href="/admin" active={admin && !emerald} label="Admin console" icon={<Icon d={<><path d="M12 3 4 6v6c0 4.5 3.2 8.2 8 9 4.8-.8 8-4.5 8-9V6l-8-3z" /><path d="m9 12 2 2 4-4" /></>} />} />}
+      {owner && <Item href="/emerald" active={false} label="Timesheet" icon={<Icon d={<><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>} />} />}
+      {owner && <Item href="/admin" active={admin} label="Admin console" icon={<Icon d={<><path d="M12 3 4 6v6c0 4.5 3.2 8.2 8 9 4.8-.8 8-4.5 8-9V6l-8-3z" /><path d="m9 12 2 2 4-4" /></>} />} />}
       <Item href={`${home}#/settings`} active={!admin && kind === "settings"} label="Settings" icon={<Icon d={<><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></>} />} />
 
       <div style={{ marginTop: "auto", paddingTop: 16, display: "flex", flexDirection: "column", gap: 10 }}>

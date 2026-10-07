@@ -9,7 +9,6 @@ import { ProjectsProvider } from "./nav";
 import { Onboarding } from "./Onboarding";
 import { Nav } from "./Sidebar";
 import { Settings } from "./Settings";
-import { Timesheet } from "./Timesheet";
 import { SessionProvider, type Me } from "./session";
 import { Brand } from "./ui";
 import { usePalette } from "./theme";
@@ -24,7 +23,6 @@ function useHash() {
 
 const signOut = async () => { try { await api.logout(); } finally { location.replace(loginPath()); } };
 export const isAdminPath = () => location.pathname.replace(/\/+$/, "") === "/admin";
-export const isEmeraldPath = () => location.pathname.replace(/\/+$/, "") === "/emerald";
 
 export function App() {
   const pal = usePalette();
@@ -41,11 +39,9 @@ export function App() {
   const [, kind, param, sub, subParam] = route.split("/");
 
   // Everyone gets the same layout; what they can do differs (admin: everything, designer: their tasks, client: read and comment).
-  const emerald = role === "owner" && isEmeraldPath();
-  const admin = role === "owner" && (isAdminPath() || emerald); // both are separate pages: no project is highlighted in the menu
+  const admin = role === "owner" && isAdminPath();
   let view;
-  if (emerald) view = <Timesheet />;
-  else if (admin) view = <AdminConsole />;
+  if (admin) view = <AdminConsole />;
   else if (kind === "c" && param && role === "owner") view = <ClientView key={param} token={decodeURIComponent(param)} role={role} />;
   else if (kind === "new" && role === "client") view = <Onboarding />;
   else if (kind === "settings") view = <Settings />;
@@ -64,7 +60,7 @@ export function App() {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
               </button>
             </div>
-            <Nav route={route} admin={admin} emerald={emerald} collapsed={collapsed} />
+            <Nav route={route} admin={admin} collapsed={collapsed} />
           </aside>
           <div className="shell-main">
             <header className="topbar" style={{ borderBottom: `1px solid ${pal.border}` }}>
@@ -75,7 +71,7 @@ export function App() {
           </div>
         </div>
         {isDemo() && <div className="demo-pill" role="status"><span>Demo: a sample project. Nothing is saved.</span><button type="button" onClick={() => { location.href = "/login"; }}>Exit demo</button></div>}
-        <Sheet open={menu} onClose={() => setMenu(false)} title="Menu" side="left"><div style={{ height: "calc(100vh - 110px)", display: "flex", flexDirection: "column" }}><Nav route={route} admin={admin} emerald={emerald} onNavigate={() => setMenu(false)} /></div></Sheet>
+        <Sheet open={menu} onClose={() => setMenu(false)} title="Menu" side="left"><div style={{ height: "calc(100vh - 110px)", display: "flex", flexDirection: "column" }}><Nav route={route} admin={admin} onNavigate={() => setMenu(false)} /></div></Sheet>
       </ProjectsProvider>
     </SessionProvider>
   );

@@ -35,7 +35,7 @@ function readSession(token, secret) {
   if (given.length !== expected.length || !crypto.timingSafeEqual(given, expected)) return null;
   try {
     const p = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
-    if (!p.exp || p.exp < Date.now() || !['owner', 'client', 'designer'].includes(p.role)) return null;
+    if (!p.exp || p.exp < Date.now() || !['owner', 'client', 'designer', 'timesheet'].includes(p.role)) return null;
     return p;
   } catch {
     return null;

@@ -309,3 +309,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus, text
   .ts-row input { border: 0 !important; background: transparent !important; padding-left: 0; }
   .ts-week { break-inside: avoid; animation: none; }
 }
+
+/* The standalone /emerald site */
+.emerald-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 24px; position: sticky; top: 0; z-index: 20; background: var(--bg); }
+.emerald-main { max-width: 1040px; margin: 0 auto; padding: 32px 20px 96px; animation: rise 0.45s var(--ease) backwards; }
+@media print { .emerald-top { display: none !important; } .emerald-main { padding: 0; } }

@@ -78,6 +78,8 @@ function loadConfig(env = process.env) {
     blobPath: env.BLOB_DB_PATH || 'client-kanban/db.json',
     secureCookies: bool(env.COOKIE_SECURE, env.NODE_ENV === 'production'),
     trustProxy: bool(env.TRUST_PROXY, false),
+    // The /emerald timesheet is its own small site with its own sign-in. It uses the admin password unless EMERALD_PASSWORD_HASH is set.
+    emeraldHash: env.EMERALD_PASSWORD_HASH || '',
     ai: aiConfig(env),
     mail: mailConfig(env),
   };

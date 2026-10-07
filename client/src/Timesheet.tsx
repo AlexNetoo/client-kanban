@@ -43,7 +43,7 @@ export function Timesheet() {
   const month = monthKey(cursor);
   const today = iso(now);
 
-  useEffect(() => { document.title = "Emerald timesheet · Alex Neto - Client Portal"; }, []);
+  useEffect(() => { document.title = "Emerald timesheet"; }, []);
   const load = useCallback(async () => {
     setLoading(true); setError("");
     try { const r = await api.getTimesheet(month); setRate(r.rate); setEntries(r.entries); setDraft({}); }

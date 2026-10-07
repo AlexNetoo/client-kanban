@@ -1014,17 +1014,27 @@ test('email: welcome, password reset, project approved and due-date reminders', 
 
 test('timesheet (/emerald): admin only, validated, totals at the hourly rate', async () => {
   const owner = (await login(OWNER_PW)).cookie;
-  // the page needs the admin password (and a designer/client can't use it)
+  // /emerald is its own small site: the page is public (no data), the API needs the site's own session (or the admin's portal session)
   const anon = await call('GET', '/emerald');
-  assert.strictEqual(anon.res.status, 200);
-  assert.ok(anon.text.includes('assets/login-'), 'signed-out visitors get the sign-in page');
+  assert.ok(anon.res.status === 200 && anon.text.includes('assets/emerald-'), 'the standalone site is served');
   assert.strictEqual((await call('GET', '/api/timesheet?month=2026-09')).res.status, 401);
+  assert.strictEqual((await call('GET', '/api/emerald/session')).res.status, 401);
   const client = await newClient(owner);
-  assert.strictEqual((await call('GET', '/api/timesheet?month=2026-09', { cookie: client.cookie })).res.status, 403);
-  assert.strictEqual((await call('PUT', '/api/timesheet/2026-09-08', { cookie: client.cookie, body: { hours: 3, note: 'x' } })).res.status, 403);
-  assert.ok((await call('GET', '/emerald', { cookie: client.cookie })).text.includes('assets/login-')); // a client session still gets the admin sign-in, not the timesheet
-  const page = await call('GET', '/emerald', { cookie: owner });
-  assert.ok(page.res.status === 200 && page.text.includes('assets/index-'), 'the admin gets the app');
+  assert.strictEqual((await call('GET', '/api/timesheet?month=2026-09', { cookie: client.cookie })).res.status, 401); // a client session is not a timesheet session
+  assert.strictEqual((await call('PUT', '/api/timesheet/2026-09-08', { cookie: client.cookie, body: { hours: 3, note: 'x' } })).res.status, 401);
+  assert.strictEqual((await call('GET', '/api/emerald/session', { cookie: owner })).res.status, 200); // the admin's portal session also opens it
+  // its own password and cookie
+  const wrong = await call('POST', '/api/emerald/login', { body: { password: 'definitely-wrong' } });
+  assert.strictEqual(wrong.res.status, 401);
+  const right = await call('POST', '/api/emerald/login', { body: { password: OWNER_PW } });
+  assert.strictEqual(right.res.status, 200);
+  const emerald = (right.res.headers.get('set-cookie') || '').split(';')[0];
+  assert.ok(emerald.startsWith('emerald='));
+  assert.strictEqual((await call('GET', '/api/emerald/session', { cookie: emerald })).res.status, 200);
+  assert.strictEqual((await call('GET', '/api/timesheet?month=2026-09', { cookie: emerald })).res.status, 200);
+  for (const u of ['/api/projects', '/api/clients', '/api/designers']) assert.strictEqual((await call('GET', u, { cookie: emerald })).res.status, 401, `${u}: the timesheet session must not open the portal`);
+  assert.strictEqual((await call('POST', '/api/projects', { cookie: emerald, body: { name: 'x', client: 'y' } })).res.status, 401);
+  assert.strictEqual((await call('POST', '/api/emerald/logout', { cookie: emerald, body: {} })).res.status, 200);
 
   const put = (date, body) => call('PUT', `/api/timesheet/${date}`, { cookie: owner, body });
   assert.strictEqual((await put('2026-09-08', { hours: 3, note: 'Platform e-mail centralisation' })).res.status, 200);

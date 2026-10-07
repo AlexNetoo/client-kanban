@@ -11,8 +11,7 @@ import { Brand, val } from "./ui";
 
 // Three separate pages: /login is for clients, /designer for designers (not linked from anywhere), /admin for the admin (password only).
 const PATH = location.pathname.replace(/\/+$/, "");
-const EMERALD = PATH === "/emerald";
-const ADMIN = PATH === "/admin" || EMERALD; // the admin password also opens the Emerald timesheet
+const ADMIN = PATH === "/admin";
 const DESIGNER = PATH === "/designer";
 const FORGOT = PATH === "/forgot";
 const RESET = PATH === "/reset";
@@ -111,7 +110,7 @@ function Login() {
       if (ADMIN) await api.login(password);
       else await api.login(password, { email: email.trim(), as: DESIGNER ? "designer" : "client" });
       try { localStorage.setItem("loginPath", DESIGNER ? "/designer" : "/login"); } catch { /* storage unavailable */ }
-      location.replace(EMERALD ? "/emerald" : ADMIN ? "/admin" : "/" + location.hash); // the hash keeps #/c/<token> links working
+      location.replace(ADMIN ? "/admin" : "/" + location.hash); // the hash keeps #/c/<token> links working
     } catch (ex) { setError((ex as Error).message); setPassword(""); setBusy(false); }
   };
 
@@ -121,8 +120,8 @@ function Login() {
       <form onSubmit={submit} style={{ width: "min(100%, 380px)", display: "flex", flexDirection: "column", gap: 18 }} noValidate>
         <div style={{ marginBottom: 18 }}><Brand href="/login" portalOnly /></div>
         <div>
-          <Heading level={1}>{EMERALD ? "Timesheet sign in" : ADMIN ? "Admin sign in" : DESIGNER ? "Designer sign in" : "Sign in"}</Heading>
-          <Text secondary>{EMERALD ? "Enter the admin password to open the Emerald timesheet." : ADMIN ? "Enter the admin password to manage accounts and projects." : COPY}</Text>
+          <Heading level={1}>{ADMIN ? "Admin sign in" : DESIGNER ? "Designer sign in" : "Sign in"}</Heading>
+          <Text secondary>{ADMIN ? "Enter the admin password to manage accounts and projects." : COPY}</Text>
         </div>
         {error && <p role="alert" style={{ border: `1px solid ${pal.text}`, borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 600 }}>Error: {error}</p>}
         {!ADMIN && <TextInput label="Email" type="email" value={email} onChange={(e: never) => setEmail(val(e))} aria-label="Email" />}

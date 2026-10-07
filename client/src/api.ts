@@ -23,6 +23,7 @@ async function request<T>(method: string, url: string, body?: unknown): Promise<
     throw new ApiError(0, "Can’t reach the server. Check your connection and try again.");
   }
   const data = await res.json().catch(() => ({}));
+  if (res.status === 401 && location.pathname.replace(/\/+$/, "") === "/emerald") throw new ApiError(401, "Your session ended. Please sign in again."); // the timesheet site has its own sign-in
   if (res.status === 401 && !url.endsWith("/login") && !url.endsWith("/me/password")) { // those 401s mean a wrong password, not an expired session
     location.replace(loginPath() + "?expired=1" + location.hash);
     throw new ApiError(401, "Your session ended. Please sign in again.");
@@ -70,6 +71,9 @@ export const api = {
   forgotPassword: (email: string) => request<{ ok: true }>("POST", "/api/password/forgot", { email }),
   resetPassword: (token: string, password: string) => request<{ ok: true; signIn: string }>("POST", "/api/password/reset", { token, password }),
   setNotifications: (enabled: boolean) => request<{ notify: boolean }>("PATCH", "/api/me/notifications", { enabled }),
+  emeraldLogin: (password: string) => request<{ ok: true }>("POST", "/api/emerald/login", { password }),
+  emeraldLogout: () => request<{ ok: true }>("POST", "/api/emerald/logout", {}),
+  emeraldSession: () => request<{ ok: true }>("GET", "/api/emerald/session"),
   getTimesheet: (month: string) => request<{ month: string; rate: number; entries: Record<string, { hours: number; note: string; off?: boolean }>; hours: number; amount: number }>("GET", `/api/timesheet?month=${month}`),
   saveTimesheetDay: (date: string, d: { hours: number; note: string; off: boolean | null }) => request<{ date: string; hours: number; note: string; off: boolean | null }>("PUT", `/api/timesheet/${date}`, d),
   clientView: (token: string) => request<{ project: ClientProject; tasks: ClientTask[] }>("GET", `/api/client/${encodeURIComponent(token)}`),
