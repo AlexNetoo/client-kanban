@@ -116,6 +116,7 @@ export async function demoRequest(method: string, url: string, body?: unknown): 
     const { shareToken, ...project } = projectView(); void shareToken;
     return clone({ project, tasks: state.tasks.map(taskView) });
   }
+  if (method === "PATCH" && path === "/api/me/notifications") return { notify: json.enabled === true };
   if (method === "GET" && path === "/api/requests") return clone(requests);
   if (method === "POST" && path === "/api/requests") {
     const str = (k: string) => (typeof json[k] === "string" ? (json[k] as string).trim() : "");

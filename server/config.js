@@ -39,6 +39,23 @@ function aiConfig(env) {
   return off;
 }
 
+/**
+ * Email (optional). RESEND_API_KEY + EMAIL_FROM send real email through Resend. PUBLIC_URL is the address used in email links
+ * (on Vercel it falls back to the project's production domain). CRON_SECRET protects the daily reminder job.
+ */
+function mailConfig(env) {
+  const fromVercel = env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${env.VERCEL_PROJECT_PRODUCTION_URL}` : '';
+  const apiKey = env.RESEND_API_KEY || '';
+  const production = env.NODE_ENV === 'production' || !!env.VERCEL;
+  return {
+    mode: apiKey && env.EMAIL_FROM ? 'resend' : production ? 'off' : 'log',
+    apiKey, from: env.EMAIL_FROM || '',
+    publicUrl: (env.PUBLIC_URL || fromVercel).replace(/\/+$/, ''),
+    cronSecret: env.CRON_SECRET || '',
+    timeZone: env.REMINDER_TZ || 'Europe/Lisbon',
+  };
+}
+
 function loadConfig(env = process.env) {
   const missing = [];
   if (!env.APP_PASSWORD_HASH) missing.push('APP_PASSWORD_HASH');
@@ -62,7 +79,8 @@ function loadConfig(env = process.env) {
     secureCookies: bool(env.COOKIE_SECURE, env.NODE_ENV === 'production'),
     trustProxy: bool(env.TRUST_PROXY, false),
     ai: aiConfig(env),
+    mail: mailConfig(env),
   };
 }
 
-module.exports = { aiConfig, loadConfig, loadDotEnv, ROOT };
+module.exports = { mailConfig, aiConfig, loadConfig, loadDotEnv, ROOT };

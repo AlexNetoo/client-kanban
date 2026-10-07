@@ -5,6 +5,7 @@ import { Text1 } from "./fields";
 import { StatusChip } from "./chips";
 import { ConfirmDialog, Loading, Person, StateBlock, TypedConfirmDialog, useToast } from "./ui";
 import { usePalette } from "./theme";
+import { useMe } from "./session";
 import { generatePassword } from "./lib/password";
 import { RequestList } from "./Requests";
 import type { ClientAccount, Designer, Project, ProjectRequest } from "./types";
@@ -44,6 +45,18 @@ function RevealBanner({ revealed, onDismiss }: { revealed: Revealed; onDismiss: 
   );
 }
 
+/** "Email them a welcome message": they get a link to choose their own password, so no password has to be invented or shared. */
+function WelcomeOption({ checked, onChange, hasEmail }: { checked: boolean; onChange: (v: boolean) => void; hasEmail: boolean }) {
+  const { mail } = useMe();
+  if (!mail) return null;
+  return (
+    <div style={{ opacity: hasEmail ? 1 : 0.5 }}>
+      <Checkbox checked={checked && hasEmail} disabled={!hasEmail} onChange={onChange} aria-label="Send a welcome email"
+        label="Send a welcome email with a link to set their own password (the password field becomes optional)" />
+    </div>
+  );
+}
+
 function Err({ children }: { children: ReactNode }) {
   const pal = usePalette();
   return children ? <p role="alert" style={{ border: `1px solid ${pal.text}`, borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 600 }}>Error: {children}</p> : null;
@@ -72,13 +85,17 @@ function DesignersPanel({ designers, projects, reload, setRevealed }: { designer
   const [eEmail, setEEmail] = useState(""); const [ePassword, setEPassword] = useState("");
   const [deleting, setDeleting] = useState<Designer | null>(null);
 
+  const { mail } = useMe();
+  const [welcome, setWelcome] = useState(true);
   const add = () => g.run(async () => {
+    const send = !!mail && welcome && !!email.trim();
     if (!name.trim()) throw new Error("Enter a name.");
-    if ((email || password) && !(email && password)) throw new Error("A login needs both an email and a password.");
+    if (email && !password && !send) throw new Error("A login needs both an email and a password.");
+    if (password && !email) throw new Error("A login needs both an email and a password.");
     if (password && password.length < MIN) throw new Error(`Password must be at least ${MIN} characters.`);
-    const d = await api.createDesigner({ name, role, email: email || undefined, password: password || undefined, projectIds: ids });
-    if (password) setRevealed({ who: `${d.name} (${email})`, password });
-    setName(""); setRole(""); setEmail(""); setPassword(""); setIds([]); reload(); toast(`${d.name} added`);
+    const d = await api.createDesigner({ name, role, email: email || undefined, password: password || undefined, projectIds: ids, sendWelcome: send });
+    if (password && !d.emailed) setRevealed({ who: `${d.name} (${email})`, password });
+    setName(""); setRole(""); setEmail(""); setPassword(""); setIds([]); reload(); toast(d.emailed ? `${d.name} added. A welcome email is on its way.` : `${d.name} added`);
   });
   const saveLogin = (d: Designer) => g.run(async () => {
     if (!eEmail.trim() || !ePassword) throw new Error("Enter an email and a password.");
@@ -139,6 +156,7 @@ function DesignersPanel({ designers, projects, reload, setRevealed }: { designer
         <div className="row2"><Text1 label="Name" value={name} onChange={setName} /><Text1 label="Role (optional)" value={role} onChange={setRole} /></div>
         <div className="row2"><Text1 label="Login email (optional)" type="email" value={email} onChange={setEmail} /><PasswordField label={`Password (min ${MIN})`} value={password} onChange={setPassword} /></div>
         {projects.length > 0 && <ProjectPicker projects={projects} value={ids} onChange={setIds} legend="Projects this designer can open (optional)" />}
+        <WelcomeOption checked={welcome} onChange={setWelcome} hasEmail={!!email.trim()} />
         <div><Button type="button" loading={g.busy} onClick={add}>Add designer</Button></div>
       </form>
 
@@ -176,13 +194,16 @@ function ClientsPanel({ clients, projects, reload, setRevealed }: { clients: Cli
   const [deleting, setDeleting] = useState<ClientAccount | null>(null);
   const projectName = (id: string) => projects.find((p) => p.id === id)?.name ?? "(deleted)";
 
+  const { mail } = useMe();
+  const [welcome, setWelcome] = useState(true);
   const add = () => g.run(async () => {
+    const send = !!mail && welcome;
     if (!name.trim()) throw new Error("Enter a name.");
-    if (!email.trim() || !password) throw new Error("A client needs an email and a password.");
-    if (password.length < MIN) throw new Error(`Password must be at least ${MIN} characters.`);
-    const c = await api.createClient({ name, company, email, password, projectIds: ids });
-    setRevealed({ who: `${c.name} (${c.email})`, password });
-    setName(""); setCompany(""); setEmail(""); setPassword(""); setIds([]); reload(); toast(`${c.name} added`);
+    if (!email.trim() || (!password && !send)) throw new Error(send ? "A client needs an email." : "A client needs an email and a password.");
+    if (password && password.length < MIN) throw new Error(`Password must be at least ${MIN} characters.`);
+    const c = await api.createClient({ name, company, email, password: password || undefined, projectIds: ids, sendWelcome: send });
+    if (password && !c.emailed) setRevealed({ who: `${c.name} (${c.email})`, password });
+    setName(""); setCompany(""); setEmail(""); setPassword(""); setIds([]); reload(); toast(c.emailed ? `${c.name} added. A welcome email is on its way.` : `${c.name} added`);
   });
   const openEdit = (c: ClientAccount, mode: "edit" | "password") => {
     if (open?.id === c.id && open.mode === mode) { setOpen(null); return; }
@@ -244,6 +265,7 @@ function ClientsPanel({ clients, projects, reload, setRevealed }: { clients: Cli
         <div className="row2"><Text1 label="Name" value={name} onChange={setName} /><Text1 label="Company (optional)" value={company} onChange={setCompany} /></div>
         <div className="row2"><Text1 label="Login email" type="email" value={email} onChange={setEmail} /><PasswordField label={`Password (min ${MIN})`} value={password} onChange={setPassword} /></div>
         <ProjectPicker projects={projects} value={ids} onChange={setIds} />
+        <WelcomeOption checked={welcome} onChange={setWelcome} hasEmail={!!email.trim()} />
         <div><Button type="button" loading={g.busy} onClick={add}>Add client</Button></div>
       </form>
 

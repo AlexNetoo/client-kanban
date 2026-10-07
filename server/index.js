@@ -10,6 +10,8 @@ const { LocalFiles, BlobFiles } = require('./files');
 const { COLUMNS, HttpError, cleanProject, cleanTask, cleanComment, cleanDesigner, cleanLink, cleanAttachment, cleanClient, cleanRequest, MAX_REQUEST_DAYS } = require('./validate');
 const { estimate, daysBetween } = require('./pricing');
 const { assist } = require('./ai');
+const { createMailer } = require('./mailer');
+const emails = require('./emails');
 
 const crypto = require('crypto');
 const PUBLIC_DIR = path.join(ROOT, 'web');
@@ -55,6 +57,10 @@ function createApp(config) {
   const ownerVersion = crypto.createHash('sha256').update(config.ownerHash).digest('base64url').slice(0, 16);
   const maxBytes = config.attachMaxBytes || 25 * 1024 * 1024;
   const files = config.storage === 'blob' ? new BlobFiles() : new LocalFiles(path.join(path.dirname(config.dataFile), 'uploads'));
+  const mailer = createMailer(config.mail);
+  const MAIL = config.mail || {};
+  // Address used inside emails: PUBLIC_URL (or the Vercel production domain); only localhost may use the request's own host.
+  const appUrl = (req) => { if (MAIL.publicUrl) return MAIL.publicUrl; const h = (req && req.headers.host) || ''; return /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(h) ? `http://${h}` : ''; };
   const attempts = new Map(); // limiter key (ip, or email) -> { n, reset }
   const DUMMY_HASH = hashPassword('unused-' + Math.random()); // equalises timing for unknown emails
   const routes = [];
@@ -130,7 +136,70 @@ function createApp(config) {
     res.setHeader('Set-Cookie', cookie('', 0));
     return { ok: true };
   });
-  route('GET', '/api/session', 'any', ({ session }) => ({ role: session.role, designer: session.designer, client: session.client, expiresAt: session.exp, columns: COLUMNS, maxUploadBytes: maxBytes, ai: !!(config.ai && config.ai.enabled) && session.role !== 'client' }));
+  route('GET', '/api/session', 'any', ({ session }) => ({ role: session.role, designer: session.designer, client: session.client, expiresAt: session.exp, columns: COLUMNS, maxUploadBytes: maxBytes, ai: !!(config.ai && config.ai.enabled) && session.role !== 'client', mail: mailer.enabled, notify: notifyOf(session) }));
+
+  const notifyOf = (s) => { const a = s.role === 'designer' ? store.getDesigner(s.uid) : s.role === 'client' ? store.getClient(s.uid) : null; return a ? a.notify !== false : undefined; };
+  // ---- Email: welcome, password reset, project approved, due-date reminders. All sends happen after the data is saved. ----
+  const WELCOME_DAYS = 7;
+  const randomPassword = () => crypto.randomBytes(24).toString('base64url');
+  const mailTo = (defer, to, mail) => defer(() => mailer.send({ to, ...mail }));
+  const sendWelcome = (req, defer, kind, acct) => {
+    const base = appUrl(req);
+    if (!base || !acct || !acct.email) return false;
+    const token = store.createResetToken(kind, acct.id, WELCOME_DAYS * 86400e3);
+    mailTo(defer, acct.email, emails.welcome({ name: acct.name, email: acct.email, kind, signInUrl: `${base}${kind === 'designer' ? '/designer' : '/login'}`, setPasswordUrl: `${base}/reset?token=${token}`, days: WELCOME_DAYS }));
+    return true;
+  };
+  // Today's date as YYYY-MM-DD in the given time zone (built from parts: the output format of other locales varies between runtimes).
+  const todayIn = (tz) => {
+    const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date()).map((x) => [x.type, x.value]));
+    return `${p.year}-${p.month}-${p.day}`;
+  };
+
+  // Forgot password: always the same answer, whether or not the email has an account.
+  route('POST', '/api/password/forgot', 'public', ({ req, body, defer }) => {
+    const ip = clientIp(req);
+    const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+    const keys = [`forgot:${ip}`, `forgot:${email}`];
+    if (tooMany(keys[0], 10) || (email && tooMany(keys[1], 3))) throw new HttpError(429, 'Too many requests. Try again in 15 minutes.');
+    keys.forEach(fail); // every request counts
+    const found = email ? store.findAccountByEmail(email) : null;
+    const base = appUrl(req);
+    if (found && found.acct.passwordHash && mailer.enabled && base) {
+      const token = store.createResetToken(found.kind, found.acct.id, 3600e3);
+      mailTo(defer, found.acct.email, emails.passwordReset({ name: found.acct.name, resetUrl: `${base}/reset?token=${token}`, minutes: 60 }));
+    }
+    return { ok: true };
+  });
+  route('POST', '/api/password/reset', 'public', ({ req, body }) => {
+    const ip = clientIp(req);
+    if (tooMany(`reset:${ip}`, 10)) throw new HttpError(429, 'Too many attempts. Try again in 15 minutes.');
+    const { password } = cleanDesigner({ password: body.password }, true);
+    if (!password) throw new HttpError(400, 'Password must be at least 10 characters');
+    const token = typeof body.token === 'string' ? body.token : '';
+    const hit = token.length >= 20 ? store.consumeReset(token, hashPassword(password)) : null;
+    if (!hit) { fail(`reset:${ip}`); throw new HttpError(400, 'This link has expired or was already used. Ask for a new one.'); }
+    return { ok: true, signIn: hit.kind === 'designer' ? '/designer' : '/login' };
+  });
+  route('PATCH', '/api/me/notifications', 'any', ({ body, session }) => {
+    if (session.role === 'owner') throw new HttpError(400, 'The admin account has no email notifications');
+    store.setNotify(session.role, session.uid, body.enabled === true);
+    return { notify: body.enabled === true };
+  });
+  // Daily job (Vercel Cron, see vercel.json): reminds people about tasks due today. Needs CRON_SECRET; Vercel sends it as a bearer token.
+  route('GET', '/api/cron/reminders', 'public', ({ req, defer }) => {
+    if (!MAIL.cronSecret) throw new HttpError(503, 'Set CRON_SECRET to enable reminders');
+    const given = Buffer.from(String(req.headers.authorization || '')); const want = Buffer.from(`Bearer ${MAIL.cronSecret}`);
+    if (given.length !== want.length || !crypto.timingSafeEqual(given, want)) throw new HttpError(401, 'Unauthorized');
+    const base = appUrl(req);
+    if (!mailer.enabled || !base) return { sent: 0, skipped: 'email is not configured' };
+    const today = todayIn(MAIL.timeZone || 'Europe/Lisbon');
+    const groups = store.takeDueReminders(today);
+    for (const g of groups) {
+      mailTo(defer, g.acct.email, emails.dueReminder({ name: g.acct.name, kind: g.kind, settingsUrl: `${base}/#/settings`, tasks: g.tasks.map((t) => ({ title: t.title, project: t.project, url: `${base}/#/p/${t.projectId}/t/${t.id}` })) }));
+    }
+    return { sent: groups.length, date: today };
+  });
 
   const isDesigner = (s) => s.role === 'designer';
   const isClient = (s) => s.role === 'client';
@@ -308,9 +377,13 @@ function createApp(config) {
 
   // ---- Designers (accounts). Everyone signed in as staff can list names; only the owner manages logins. ----
   route('GET', '/api/designers', 'any', ({ session }) => store.listDesigners({ full: !restricted(session) }));
-  route('POST', '/api/designers', 'owner', ({ body }) => {
+  route('POST', '/api/designers', 'owner', ({ req, body, defer }) => {
     const { password, ...fields } = cleanDesigner(body);
-    return { status: 201, body: store.createDesigner({ ...fields, passwordHash: password ? hashPassword(password) : '' }) };
+    // With "send welcome email" the admin doesn't need to invent a password: the person chooses theirs from the email.
+    const wantMail = body.sendWelcome === true && !!fields.email && mailer.enabled && !!appUrl(req);
+    const pw = password || (wantMail ? randomPassword() : '');
+    const d = store.createDesigner({ ...fields, passwordHash: pw ? hashPassword(pw) : '' });
+    return { status: 201, body: { ...d, emailed: wantMail && sendWelcome(req, defer, 'designer', store.getDesigner(d.id)) } };
   });
   route('PATCH', '/api/designers/:id', 'owner', ({ params, body }) => {
     if (body && body.removeLogin === true) return store.updateDesigner(params.id, { email: '', passwordHash: '' }); // keeps the person and their history, drops access
@@ -363,16 +436,23 @@ function createApp(config) {
     if (!client) throw new HttpError(401, 'Please sign in');
     return { status: 201, body: store.createRequest(client, fields, estimate(days)) };
   });
-  route('POST', '/api/requests/:id/accept', 'owner', ({ params }) => store.acceptRequest(params.id));
+  route('POST', '/api/requests/:id/accept', 'owner', ({ req, params, defer }) => {
+    const r = store.acceptRequest(params.id);
+    const c = store.getClient(r.clientId); const base = appUrl(req);
+    if (c && c.email && c.notify !== false && mailer.enabled && base) mailTo(defer, c.email, emails.projectApproved({ name: c.name, projectName: r.name, url: `${base}/#/p/${r.projectId}` }));
+    return r;
+  });
   route('POST', '/api/requests/:id/decline', 'owner', ({ params }) => store.declineRequest(params.id));
   route('DELETE', '/api/requests/:id', 'owner', ({ params }) => { store.deleteRequest(params.id); return { ok: true }; });
 
   // ---- Client accounts (admin only): each client has their own login and sees only the projects assigned to them ----
   route('GET', '/api/clients', 'owner', () => store.listClients());
-  route('POST', '/api/clients', 'owner', ({ body }) => {
+  route('POST', '/api/clients', 'owner', ({ req, body, defer }) => {
     const { password, ...fields } = cleanClient(body);
-    if (!password) throw new HttpError(400, 'Set a password for this client');
-    return { status: 201, body: store.createClient({ ...fields, passwordHash: hashPassword(password) }) };
+    const wantMail = body.sendWelcome === true && mailer.enabled && !!appUrl(req);
+    if (!password && !wantMail) throw new HttpError(400, 'Set a password for this client');
+    const c = store.createClient({ ...fields, passwordHash: hashPassword(password || randomPassword()) });
+    return { status: 201, body: { ...c, emailed: wantMail && sendWelcome(req, defer, 'client', store.getClient(c.id)) } };
   });
   route('PATCH', '/api/clients/:id', 'owner', ({ params, body }) => {
     const { password, ...fields } = cleanClient(body, true);
@@ -495,7 +575,8 @@ function createApp(config) {
   async function serveStatic(req, res, pathname) {
     const session = await sessionForPage(req);
     let rel = pathname === '/' ? '/index.html' : pathname;
-    if (rel === '/login' || rel === '/designer') rel = '/login.html';
+    const resetPage = pathname === '/forgot' || pathname === '/reset'; // reachable even while signed in
+    if (rel === '/login' || rel === '/designer' || resetPage) rel = '/login.html';
     // /admin: the admin console for a signed-in admin, otherwise the admin sign-in (same page as /login, admin mode).
     const adminPage = pathname === '/admin' || pathname === '/admin/';
     if (adminPage) rel = session && session.role === 'owner' ? '/index.html' : '/login.html';
@@ -514,7 +595,7 @@ function createApp(config) {
       res.writeHead(302, { Location: '/login', ...SECURITY_HEADERS });
       return res.end();
     }
-    if (rel === '/login.html' && session && !adminPage) {
+    if (rel === '/login.html' && session && !adminPage && !resetPage) {
       res.writeHead(302, { Location: '/', ...SECURITY_HEADERS });
       return res.end();
     }

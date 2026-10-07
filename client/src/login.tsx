@@ -13,9 +13,86 @@ import { Brand, val } from "./ui";
 const PATH = location.pathname.replace(/\/+$/, "");
 const ADMIN = PATH === "/admin";
 const DESIGNER = PATH === "/designer";
+const FORGOT = PATH === "/forgot";
+const RESET = PATH === "/reset";
 const COPY = DESIGNER
   ? "Sign in with the email and password you were given to see the tasks assigned to you."
   : "Sign in with your email and password to follow the progress of your projects.";
+
+function Shell({ children, onSubmit }: { children: React.ReactNode; onSubmit: (e: FormEvent) => void }) {
+  return (
+    <main className="login-wrap hero">
+      <HeroBackground />
+      <form onSubmit={onSubmit} style={{ width: "min(100%, 380px)", display: "flex", flexDirection: "column", gap: 18 }} noValidate>
+        <div style={{ marginBottom: 18 }}><Brand href="/login" portalOnly /></div>
+        {children}
+      </form>
+    </main>
+  );
+}
+function Err({ text }: { text: string }) {
+  const pal = usePalette();
+  return text ? <p role="alert" style={{ border: `1px solid ${pal.text}`, borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 600 }}>Error: {text}</p> : null;
+}
+
+/** /forgot: asks for the email and always answers the same way, so nobody can find out which emails have accounts. */
+function Forgot() {
+  const [email, setEmail] = useState(""); const [busy, setBusy] = useState(false); const [sent, setSent] = useState(false); const [error, setError] = useState("");
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!email.trim()) { setError("Please enter your email."); return; }
+    setBusy(true); setError("");
+    try { await api.forgotPassword(email.trim()); setSent(true); } catch (ex) { setError((ex as Error).message); } finally { setBusy(false); }
+  };
+  return (
+    <Shell onSubmit={submit}>
+      <div><Heading level={1}>Forgot your password?</Heading><Text secondary>Enter your email and we’ll send you a link to choose a new one.</Text></div>
+      {sent ? (
+        <>
+          <p role="status" style={{ fontSize: 14, lineHeight: 1.6 }}>If that email has an account, a reset link is on its way. It works for one hour. Check your spam folder if it doesn’t arrive.</p>
+          <Button type="button" variant="secondary" onClick={() => { location.href = "/login"; }}>Back to sign in</Button>
+        </>
+      ) : (
+        <>
+          <Err text={error} />
+          <TextInput label="Email" type="email" value={email} onChange={(e: never) => setEmail(val(e))} aria-label="Email" />
+          <Button type="submit" loading={busy} fullWidth>Send reset link</Button>
+          <a href="/login" style={{ fontSize: 14, textAlign: "center" }}>Back to sign in</a>
+        </>
+      )}
+    </Shell>
+  );
+}
+
+/** /reset?token=…: choose a new password (also used by the welcome email to set the first password). */
+function Reset() {
+  const token = new URLSearchParams(location.search).get("token") ?? "";
+  const [password, setPassword] = useState(""); const [again, setAgain] = useState(""); const [busy, setBusy] = useState(false); const [error, setError] = useState("");
+  const [done, setDone] = useState<string | null>(null);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (password.length < 10) { setError("Use at least 10 characters."); return; }
+    if (password !== again) { setError("The two passwords don’t match."); return; }
+    setBusy(true); setError("");
+    try { const r = await api.resetPassword(token, password); setDone(r.signIn); } catch (ex) { setError((ex as Error).message); } finally { setBusy(false); }
+  };
+  return (
+    <Shell onSubmit={submit}>
+      <div><Heading level={1}>{done ? "Password saved" : "Choose a new password"}</Heading><Text secondary>{done ? "You can now sign in with your new password." : "Use at least 10 characters. You’ll be signed out on other devices."}</Text></div>
+      {done ? <Button type="button" fullWidth onClick={() => { location.href = done; }}>Go to sign in</Button> : !token ? (
+        <><Err text="This link is incomplete. Open the link from your email again, or ask for a new one." /><a href="/forgot" style={{ fontSize: 14 }}>Ask for a new link</a></>
+      ) : (
+        <>
+          <Err text={error} />
+          <TextInput label="New password" type="password" value={password} onChange={(e: never) => setPassword(val(e))} aria-label="New password" autoComplete="new-password" />
+          <TextInput label="Repeat new password" type="password" value={again} onChange={(e: never) => setAgain(val(e))} aria-label="Repeat new password" autoComplete="new-password" />
+          <Button type="submit" loading={busy} fullWidth>Save password</Button>
+          {error.includes("expired") && <a href="/forgot" style={{ fontSize: 14, textAlign: "center" }}>Ask for a new link</a>}
+        </>
+      )}
+    </Shell>
+  );
+}
 
 function Login() {
   const pal = usePalette();
@@ -49,6 +126,7 @@ function Login() {
         {error && <p role="alert" style={{ border: `1px solid ${pal.text}`, borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 600 }}>Error: {error}</p>}
         {!ADMIN && <TextInput label="Email" type="email" value={email} onChange={(e: never) => setEmail(val(e))} aria-label="Email" />}
         <TextInput label="Password" type="password" value={password} onChange={(e: never) => setPassword(val(e))} aria-label="Password" />
+        {!ADMIN && <a href="/forgot" style={{ fontSize: 13, marginTop: -8 }}>Forgot your password?</a>}
         <div style={{ display: "flex", gap: 10 }}>
           <div style={{ flex: 1 }}><Button type="submit" loading={busy} fullWidth>Sign in</Button></div>
           {!ADMIN && !DESIGNER && <Button type="button" variant="secondary" onClick={() => { location.href = "/demo"; }} aria-label="Try the demo project, no account needed">Demo</Button>}
@@ -59,4 +137,4 @@ function Login() {
   );
 }
 
-createRoot(document.getElementById("root")!).render(<StrictMode><Providers><Login /></Providers></StrictMode>);
+createRoot(document.getElementById("root")!).render(<StrictMode><Providers>{FORGOT ? <Forgot /> : RESET ? <Reset /> : <Login />}</Providers></StrictMode>);

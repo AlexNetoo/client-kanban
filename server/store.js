@@ -73,10 +73,12 @@ class Store {
       if (d.passwordHash === undefined) { d.passwordHash = ''; changed = true; }
       if (d.tokenVersion === undefined) { d.tokenVersion = 0; changed = true; }
       if (!Array.isArray(d.projectIds)) { d.projectIds = []; changed = true; }
+      if (d.notify === undefined) { d.notify = true; d.resetHash = ''; d.resetExpires = 0; changed = true; }
     }
     if (!this.data.links) { this.data.links = []; changed = true; }
     if (!this.data.clients) { this.data.clients = []; changed = true; }
     if (!this.data.requests) { this.data.requests = []; changed = true; }
+    for (const c of this.data.clients) if (c.notify === undefined) { c.notify = true; c.resetHash = ''; c.resetExpires = 0; changed = true; }
     for (const p of this.data.projects) if (p.status === 'planning') { p.status = 'active'; changed = true; } // the Planning status was removed
     for (const t of this.data.tasks) for (const a of t.attachments || []) {
       if (a.uploadedById === 'owner' && a.uploadedByName === 'Freelancer') { a.uploadedByName = 'Admin'; changed = true; }
@@ -225,6 +227,71 @@ class Store {
     if (!this.data.requests.some((x) => x.id === id)) throw new HttpError(404, 'Request not found');
     this.data.requests = this.data.requests.filter((x) => x.id !== id);
     this.save();
+  }
+
+  // ---- email: password links, notification preference, due-date reminders ----
+  findAccountByEmail(email) {
+    const d = this.findDesignerByEmail(email);
+    if (d) return { kind: 'designer', acct: d };
+    const c = this.findClientByEmail(email);
+    return c ? { kind: 'client', acct: c } : null;
+  }
+
+  accountOf(kind, id) { return kind === 'designer' ? this.getDesigner(id) : this.getClient(id); }
+
+  /** A one-time link to choose a password. Only a hash of the token is stored. */
+  createResetToken(kind, id, ttlMs) {
+    const acct = this.accountOf(kind, id);
+    if (!acct) throw new HttpError(404, 'Account not found');
+    const token = crypto.randomBytes(32).toString('base64url');
+    acct.resetHash = crypto.createHash('sha256').update(token).digest('base64url');
+    acct.resetExpires = Date.now() + ttlMs;
+    this.save();
+    return token;
+  }
+
+  /** Sets the new password if the token is valid and unused, signs the account out everywhere, and burns the token. */
+  consumeReset(token, passwordHash) {
+    const hash = crypto.createHash('sha256').update(String(token)).digest('base64url');
+    const all = [...this.data.designers.map((acct) => ({ kind: 'designer', acct })), ...this.data.clients.map((acct) => ({ kind: 'client', acct }))];
+    const hit = all.find(({ acct }) => acct.resetHash && acct.resetHash === hash && acct.resetExpires > Date.now() && acct.email);
+    if (!hit) return null;
+    hit.acct.passwordHash = passwordHash;
+    hit.acct.tokenVersion += 1;
+    hit.acct.resetHash = ''; hit.acct.resetExpires = 0;
+    this.save();
+    return hit;
+  }
+
+  setNotify(kind, id, on) {
+    const acct = this.accountOf(kind, id);
+    if (!acct) throw new HttpError(404, 'Account not found');
+    acct.notify = !!on;
+    this.save();
+  }
+
+  /**
+   * Open tasks due `today` that haven't been reminded yet, grouped per person: the assigned designer, and each client who has
+   * the project. Marks them so a task is only ever reminded once for a given due date.
+   */
+  takeDueReminders(today) {
+    const due = this.data.tasks.filter((t) => t.status !== 'done' && t.dueDate === today && t.reminderSent !== today);
+    const groups = new Map();
+    const add = (kind, acct, task, project) => {
+      const key = `${kind}:${acct.id}`;
+      if (!groups.has(key)) groups.set(key, { kind, acct, tasks: [] });
+      groups.get(key).tasks.push({ id: task.id, title: task.title, projectId: project.id, project: project.name });
+    };
+    for (const t of due) {
+      const project = this.data.projects.find((p) => p.id === t.projectId);
+      t.reminderSent = today;
+      if (!project || project.archived) continue;
+      const d = this.getDesigner(t.assigneeId);
+      if (d && d.email && d.passwordHash && d.notify !== false) add('designer', d, t, project);
+      for (const c of this.data.clients) if (c.email && c.passwordHash && c.notify !== false && c.projectIds.includes(project.id)) add('client', c, t, project);
+    }
+    if (due.length) this.save();
+    return [...groups.values()];
   }
 
   createDesigner({ name, role = '', email = '', passwordHash = '', projectIds = [] }) {

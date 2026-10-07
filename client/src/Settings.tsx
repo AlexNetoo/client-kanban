@@ -1,5 +1,7 @@
 import { useState, type ReactNode } from "react";
-import { Button, Heading, SegmentedControl, Text } from "./halaska-kit";
+import { Button, Checkbox, Heading, SegmentedControl, Text } from "./halaska-kit";
+import { api } from "./api";
+import { useToast } from "./ui";
 import { PasswordDialog } from "./PasswordDialog";
 import { useMe } from "./session";
 import { usePalette, useThemePref, type ThemePref } from "./theme";
@@ -13,7 +15,9 @@ export function Settings() {
   const pal = usePalette();
   const me = useMe();
   const { pref, setPref } = useThemePref();
+  const toast = useToast();
   const [pw, setPw] = useState(false);
+  const [notify, setNotify] = useState(me.notify !== false);
   useEffect(() => { document.title = "Settings · Alex Neto - Client Portal"; }, []);
 
   const Section = ({ title, children }: { title: string; children: ReactNode }) => (
@@ -38,6 +42,14 @@ export function Settings() {
         <Text size="sm" secondary>Choose a theme. “System” follows your device.</Text>
         <div><SegmentedControl options={Object.values(LABEL)} value={LABEL[pref]} onChange={(label: string) => setPref((Object.keys(LABEL) as ThemePref[]).find((k) => LABEL[k] === label) ?? "system")} /></div>
       </Section>
+
+      {me.role !== "owner" && (
+        <Section title="Email notifications">
+          <Text size="sm" secondary>We email you when a task is due today{me.role === "client" ? " on one of your projects and when a project of yours is approved" : " and is assigned to you"}. Account and password emails are always sent.</Text>
+          <Checkbox checked={notify} onChange={async (c: boolean) => { setNotify(c); try { await api.setNotifications(c); toast(c ? "Email notifications on" : "Email notifications off"); } catch (e) { setNotify(!c); toast((e as Error).message, "error"); } }}
+            label="Send me task reminders and project updates by email" aria-label="Send me task reminders and project updates by email" />
+        </Section>
+      )}
 
       <Section title="Security">
         {me.role !== "owner" ? (

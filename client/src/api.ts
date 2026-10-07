@@ -33,7 +33,7 @@ async function request<T>(method: string, url: string, body?: unknown): Promise<
 
 export const api = {
   login: (password: string, opts: { email?: string; as?: "owner" | "designer" | "client" } = {}) => request<{ role: string }>("POST", "/api/login", opts.email ? { email: opts.email, password, as: opts.as } : { password, as: "owner" }),
-  session: () => request<{ role: "owner" | "client" | "designer"; designer?: { id: string; name: string }; client?: { id: string; name: string }; expiresAt?: number; maxUploadBytes?: number; ai?: boolean }>("GET", "/api/session"),
+  session: () => request<{ role: "owner" | "client" | "designer"; designer?: { id: string; name: string }; client?: { id: string; name: string }; expiresAt?: number; maxUploadBytes?: number; ai?: boolean; mail?: boolean; notify?: boolean }>("GET", "/api/session"),
   logout: () => request<{ ok: true }>("POST", "/api/logout", {}),
   listProjects: () => request<Project[]>("GET", "/api/projects"),
   getProject: (id: string) => request<{ project: Project; tasks: Task[] }>("GET", `/api/projects/${id}`),
@@ -44,7 +44,7 @@ export const api = {
   updateTask: (id: string, d: Partial<TaskInput> & { position?: number }) => request<Task>("PATCH", `/api/tasks/${id}`, d),
   deleteTask: (id: string) => request<{ ok: true }>("DELETE", `/api/tasks/${id}`),
   listDesigners: () => request<Designer[]>("GET", "/api/designers"),
-  createDesigner: (d: { name: string; role: string; email?: string; password?: string; projectIds?: string[] }) => request<Designer>("POST", "/api/designers", d),
+  createDesigner: (d: { name: string; role: string; email?: string; password?: string; projectIds?: string[]; sendWelcome?: boolean }) => request<Designer & { emailed?: boolean }>("POST", "/api/designers", d),
   updateDesigner: (id: string, d: { name?: string; role?: string; email?: string; password?: string; removeLogin?: boolean; projectIds?: string[] }) => request<Designer>("PATCH", `/api/designers/${id}`, d),
   changePassword: (current: string, next: string) => request<{ ok: true }>("POST", "/api/me/password", { current, next }),
   deleteDesigner: (id: string) => request<{ ok: true }>("DELETE", `/api/designers/${id}`),
@@ -58,7 +58,7 @@ export const api = {
   completeAttachment: (taskId: string, attId: string) => request<Task>("POST", `/api/tasks/${taskId}/attachments/${attId}/complete`, {}),
   deleteAttachment: (taskId: string, attId: string) => request<Task>("DELETE", `/api/tasks/${taskId}/attachments/${attId}`),
   listClients: () => request<ClientAccount[]>("GET", "/api/clients"),
-  createClient: (d: { name: string; company?: string; email: string; password: string; projectIds: string[] }) => request<ClientAccount>("POST", "/api/clients", d),
+  createClient: (d: { name: string; company?: string; email: string; password?: string; projectIds: string[]; sendWelcome?: boolean }) => request<ClientAccount & { emailed?: boolean }>("POST", "/api/clients", d),
   updateClient: (id: string, d: { name?: string; company?: string; email?: string; password?: string; projectIds?: string[] }) => request<ClientAccount>("PATCH", `/api/clients/${id}`, d),
   deleteClient: (id: string) => request<{ ok: true }>("DELETE", `/api/clients/${id}`),
   listRequests: () => request<ProjectRequest[]>("GET", "/api/requests"),
@@ -67,6 +67,9 @@ export const api = {
   declineRequest: (id: string) => request<ProjectRequest>("POST", `/api/requests/${id}/decline`, {}),
   deleteRequest: (id: string) => request<{ ok: true }>("DELETE", `/api/requests/${id}`),
   aiAssist: (projectId: string, message: string, history: { role: "user" | "assistant"; text: string }[]) => request<{ reply: string; actions: AiAction[] }>("POST", "/api/ai/assist", { projectId, message, history }),
+  forgotPassword: (email: string) => request<{ ok: true }>("POST", "/api/password/forgot", { email }),
+  resetPassword: (token: string, password: string) => request<{ ok: true; signIn: string }>("POST", "/api/password/reset", { token, password }),
+  setNotifications: (enabled: boolean) => request<{ notify: boolean }>("PATCH", "/api/me/notifications", { enabled }),
   clientView: (token: string) => request<{ project: ClientProject; tasks: ClientTask[] }>("GET", `/api/client/${encodeURIComponent(token)}`),
 };
 

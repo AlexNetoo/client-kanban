@@ -905,6 +905,113 @@ test('AI assistant with Ollama: local only, structured request, same validation'
   } finally { s5.close(); fs.rmSync(path.join(os.tmpdir(), `kanban-o-${process.pid}.json`), { force: true }); }
 });
 
+test('email: welcome, password reset, project approved and due-date reminders', async () => {
+  const dir6 = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-mail-'));
+  const outbox = [];
+  const { server: s6 } = createApp({ ownerHash: hashPassword(OWNER_PW), secret: 'm'.repeat(40), sessionMs: 3600_000, dataFile: path.join(dir6, 'db.json'), secureCookies: false, trustProxy: false, seedDemo: false,
+    mail: { mode: 'capture', outbox, publicUrl: 'https://portal.test', cronSecret: 'cron-secret-123', timeZone: 'UTC' } });
+  await new Promise((r) => s6.listen(0, r));
+  const b6 = `http://localhost:${s6.address().port}`;
+  const c6 = async (m, u, { body, cookie, headers } = {}) => { const r = await fetch(b6 + u, { method: m, headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), ...(cookie ? { Cookie: cookie } : {}), ...(headers || {}) }, body: body ? JSON.stringify(body) : undefined }); const t = await r.text(); let j; try { j = JSON.parse(t); } catch { /* */ } return { status: r.status, json: j, headers: r.headers, text: t }; };
+  const tokenOf = (mail) => /\/reset\?token=([A-Za-z0-9_-]+)/.exec(mail.text)[1];
+  try {
+    const O = { cookie: (await c6('POST', '/api/login', { body: { password: OWNER_PW } })).headers.get('set-cookie').split(';')[0] };
+    assert.strictEqual((await c6('GET', '/api/session', O)).json.mail, true);
+
+    // --- welcome emails: no password invented, the person sets their own ---
+    const P = (await c6('POST', '/api/projects', { ...O, body: { name: 'Mail P', client: 'Acme' } })).json;
+    const cl = await c6('POST', '/api/clients', { ...O, body: { name: 'Cleo Client', email: 'cleo@example.com', projectIds: [P.id], sendWelcome: true } });
+    assert.strictEqual(cl.status, 201, cl.text);
+    assert.strictEqual(cl.json.emailed, true);
+    const dz = await c6('POST', '/api/designers', { ...O, body: { name: 'Dana Designer', email: 'dana@example.com', sendWelcome: true } });
+    assert.strictEqual(dz.status, 201, dz.text);
+    assert.strictEqual(outbox.length, 2);
+    assert.deepStrictEqual(outbox.map((m) => m.to), ['cleo@example.com', 'dana@example.com']);
+    assert.ok(outbox[0].text.includes('https://portal.test/login') && outbox[1].text.includes('https://portal.test/designer'));
+    assert.ok(outbox[0].subject.includes('account'));
+    assert.strictEqual((await c6('POST', '/api/clients', { ...O, body: { name: 'No pw', email: 'nopw@example.com' } })).status, 400); // without the welcome option a password is still required
+    const welcomeToken = tokenOf(outbox[0]);
+    assert.strictEqual((await c6('POST', '/api/password/reset', { body: { token: welcomeToken, password: 'short' } })).status, 400);
+    const set = await c6('POST', '/api/password/reset', { body: { token: welcomeToken, password: 'cleo-own-password-1' } });
+    assert.deepStrictEqual([set.status, set.json.signIn], [200, '/login']);
+    assert.strictEqual((await c6('POST', '/api/password/reset', { body: { token: welcomeToken, password: 'another-password-2' } })).status, 400); // single use
+    const cleo = await c6('POST', '/api/login', { body: { email: 'cleo@example.com', password: 'cleo-own-password-1', as: 'client' } });
+    assert.strictEqual(cleo.status, 200);
+    const CL = { cookie: cleo.headers.get('set-cookie').split(';')[0] };
+    assert.strictEqual((await c6('POST', '/api/password/reset', { body: { token: tokenOf(outbox[1]), password: 'dana-own-password-1' } })).json.signIn, '/designer');
+
+    // --- forgot password: same answer for every email, mail only for real accounts, old sessions revoked, rate limited ---
+    outbox.length = 0;
+    const unknown = await c6('POST', '/api/password/forgot', { body: { email: 'nobody@example.com' } });
+    const known = await c6('POST', '/api/password/forgot', { body: { email: 'CLEO@example.com' } });
+    assert.deepStrictEqual([unknown.status, unknown.json, known.status, known.json], [200, { ok: true }, 200, { ok: true }]);
+    assert.strictEqual(outbox.length, 1);
+    assert.strictEqual(outbox[0].to, 'cleo@example.com');
+    assert.ok(outbox[0].subject.toLowerCase().includes('reset'));
+    assert.strictEqual((await c6('GET', '/api/projects', CL)).status, 200);
+    assert.strictEqual((await c6('POST', '/api/password/reset', { body: { token: tokenOf(outbox[0]), password: 'cleo-new-password-9' } })).status, 200);
+    assert.strictEqual((await c6('GET', '/api/projects', CL)).status, 401); // the old session was signed out
+    assert.strictEqual((await c6('POST', '/api/password/reset', { body: { token: 'x'.repeat(43), password: 'cleo-new-password-9' } })).status, 400);
+    for (let i = 0; i < 3; i += 1) await c6('POST', '/api/password/forgot', { body: { email: 'ratelimited@example.com' } });
+    assert.strictEqual((await c6('POST', '/api/password/forgot', { body: { email: 'ratelimited@example.com' } })).status, 429);
+
+    // --- project approved ---
+    const cl2 = await c6('POST', '/api/login', { body: { email: 'cleo@example.com', password: 'cleo-new-password-9', as: 'client' } });
+    const CL2 = { cookie: cl2.headers.get('set-cookie').split(';')[0] };
+    const req = await c6('POST', '/api/requests', { ...CL2, body: { name: 'New <b>site</b>', type: 'Other', description: 'd', goals: ['g'], references: '', notes: '', startDate: '2030-01-01', dueDate: '2030-01-14' } });
+    assert.strictEqual(req.status, 201, req.text);
+    outbox.length = 0;
+    const acc = await c6('POST', `/api/requests/${req.json.id}/accept`, { ...O, body: {} });
+    assert.strictEqual(acc.status, 200);
+    assert.strictEqual(outbox.length, 1);
+    assert.ok(outbox[0].subject.includes('approved') && outbox[0].to === 'cleo@example.com');
+    assert.ok(outbox[0].html.includes('&lt;b&gt;site&lt;/b&gt;') && !outbox[0].html.includes('<b>site</b>'), 'user text is escaped in the HTML email');
+    assert.ok(outbox[0].text.includes(`https://portal.test/#/p/${acc.json.projectId}`));
+
+    // --- reminders ---
+    const today = new Date().toISOString().slice(0, 10); // the test app runs reminders in UTC
+    const dana = (await c6('GET', '/api/designers', O)).json.find((d) => d.email === 'dana@example.com');
+    const mk = (title, extra) => c6('POST', `/api/projects/${P.id}/tasks`, { ...O, body: { title, dueDate: today, ...extra } });
+    await mk('Due today <script>x</script>', { assigneeId: dana.id });
+    await mk('Also due', {});
+    await mk('Already done', { status: 'done' });
+    await c6('POST', '/api/tasks/none/comments', { ...O, body: { text: 'x' } }); // noise
+    await c6('PATCH', `/api/designers/${dana.id}`, { ...O, body: { projectIds: [P.id] } });
+    outbox.length = 0;
+    assert.strictEqual((await c6('GET', '/api/cron/reminders')).status, 401);
+    assert.strictEqual((await c6('GET', '/api/cron/reminders', { headers: { Authorization: 'Bearer nope-nope-nope' } })).status, 401);
+    const run1 = await c6('GET', '/api/cron/reminders', { headers: { Authorization: 'Bearer cron-secret-123' } });
+    assert.deepStrictEqual([run1.status, run1.json.sent], [200, 2], JSON.stringify(run1.json));
+    const toDana = outbox.find((m) => m.to === 'dana@example.com'); const toCleo = outbox.find((m) => m.to === 'cleo@example.com');
+    assert.ok(toDana && toCleo);
+    assert.ok(toDana.subject.startsWith('Due today:'), toDana.subject); // her one assigned task
+    assert.ok(toCleo.subject.includes('2 tasks are due today'), toCleo.subject); // the client's digest: both open tasks, not the done one
+    assert.ok(!toCleo.text.includes('Already done'));
+    assert.ok(toDana.html.includes('&lt;script&gt;x&lt;/script&gt;') && !toDana.html.includes('<script>x'));
+    outbox.length = 0;
+    assert.strictEqual((await c6('GET', '/api/cron/reminders', { headers: { Authorization: 'Bearer cron-secret-123' } })).json.sent, 0); // never twice for the same due date
+    // turning notifications off silences reminders (new task, same day)
+    assert.deepStrictEqual((await c6('PATCH', '/api/me/notifications', { ...CL2, body: { enabled: false } })).json, { notify: false });
+    assert.strictEqual((await c6('GET', '/api/session', CL2)).json.notify, false);
+    await mk('Due later today', { assigneeId: dana.id });
+    await c6('GET', '/api/cron/reminders', { headers: { Authorization: 'Bearer cron-secret-123' } });
+    assert.deepStrictEqual(outbox.map((m) => m.to), ['dana@example.com']);
+    assert.strictEqual((await c6('PATCH', '/api/me/notifications', { ...O, body: { enabled: false } })).status, 400);
+  } finally { s6.close(); fs.rmSync(dir6, { recursive: true, force: true }); }
+
+  // email off: forgot-password still answers the same, nothing is sent; welcome falls back to a password
+  const dir7 = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-nomail-'));
+  const { server: s7 } = createApp({ ownerHash: hashPassword(OWNER_PW), secret: 'n'.repeat(40), sessionMs: 3600_000, dataFile: path.join(dir7, 'db.json'), secureCookies: false, trustProxy: false, seedDemo: false, mail: { mode: 'off' } });
+  await new Promise((r) => s7.listen(0, r));
+  try {
+    const b7 = `http://localhost:${s7.address().port}`;
+    const f = await fetch(b7 + '/api/password/forgot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'a@b.co' }) });
+    assert.deepStrictEqual([f.status, await f.json()], [200, { ok: true }]);
+    assert.strictEqual((await fetch(b7 + '/api/cron/reminders')).status, 503); // no CRON_SECRET configured
+    for (const page of ['/forgot', '/reset']) assert.strictEqual((await fetch(b7 + page)).status, 200);
+  } finally { s7.close(); fs.rmSync(dir7, { recursive: true, force: true }); }
+});
+
 test('admin sign-in locks out after 5 wrong passwords, even for the right one', async () => {
   const bad = async () => (await call('POST', '/api/login', { body: { password: 'definitely-wrong-1' } })).res.status;
   for (let i = 0; i < 5; i += 1) assert.strictEqual(await bad(), 401);

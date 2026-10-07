@@ -32,7 +32,7 @@ export function App() {
   const toggleSide = () => setCollapsed((c) => { try { localStorage.setItem("sidebar", c ? "open" : "collapsed"); } catch { /* storage unavailable */ } return !c; });
   const route = useHash();
   const main = useRef<HTMLElement>(null);
-  useEffect(() => { api.session().then((s) => setMe({ role: s.role, designer: s.designer, client: s.client, expiresAt: s.expiresAt, maxUploadBytes: s.maxUploadBytes, ai: s.ai })).catch(() => {}); }, []);
+  useEffect(() => { api.session().then((s) => setMe({ role: s.role, designer: s.designer, client: s.client, expiresAt: s.expiresAt, maxUploadBytes: s.maxUploadBytes, ai: s.ai, mail: s.mail, notify: s.notify })).catch(() => {}); }, []);
   if (!me) return null;
   const role = me.role;
   const skip = <a className="skip-link" href="#main" onClick={(e) => { e.preventDefault(); main.current?.focus(); }}>Skip to content</a>;
