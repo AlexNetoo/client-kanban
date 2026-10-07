@@ -8,6 +8,7 @@ import { usePalette } from "./theme";
 import { useMe } from "./session";
 import { generatePassword } from "./lib/password";
 import { RequestList } from "./Requests";
+import { ProjectDialog } from "./dialogs";
 import type { ClientAccount, Designer, Project, ProjectRequest } from "./types";
 
 const MIN = 10;
@@ -281,6 +282,7 @@ function ProjectsPanel({ projects, reload }: { projects: Project[]; reload: () =
   const pal = usePalette();
   const toast = useToast();
   const [deleting, setDeleting] = useState<Project | null>(null);
+  const [editing, setEditing] = useState<Project | null>(null);
   const sorted = [...projects].sort((a, b) => Number(a.archived) - Number(b.archived) || a.name.localeCompare(b.name));
   return (
     <div>
@@ -294,12 +296,14 @@ function ProjectsPanel({ projects, reload }: { projects: Project[]; reload: () =
             </div>
             <StatusChip status={p.status} />
             <a href={`/#/p/${p.id}`} style={{ fontSize: 13, fontWeight: 600, color: pal.text }} aria-label={`Open ${p.name}`}>Open</a>
+            <Button size="sm" variant="ghost" aria-label={`Edit ${p.name}`} onClick={() => setEditing(p)}>Edit</Button>
             <Button size="sm" variant="ghost" aria-label={`${p.archived ? "Restore" : "Archive"} ${p.name}`}
               onClick={async () => { try { await api.updateProject(p.id, { archived: !p.archived }); toast(p.archived ? "Project restored" : "Project archived"); reload(); } catch (e) { toast((e as Error).message, "error"); } }}>{p.archived ? "Restore" : "Archive"}</Button>
             <Button size="sm" variant="secondary" aria-label={`Delete ${p.name}`} onClick={() => setDeleting(p)}>Delete</Button>
           </li>
         ))}
       </ul>
+      {editing && <ProjectDialog project={editing} onClose={() => setEditing(null)} onSaved={reload} />}
       <TypedConfirmDialog open={!!deleting} expected={deleting?.name ?? ""} title="Delete this project?" confirmLabel="Delete project" onClose={() => setDeleting(null)}
         description={deleting ? `“${deleting.name}” and its ${deleting.total} tasks, comments, links and attachments will be permanently deleted. Clients lose access to it. This can’t be undone.` : ""}
         onConfirm={async () => { if (deleting) { await api.deleteProject(deleting.id); toast("Project deleted"); reload(); } }} />
