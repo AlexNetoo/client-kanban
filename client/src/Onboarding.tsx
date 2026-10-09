@@ -140,7 +140,7 @@ export function Onboarding() {
   if (done) {
     return (
       <div className="onb-done" style={{ maxWidth: 640, margin: "24px auto 0", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 18 }}>
-        <span className="onb-check" aria-hidden="true" style={{ background: pal.text, color: pal.bg }}><CheckIcon /></span>
+        <span className="onb-check" aria-hidden="true" style={{ background: pal.accent, color: "#fff" }}><CheckIcon /></span>
         <Heading level={1}>Thanks, your brief is in</Heading>
         <Text secondary>We’ll review “{done.name}” and get back to you. You’ll see it in your projects once it’s approved.</Text>
         <div style={{ width: "100%", textAlign: "left" }}><EstimatePanel days={done.days} ready final /></div>
@@ -163,10 +163,10 @@ export function Onboarding() {
         {STEPS.map((s, i) => (
           <li key={s} aria-current={i === step ? "step" : undefined} className={i < step ? "is-done" : i === step ? "is-now" : ""}>
             <button type="button" disabled={i > step} onClick={() => go(i)} style={{ color: i <= step ? pal.text : pal.textTertiary }}>
-              <span className="stepper__dot" style={{ background: i <= step ? pal.text : "transparent", color: i <= step ? pal.bg : pal.textTertiary, borderColor: i <= step ? pal.text : pal.border }}>{i < step ? <CheckIcon /> : i + 1}</span>
+              <span className="stepper__dot" style={{ background: i <= step ? pal.accent : "transparent", color: i <= step ? "#fff" : pal.textTertiary, borderColor: i <= step ? pal.accent : pal.border }}>{i < step ? <CheckIcon /> : i + 1}</span>
               <span className="stepper__label">{s}</span>
             </button>
-            <span className="stepper__bar" style={{ background: pal.border }}><span style={{ background: pal.text, transform: `scaleX(${i < step ? 1 : 0})` }} /></span>
+            <span className="stepper__bar" style={{ background: pal.border }}><span style={{ background: pal.accent, transform: `scaleX(${i < step ? 1 : 0})` }} /></span>
           </li>
         ))}
       </ol>
@@ -184,7 +184,7 @@ export function Onboarding() {
                 <fieldset className="type-grid">
                   <legend style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>Type of project</legend>
                   {REQUEST_TYPES.map((t) => (
-                    <button key={t} type="button" aria-pressed={type === t} className="type-chip" onClick={() => setType(t)} style={{ borderColor: type === t ? pal.text : pal.border, background: type === t ? pal.bgMuted : "transparent", color: pal.text }}>{t}</button>
+                    <button key={t} type="button" aria-pressed={type === t} className="type-chip" onClick={() => setType(t)} style={{ borderColor: type === t ? pal.accent : pal.border, background: type === t ? pal.bgMuted : "transparent", color: pal.text }}>{t}</button>
                   ))}
                 </fieldset>
                 <Area label="Describe the project *" rows={5} value={description} onChange={setDescription} caption="What is it, who is it for, and what should it achieve?" />
@@ -205,7 +205,7 @@ export function Onboarding() {
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                     {PRESETS.map(([label, n]) => {
                       const target = addDays(startDate || today, n - 1);
-                      return <button key={label} type="button" className="type-chip" aria-pressed={dueDate === target} onClick={() => { if (!startDate) setStart(today); setDue(target); setError(""); }} style={{ borderColor: dueDate === target ? pal.text : pal.border, background: dueDate === target ? pal.bgMuted : "transparent", color: pal.text }}>{label}</button>;
+                      return <button key={label} type="button" className="type-chip" aria-pressed={dueDate === target} onClick={() => { if (!startDate) setStart(today); setDue(target); setError(""); }} style={{ borderColor: dueDate === target ? pal.accent : pal.border, background: dueDate === target ? pal.bgMuted : "transparent", color: pal.text }}>{label}</button>;
                     })}
                   </div>
                 </div>

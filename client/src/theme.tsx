@@ -27,13 +27,13 @@ function useScheme(): [Scheme, ThemePref, (p: ThemePref) => void] {
   return [pref === "system" ? system : pref, pref, setPref];
 }
 
-/** Grayscale only: the accent is black in light mode and near-white in dark mode. */
+/** The interface is grayscale with one primary colour: the blue from alexneto.com (#1f5fe0 on light, #2a6df4 on dark). */
 export function Providers({ children }: { children: ReactNode }) {
   const [scheme, pref, setPref] = useScheme();
   return (
     <PrefCtx.Provider value={{ pref, setPref }}>
       <ThemeProvider theme={scheme}>
-        <AccentContext.Provider value={scheme === "dark" ? "#f0f0f0" : "#111111"}>
+        <AccentContext.Provider value={scheme === "dark" ? "#2a6df4" : "#1f5fe0"}>
           <Page>{children}</Page>
         </AccentContext.Provider>
       </ThemeProvider>

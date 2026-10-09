@@ -76,7 +76,7 @@ export function Attachments({ task, onChange }: { task: Task; onChange: (t: Task
       {isClient && <div style={{ marginBottom: 10 }}><Text size="sm" secondary>Files your team shared with you.</Text></div>}
       {canAttach && (
         <div onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={onDrop}
-          style={{ border: `2px dashed ${over ? pal.text : pal.border}`, borderRadius: 14, padding: "14px 16px", textAlign: "center", marginBottom: items.length || uploads.length ? 12 : 0, background: over ? pal.bgMuted : "transparent" }}>
+          style={{ border: `2px dashed ${over ? pal.accent : pal.border}`, borderRadius: 14, padding: "14px 16px", textAlign: "center", marginBottom: items.length || uploads.length ? 12 : 0, background: over ? pal.bgMuted : "transparent" }}>
           <Text size="sm" secondary>Drop files here or use “Add files”. Up to {formatBytes(max)} each. Files are internal unless you share them with the client.</Text>
           <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
             <Checkbox checked={shareNew} onChange={(c: boolean) => setShareNew(c)} label="Share new files with the client" aria-label="Share new files with the client" />
@@ -94,7 +94,7 @@ export function Attachments({ task, onChange }: { task: Task; onChange: (t: Task
             {u.error
               ? <div><Button size="sm" variant="ghost" onClick={() => setUploads((s) => s.filter((x) => x.key !== u.key))}>Dismiss</Button></div>
               : <div role="progressbar" aria-label={`Uploading ${u.name}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(u.progress * 100)} style={{ height: 6, borderRadius: 999, background: pal.bgMuted, overflow: "hidden" }}>
-                <div style={{ width: `${u.progress * 100}%`, height: "100%", background: pal.text, transition: "width .15s" }} />
+                <div style={{ width: `${u.progress * 100}%`, height: "100%", background: pal.accent, transition: "width .15s" }} />
               </div>}
           </div>
         ))}

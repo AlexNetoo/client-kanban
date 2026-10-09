@@ -662,8 +662,8 @@ function Button({
 
   const variants = {
     primary: {
-      background: disabled ? pal.bgMuted : pal.text,
-      color: disabled ? pal.textMuted : pal.textInverse,
+      background: disabled ? pal.bgMuted : pal.accent, // primary colour (blue, set in theme.tsx)
+      color: disabled ? pal.textMuted : "#ffffff",
     },
     secondary: {
       background: disabled ? "transparent" : pal.bgMuted,
