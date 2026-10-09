@@ -12,7 +12,7 @@ function Item({ href, active, icon, label, indent = false }: { href: string; act
   return (
     <a href={href} aria-current={active ? "page" : undefined} className="nav-item" title={label}
       style={{ display: "flex", alignItems: "center", gap: 10, padding: indent ? "7px 12px 7px 14px" : "9px 12px", borderRadius: 12, textDecoration: "none", fontSize: indent ? 13 : 14, fontWeight: active ? 700 : 500,
-        color: active ? pal.text : pal.textSecondary, background: active ? pal.bgMuted : "transparent", minWidth: 0 }}>{icon}<span className="nav-label">{label}</span></a>
+        color: active ? "var(--accent-text)" : pal.textSecondary, background: active ? "color-mix(in srgb, var(--accent) 12%, transparent)" : "transparent", minWidth: 0 }}>{icon}<span className="nav-label">{label}</span></a>
   );
 }
 
