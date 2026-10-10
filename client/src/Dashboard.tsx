@@ -5,7 +5,7 @@ import { ProjectDialog } from "./dialogs";
 import { RequestList } from "./Requests";
 import { StatusChip } from "./chips";
 import { useProjectsNav } from "./nav";
-import { CalendarIcon, ConfirmDialog, RepeatIcon, Loading, PlusIcon, StateBlock, useToast } from "./ui";
+import { CalendarIcon, ChevronDownIcon, ConfirmDialog, RepeatIcon, Loading, PlusIcon, StateBlock, useToast } from "./ui";
 import { usePalette } from "./theme";
 import { useMe } from "./session";
 import { formatDate, isOverdue } from "./lib/format";
@@ -41,9 +41,10 @@ export function ProjectMenu({ project, onChange, afterDelete }: { project: Proje
   return (
     <>
       <DropdownMenu
-        trigger={<Button variant="secondary" size="sm" aria-label={`More actions for ${project.name}`}>More</Button>}
+        trigger={<Button variant="secondary" size="sm" aria-label={`Manage ${project.name}`}><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>Manage project<ChevronDownIcon /></span></Button>}
         items={[
           { label: "Edit project", onClick: () => setEdit(true) },
+          { label: "Admin console", onClick: () => { location.href = "/admin"; } },
           { label: "Preview client view", onClick: () => { location.hash = `#/c/${project.shareToken}`; } },
           { label: "Copy client link", onClick: copy },
           { label: "Reset client link", onClick: () => setReset(true) },
