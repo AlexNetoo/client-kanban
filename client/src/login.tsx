@@ -32,7 +32,7 @@ function Shell({ children, onSubmit }: { children: React.ReactNode; onSubmit: (e
 }
 function Err({ text }: { text: string }) {
   const pal = usePalette();
-  return text ? <p role="alert" style={{ border: `1px solid ${pal.text}`, borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 600 }}>Error: {text}</p> : null;
+  return text ? <p role="alert" style={{ border: `1px solid ${pal.text}`, borderRadius: 5, padding: "8px 12px", fontSize: 13, fontWeight: 600 }}>Error: {text}</p> : null;
 }
 
 /** /forgot: asks for the email and always answers the same way, so nobody can find out which emails have accounts. */
@@ -123,7 +123,7 @@ function Login() {
           <Heading level={1}>{ADMIN ? "Admin sign in" : DESIGNER ? "Designer sign in" : "Sign in"}</Heading>
           <Text secondary>{ADMIN ? "Enter the admin password to manage accounts and projects." : COPY}</Text>
         </div>
-        {error && <p role="alert" style={{ border: `1px solid ${pal.text}`, borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 600 }}>Error: {error}</p>}
+        {error && <p role="alert" style={{ border: `1px solid ${pal.text}`, borderRadius: 5, padding: "8px 12px", fontSize: 13, fontWeight: 600 }}>Error: {error}</p>}
         {!ADMIN && <TextInput label="Email" type="email" value={email} onChange={(e: never) => setEmail(val(e))} aria-label="Email" />}
         <TextInput label="Password" type="password" value={password} onChange={(e: never) => setPassword(val(e))} aria-label="Password" />
         {!ADMIN && <a href="/forgot" style={{ fontSize: 13, marginTop: -8 }}>Forgot your password?</a>}

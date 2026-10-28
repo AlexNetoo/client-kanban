@@ -39,7 +39,7 @@ export function ClientView({ token, role }: { token: string; role: "owner" | "cl
     <>
       {role === "client" && <a href="#/" style={{ display: "inline-block", marginBottom: 14, color: pal.textSecondary, fontSize: 14 }}>← Your projects</a>}
       {role === "owner" && (
-        <div style={{ border: `1px solid ${pal.text}`, borderRadius: 12, padding: "10px 16px", marginBottom: 28, display: "flex", gap: "8px 16px", alignItems: "center", flexWrap: "wrap", justifyContent: "space-between", fontSize: 14, fontWeight: 500 }}>
+        <div style={{ border: `1px solid ${pal.text}`, borderRadius: 5, padding: "10px 16px", marginBottom: 28, display: "flex", gap: "8px 16px", alignItems: "center", flexWrap: "wrap", justifyContent: "space-between", fontSize: 14, fontWeight: 500 }}>
           <span><EyeIcon /> Client preview — this is exactly what your client sees. Private notes are never included.</span>
           <Button variant="secondary" size="sm" onClick={() => { location.hash = "#/"; }}>← Back to dashboard</Button>
         </div>

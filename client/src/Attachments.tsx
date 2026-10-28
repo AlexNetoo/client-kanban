@@ -76,7 +76,7 @@ export function Attachments({ task, onChange }: { task: Task; onChange: (t: Task
       {isClient && <div style={{ marginBottom: 10 }}><Text size="sm" secondary>Files your team shared with you.</Text></div>}
       {canAttach && (
         <div onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={onDrop}
-          style={{ border: `2px dashed ${over ? pal.accent : pal.border}`, borderRadius: 14, padding: "14px 16px", textAlign: "center", marginBottom: items.length || uploads.length ? 12 : 0, background: over ? pal.bgMuted : "transparent" }}>
+          style={{ border: `2px dashed ${over ? pal.accent : pal.border}`, borderRadius: 6, padding: "14px 16px", textAlign: "center", marginBottom: items.length || uploads.length ? 12 : 0, background: over ? pal.bgMuted : "transparent" }}>
           <Text size="sm" secondary>Drop files here or use “Add files”. Up to {formatBytes(max)} each. Files are internal unless you share them with the client.</Text>
           <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
             <Checkbox checked={shareNew} onChange={(c: boolean) => setShareNew(c)} label="Share new files with the client" aria-label="Share new files with the client" />
@@ -86,14 +86,14 @@ export function Attachments({ task, onChange }: { task: Task; onChange: (t: Task
 
       <div aria-live="polite">
         {uploads.map((u) => (
-          <div key={u.key} style={{ display: "flex", flexDirection: "column", gap: 6, padding: "10px 14px", border: `1px solid ${pal.border}`, borderRadius: 14, marginBottom: 8 }}>
+          <div key={u.key} style={{ display: "flex", flexDirection: "column", gap: 6, padding: "10px 14px", border: `1px solid ${pal.border}`, borderRadius: 6, marginBottom: 8 }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 14 }}>
               <span style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.name}</span>
               <span style={{ color: u.error ? pal.text : pal.textSecondary, fontWeight: u.error ? 700 : 400, flex: "none" }}>{u.error ? `Error: ${u.error}` : `${Math.round(u.progress * 100)}%`}</span>
             </div>
             {u.error
               ? <div><Button size="sm" variant="ghost" onClick={() => setUploads((s) => s.filter((x) => x.key !== u.key))}>Dismiss</Button></div>
-              : <div role="progressbar" aria-label={`Uploading ${u.name}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(u.progress * 100)} style={{ height: 6, borderRadius: 999, background: pal.bgMuted, overflow: "hidden" }}>
+              : <div role="progressbar" aria-label={`Uploading ${u.name}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(u.progress * 100)} style={{ height: 6, borderRadius: 4, background: pal.bgMuted, overflow: "hidden" }}>
                 <div style={{ width: `${u.progress * 100}%`, height: "100%", background: pal.accent, transition: "width .15s" }} />
               </div>}
           </div>
@@ -101,19 +101,19 @@ export function Attachments({ task, onChange }: { task: Task; onChange: (t: Task
       </div>
 
       {items.length > 0 && (
-        <ul style={{ display: "flex", flexDirection: "column", border: `1px solid ${pal.border}`, borderRadius: 14, overflow: "hidden" }}>
+        <ul style={{ display: "flex", flexDirection: "column", border: `1px solid ${pal.border}`, borderRadius: 6, overflow: "hidden" }}>
           {items.map((a, i) => {
             const ext = a.name.includes(".") ? a.name.split(".").pop()!.slice(0, 4).toUpperCase() : "FILE";
             return (
               <li key={a.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", flexWrap: "wrap", borderTop: i ? `1px solid ${pal.borderSubtle}` : "none" }}>
                 {PREVIEWABLE.has(a.type)
-                  ? <img src={fileUrl(a)} alt="" loading="lazy" width={44} height={44} style={{ objectFit: "cover", borderRadius: 10, border: `1px solid ${pal.border}`, flex: "none", background: pal.bgMuted }} />
-                  : <span aria-hidden="true" style={{ width: 44, height: 44, borderRadius: 10, background: pal.bgMuted, border: `1px solid ${pal.border}`, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: pal.textSecondary, flex: "none" }}>{ext}</span>}
+                  ? <img src={fileUrl(a)} alt="" loading="lazy" width={44} height={44} style={{ objectFit: "cover", borderRadius: 5, border: `1px solid ${pal.border}`, flex: "none", background: pal.bgMuted }} />
+                  : <span aria-hidden="true" style={{ width: 44, height: 44, borderRadius: 5, background: pal.bgMuted, border: `1px solid ${pal.border}`, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: pal.textSecondary, flex: "none" }}>{ext}</span>}
                 <div style={{ flex: "1 1 180px", minWidth: 0 }}>
                   <a href={fileUrl(a)} download={a.name} style={{ color: pal.text, fontWeight: 600, fontSize: 14, textDecoration: "none", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={`Download ${a.name}`}>{a.name}</a>
                   <span style={{ fontSize: 12, color: pal.textSecondary }}>{formatBytes(a.size)} · {a.uploadedByName} · {formatDateTime(a.uploadedAt)}</span>
                   {!isClient && <br />}
-                  {!isClient && <span title={a.visibility === "client" ? "The client can see and download this file" : "Only the team can see this file"} style={{ display: "inline-block", marginTop: 4, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, border: `1px ${a.visibility === "client" ? "solid" : "dashed"} ${pal.textTertiary}`, borderRadius: 999, padding: "1px 8px", color: pal.textSecondary }}>{a.visibility === "client" ? "Shared with client" : "Internal"}</span>}
+                  {!isClient && <span title={a.visibility === "client" ? "The client can see and download this file" : "Only the team can see this file"} style={{ display: "inline-block", marginTop: 4, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, border: `1px ${a.visibility === "client" ? "solid" : "dashed"} ${pal.textTertiary}`, borderRadius: 4, padding: "1px 8px", color: pal.textSecondary }}>{a.visibility === "client" ? "Shared with client" : "Internal"}</span>}
                 </div>
                 <a href={fileUrl(a)} download={a.name} aria-label={`Download ${a.name}`} style={{ fontSize: 13, color: pal.text, fontWeight: 600 }}>Download</a>
                 {(owner || a.uploadedById === me.designer?.id) && <>

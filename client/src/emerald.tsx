@@ -32,7 +32,7 @@ function SignIn({ onDone }: { onDone: () => void }) {
       <form onSubmit={submit} style={{ width: "min(100%, 360px)", display: "flex", flexDirection: "column", gap: 18 }} noValidate>
         <div style={{ marginBottom: 14 }}><Mark /></div>
         <div><Heading level={1}>Sign in</Heading><Text secondary>This page is private. Enter the password to open the timesheet.</Text></div>
-        {error && <p role="alert" style={{ border: `1px solid ${pal.text}`, borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 600 }}>Error: {error}</p>}
+        {error && <p role="alert" style={{ border: `1px solid ${pal.text}`, borderRadius: 5, padding: "8px 12px", fontSize: 13, fontWeight: 600 }}>Error: {error}</p>}
         <TextInput label="Password" type="password" value={password} onChange={(e: never) => setPassword(val(e))} aria-label="Password" autoComplete="current-password" />
         <Button type="submit" loading={busy} fullWidth>Open timesheet</Button>
       </form>

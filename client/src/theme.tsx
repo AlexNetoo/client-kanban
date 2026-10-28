@@ -27,13 +27,13 @@ function useScheme(): [Scheme, ThemePref, (p: ThemePref) => void] {
   return [pref === "system" ? system : pref, pref, setPref];
 }
 
-/** The interface is grayscale with one primary colour: the blue from alexneto.com (#1f5fe0 on light, #2a6df4 on dark). */
+/** The interface is grayscale with one primary colour: the blue from alexneto.com (#3e63dd on light, #6b95ff on dark, from the new site). */
 export function Providers({ children }: { children: ReactNode }) {
   const [scheme, pref, setPref] = useScheme();
   return (
     <PrefCtx.Provider value={{ pref, setPref }}>
       <ThemeProvider theme={scheme}>
-        <AccentContext.Provider value={scheme === "dark" ? "#2a6df4" : "#1f5fe0"}>
+        <AccentContext.Provider value={scheme === "dark" ? "#6b95ff" : "#3e63dd"}>
           <Page>{children}</Page>
         </AccentContext.Provider>
       </ThemeProvider>

@@ -17,7 +17,7 @@ const TONE = {
 
 export function RequestChip({ status }: { status: ProjectRequest["status"] }) {
   const t = TONE[status]; const [bg, fg] = t[useTheme()];
-  return <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700, letterSpacing: 0.3, textTransform: "uppercase", background: bg, color: fg }}>{t.label}</span>;
+  return <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 10px", borderRadius: 4, fontSize: 11, fontWeight: 700, letterSpacing: 0.3, textTransform: "uppercase", background: bg, color: fg }}>{t.label}</span>;
 }
 
 /** Submitted briefs. Clients see their own (read-only); the admin also gets Approve / Decline / Delete. */
@@ -38,7 +38,7 @@ export function RequestList({ requests, admin = false, onChange }: { requests: P
       <ul style={{ display: "flex", flexDirection: "column", gap: 12 }} aria-label="Project requests">
         {requests.map((r) => (
           <li key={r.id} className="req-card">
-            <Card padding={20} style={{ borderRadius: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+            <Card padding={20} style={{ borderRadius: 6, display: "flex", flexDirection: "column", gap: 12 }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
                 <div style={{ minWidth: 0 }}>
                   <h3 style={{ fontSize: 16, fontWeight: 600, letterSpacing: "-0.01em" }}>{r.name}</h3>
@@ -52,7 +52,7 @@ export function RequestList({ requests, admin = false, onChange }: { requests: P
               </div>
               <p style={{ fontSize: 14, color: pal.textSecondary, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{r.description}</p>
               <ul style={{ display: "flex", flexWrap: "wrap", gap: 6 }} aria-label="Goals">
-                {r.goals.map((g, i) => <li key={i} style={{ border: `1px solid ${pal.border}`, borderRadius: 999, padding: "3px 10px", fontSize: 12 }}>{g}</li>)}
+                {r.goals.map((g, i) => <li key={i} style={{ border: `1px solid ${pal.border}`, borderRadius: 4, padding: "3px 10px", fontSize: 12 }}>{g}</li>)}
               </ul>
               {admin && (r.references || r.notes) && <Text size="sm" secondary>{[r.references && `Links: ${r.references}`, r.notes && `Notes: ${r.notes}`].filter(Boolean).join(" · ")}</Text>}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>

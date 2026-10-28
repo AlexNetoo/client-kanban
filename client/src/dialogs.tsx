@@ -15,7 +15,7 @@ function Form({ onSubmit, error, children }: { onSubmit: () => void; error: stri
   const pal = usePalette();
   return (
     <form onSubmit={(e: FormEvent) => { e.preventDefault(); onSubmit(); }} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      {error && <p role="alert" style={{ border: `1px solid ${pal.text}`, borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 600 }}>Error: {error}</p>}
+      {error && <p role="alert" style={{ border: `1px solid ${pal.text}`, borderRadius: 5, padding: "8px 12px", fontSize: 13, fontWeight: 600 }}>Error: {error}</p>}
       {children}
       <button type="submit" hidden aria-hidden="true" tabIndex={-1} />
     </form>
@@ -84,7 +84,7 @@ function Callout({ kind, title, note, children }: { kind: "client" | "private"; 
   const client = kind === "client";
   return (
     <section aria-label={title} style={{
-      border: client ? `1px solid ${pal.text}` : `2px dashed ${pal.textTertiary}`, borderRadius: 16, padding: 14,
+      border: client ? `1px solid ${pal.text}` : `2px dashed ${pal.textTertiary}`, borderRadius: 6, padding: 14,
       display: "flex", flexDirection: "column", gap: 8,
       backgroundImage: client ? "none" : `repeating-linear-gradient(135deg, transparent 0 6px, ${pal.borderSubtle} 6px 7px)`,
     }}>

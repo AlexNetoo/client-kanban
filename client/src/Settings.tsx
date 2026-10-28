@@ -21,7 +21,7 @@ export function Settings() {
   useEffect(() => { document.title = "Settings · Alex Neto - Client Portal"; }, []);
 
   const Section = ({ title, children }: { title: string; children: ReactNode }) => (
-    <section aria-label={title} style={{ border: `1px solid ${pal.border}`, borderRadius: 16, padding: 20, display: "flex", flexDirection: "column", gap: 12 }}>
+    <section aria-label={title} style={{ border: `1px solid ${pal.border}`, borderRadius: 6, padding: 20, display: "flex", flexDirection: "column", gap: 12 }}>
       <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{title}</h2>{children}
     </section>
   );

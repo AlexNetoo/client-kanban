@@ -16,7 +16,7 @@ const STATUS_COLORS: Record<ProjectStatus, { light: Pair; dark: Pair }> = {
   completed: { light: { bg: "#e3f0ff", fg: "#1d4f91" }, dark: { bg: "#16273d", fg: "#8fbdf5" } },
 };
 
-const base = { display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700, letterSpacing: 0.3, textTransform: "uppercase", whiteSpace: "nowrap" } as const;
+const base = { display: "inline-flex", alignItems: "center", gap: 6, padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 500, letterSpacing: 0, textTransform: "none", fontFamily: "var(--mono)", whiteSpace: "nowrap" } as const;
 
 // Arrow shapes double-encode the level: ▲ high, ◆ medium, ▼ low.
 const PRIORITY_MARK: Record<Priority, string> = { high: "▲", medium: "◆", low: "▼" };

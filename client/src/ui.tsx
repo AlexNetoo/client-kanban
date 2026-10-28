@@ -47,7 +47,7 @@ export function WideModal({ open, onClose, label, header, children }: { open: bo
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: "min(4vh, 32px) min(3vw, 24px)" }}>
       <div ref={ref} role="dialog" aria-modal="true" aria-label={label} tabIndex={-1} onClick={(e) => e.stopPropagation()}
-        style={{ background: pal.bgElevated, color: pal.text, width: "min(1120px, 100%)", maxHeight: "100%", borderRadius: 16, border: `1px solid ${pal.borderSubtle}`, boxShadow: `0 24px 64px ${pal.shadowLg}`, display: "flex", flexDirection: "column", overflow: "hidden", outline: "none" }}>
+        style={{ background: pal.bgElevated, color: pal.text, width: "min(1120px, 100%)", maxHeight: "100%", borderRadius: 6, border: `1px solid ${pal.borderSubtle}`, boxShadow: `0 24px 64px ${pal.shadowLg}`, display: "flex", flexDirection: "column", overflow: "hidden", outline: "none" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "14px 20px", borderBottom: `1px solid ${pal.border}`, flex: "none" }}>
           <div style={{ minWidth: 0, fontSize: 13, color: pal.textSecondary }}>{header}</div>
           <IconButton icon={<span aria-hidden="true" style={{ fontSize: 16 }}>✕</span>} label="Close" onClick={onClose} />

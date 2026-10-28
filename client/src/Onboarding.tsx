@@ -41,7 +41,7 @@ function EstimatePanel({ days, ready, final = false }: { days: number; ready: bo
   const daily = ready ? days * RATES.day : 0;
   const saving = est ? Math.max(0, daily - est.total) : 0;
   return (
-    <Card padding={22} style={{ borderRadius: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+    <Card padding={22} style={{ borderRadius: 6, display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
         <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.09em", fontWeight: 700, color: pal.textTertiary }}>{final ? "Your estimate" : "Estimate so far"}</div>
         <CurrencyToggle />
@@ -82,7 +82,7 @@ function Goals({ goals, setGoals }: { goals: string[]; setGoals: (g: string[]) =
       {goals.length === 0 ? <Text size="sm" secondary>Add at least one goal. They become the first tasks on your project board.</Text> : (
         <ol className="goal-list" aria-label="Important goals">
           {goals.map((g, i) => (
-            <li key={g + i} className="goal-item" style={{ border: `1px solid ${pal.border}`, borderRadius: 12 }}>
+            <li key={g + i} className="goal-item" style={{ border: `1px solid ${pal.border}`, borderRadius: 5 }}>
               <span aria-hidden="true" className="goal-num" style={{ background: pal.bgMuted }}>{i + 1}</span>
               <span style={{ flex: 1, minWidth: 0, overflowWrap: "anywhere" }}>{g}</span>
               <Button type="button" variant="ghost" size="sm" aria-label={`Remove goal: ${g}`} onClick={() => setGoals(goals.filter((_, j) => j !== i))}>Remove</Button>
@@ -140,7 +140,7 @@ export function Onboarding() {
   if (done) {
     return (
       <div className="onb-done" style={{ maxWidth: 640, margin: "24px auto 0", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 18 }}>
-        <span className="onb-check" aria-hidden="true" style={{ background: pal.accent, color: "#fff" }}><CheckIcon /></span>
+        <span className="onb-check" aria-hidden="true" style={{ background: pal.accent, color: "var(--on-accent)" }}><CheckIcon /></span>
         <Heading level={1}>Thanks, your brief is in</Heading>
         <Text secondary>We’ll review “{done.name}” and get back to you. You’ll see it in your projects once it’s approved.</Text>
         <div style={{ width: "100%", textAlign: "left" }}><EstimatePanel days={done.days} ready final /></div>
@@ -163,7 +163,7 @@ export function Onboarding() {
         {STEPS.map((s, i) => (
           <li key={s} aria-current={i === step ? "step" : undefined} className={i < step ? "is-done" : i === step ? "is-now" : ""}>
             <button type="button" disabled={i > step} onClick={() => go(i)} style={{ color: i <= step ? pal.text : pal.textTertiary }}>
-              <span className="stepper__dot" style={{ background: i <= step ? pal.accent : "transparent", color: i <= step ? "#fff" : pal.textTertiary, borderColor: i <= step ? pal.accent : pal.border }}>{i < step ? <CheckIcon /> : i + 1}</span>
+              <span className="stepper__dot" style={{ background: i <= step ? pal.accent : "transparent", color: i <= step ? "var(--on-accent)" : pal.textTertiary, borderColor: i <= step ? pal.accent : pal.border }}>{i < step ? <CheckIcon /> : i + 1}</span>
               <span className="stepper__label">{s}</span>
             </button>
             <span className="stepper__bar" style={{ background: pal.border }}><span style={{ background: pal.accent, transform: `scaleX(${i < step ? 1 : 0})` }} /></span>
@@ -172,7 +172,7 @@ export function Onboarding() {
       </ol>
 
       <div className="onb-layout">
-        <Card padding={26} style={{ borderRadius: 16 }}>
+        <Card padding={26} style={{ borderRadius: 6 }}>
           <form onSubmit={(e) => { e.preventDefault(); if (step < 3) next(); else submit(); }} noValidate>
             <div key={step} className={dir === 1 ? "step-in" : "step-in step-in--back"} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
               <h2 ref={head} tabIndex={-1} style={{ fontSize: 20, fontWeight: 600, letterSpacing: "-0.02em", outline: "none" }}>
@@ -223,7 +223,7 @@ export function Onboarding() {
                 <div className="onb-est-inline"><EstimatePanel days={days} ready={datesOk} final /></div>
               </>}
 
-              {error && <p role="alert" className="shake" style={{ border: `1px solid ${pal.text}`, borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 600 }}>{error}</p>}
+              {error && <p role="alert" className="shake" style={{ border: `1px solid ${pal.text}`, borderRadius: 5, padding: "8px 12px", fontSize: 13, fontWeight: 600 }}>{error}</p>}
 
               <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginTop: 4 }}>
                 <Button type="button" variant="ghost" onClick={() => (step === 0 ? (location.hash = "#/") : go(step - 1))}>{step === 0 ? "Cancel" : "Back"}</Button>

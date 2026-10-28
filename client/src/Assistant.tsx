@@ -147,7 +147,7 @@ export function Assistant({ projectId, projectName, tasks, designers, enabled, i
     <div className="ai-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <aside className="ai-panel" role="dialog" aria-modal="true" aria-label="AI assistant" style={{ background: pal.bg, borderLeft: `1px solid ${pal.border}`, color: pal.text }}>
         <header className="ai-head" style={{ borderBottom: `1px solid ${pal.border}` }}>
-          <span className="ai-avatar" style={{ background: pal.accent, color: "#fff" }} aria-hidden="true"><SparkIcon /></span>
+          <span className="ai-avatar" style={{ background: pal.accent, color: "var(--on-accent)" }} aria-hidden="true"><SparkIcon /></span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 600, fontSize: 16, lineHeight: 1.2 }}>AI assistant</div>
             <div className="ai-sub" style={{ color: pal.textSecondary }}>{projectName}</div>
@@ -179,7 +179,7 @@ export function Assistant({ projectId, projectName, tasks, designers, enabled, i
           ) : msgs.map((m, i) => (
             <div key={i} className={`ai-row ai-row--${m.role}`}>
               {m.role === "assistant" && <span className="ai-avatar ai-avatar--sm" style={{ background: pal.bgMuted, color: pal.text }} aria-hidden="true"><SparkIcon /></span>}
-              <div className="ai-bubble" style={m.role === "user" ? { background: pal.accent, color: "#fff" } : undefined}>
+              <div className="ai-bubble" style={m.role === "user" ? { background: pal.accent, color: "var(--on-accent)" } : undefined}>
                 <p style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{m.text}</p>
                 {m.actions && m.actions.length > 0 && m.picked && (() => {
                   const n = m.picked.filter(Boolean).length; const locked = !!m.state;
@@ -233,7 +233,7 @@ export function Assistant({ projectId, projectName, tasks, designers, enabled, i
             <div className="ai-input" style={{ borderColor: pal.border }}>
               <textarea ref={input} rows={1} value={text} placeholder="Ask for tasks, descriptions or edits…" aria-label="Ask the assistant" maxLength={2000}
                 onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(); } }} />
-              <button type="submit" className="ai-send" aria-label="Send" disabled={!text.trim() || busy} style={{ background: pal.accent, color: "#fff" }}>
+              <button type="submit" className="ai-send" aria-label="Send" disabled={!text.trim() || busy} style={{ background: pal.accent, color: "var(--on-accent)" }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7" /></svg>
               </button>
             </div>

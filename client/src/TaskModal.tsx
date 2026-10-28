@@ -82,14 +82,14 @@ export function TaskModal({ task: t, projectName, designers, onClose, onChange, 
           <LinkedTasks task={t} onChange={onChange} />
 
           {t.clientUpdate && (
-            <section aria-label="Client-visible update" style={{ border: `1px solid ${pal.text}`, borderRadius: 16, padding: 16 }}>
+            <section aria-label="Client-visible update" style={{ border: `1px solid ${pal.text}`, borderRadius: 6, padding: 16 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, fontSize: 13 }}><EyeIcon /> Client-visible update</div>
               <p style={{ margin: "8px 0 0", fontSize: 15, lineHeight: 1.6, overflowWrap: "anywhere" }}><Linkify text={t.clientUpdate} /></p>
               {t.clientUpdateAt && <p style={{ margin: "6px 0 0", fontSize: 12, color: pal.textTertiary }}>Posted {formatDateTime(t.clientUpdateAt)}</p>}
             </section>
           )}
           {owner && t.privateNotes && (
-            <section aria-label="Private notes" style={{ border: `2px dashed ${pal.textTertiary}`, borderRadius: 16, padding: 16, backgroundImage: `repeating-linear-gradient(135deg, transparent 0 6px, ${pal.borderSubtle} 6px 7px)` }}>
+            <section aria-label="Private notes" style={{ border: `2px dashed ${pal.textTertiary}`, borderRadius: 6, padding: 16, backgroundImage: `repeating-linear-gradient(135deg, transparent 0 6px, ${pal.borderSubtle} 6px 7px)` }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, fontSize: 13 }}><LockIcon /> Private notes · only you</div>
               <p style={{ margin: "8px 0 0", fontSize: 15, lineHeight: 1.6 }}>{t.privateNotes}</p>
             </section>
@@ -117,7 +117,7 @@ export function TaskModal({ task: t, projectName, designers, onClose, onChange, 
                       <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
                         <span style={{ fontWeight: 600, fontSize: 14 }}>{c.authorName}{c.authorRole !== "owner" && <span style={{ fontWeight: 500, color: pal.textSecondary, fontSize: 12 }}> · {c.authorRole === "client" ? "Client" : "Designer"}</span>} <time dateTime={c.createdAt} style={{ fontWeight: 400, color: pal.textTertiary, fontSize: 12 }}>· {formatDateTime(c.createdAt)}</time></span>
                         <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                          {!isClient && <span title={c.visibility === "client" ? "The client can see this comment" : "Only the team can see this comment"} style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, border: `1px ${c.visibility === "client" ? "solid" : "dashed"} ${pal.textTertiary}`, borderRadius: 999, padding: "1px 8px", color: pal.textSecondary }}>{c.visibility === "client" ? "Shared with client" : "Internal"}</span>}
+                          {!isClient && <span title={c.visibility === "client" ? "The client can see this comment" : "Only the team can see this comment"} style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, border: `1px ${c.visibility === "client" ? "solid" : "dashed"} ${pal.textTertiary}`, borderRadius: 4, padding: "1px 8px", color: pal.textSecondary }}>{c.visibility === "client" ? "Shared with client" : "Internal"}</span>}
                           {(owner || c.authorId === me.designer?.id || c.authorId === me.client?.id) && <Button variant="ghost" size="sm" aria-label={`Delete comment by ${c.authorName}`} onClick={() => removeComment(c.id)}>Delete</Button>}
                         </span>
                       </div>
@@ -133,7 +133,7 @@ export function TaskModal({ task: t, projectName, designers, onClose, onChange, 
           {canEdit
             ? <Select label="Status" value={t.status} onChange={(v: string) => patch({ status: v as Column }, "Status updated")} options={COLUMN_OPTIONS} />
             : <div>{h("Status")}<Text>{COLUMNS.find((c) => c.id === t.status)?.label}</Text></div>}
-          <div style={{ border: `1px solid ${pal.border}`, borderRadius: 16, padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ border: `1px solid ${pal.border}`, borderRadius: 6, padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
             <h3 style={{ margin: "0 0 6px", fontSize: 15, fontWeight: 700 }}>Details</h3>
             {row("Assignee", canEdit
               ? <Select label="Assignee" value={t.assigneeId} onChange={(v: string) => patch({ assigneeId: v }, v ? "Task assigned" : "Task unassigned")} options={assigneeOptions(designers)} />

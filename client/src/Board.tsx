@@ -184,7 +184,7 @@ export function Board({ id, taskId }: { id: string; taskId?: string }) {
                       onReorder={(dir) => { const at = items.indexOf(t) + dir; if (at >= 0 && at < items.length) move(t, t.status, at); }} canUp={items.indexOf(t) > 0} canDown={items.indexOf(t) < items.length - 1} />
                   </li>
                 ))}
-                {items.length === 0 && <li style={{ fontSize: 13, color: pal.textTertiary, textAlign: "center", padding: 16, border: `1px dashed ${pal.border}`, borderRadius: 14 }}>Nothing here yet</li>}
+                {items.length === 0 && <li style={{ fontSize: 13, color: pal.textTertiary, textAlign: "center", padding: 16, border: `1px dashed ${pal.border}`, borderRadius: 6 }}>Nothing here yet</li>}
               </ul>
             </section>
           );

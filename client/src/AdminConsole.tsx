@@ -34,9 +34,9 @@ function RevealBanner({ revealed, onDismiss }: { revealed: Revealed; onDismiss: 
   const toast = useToast();
   if (!revealed) return null;
   return (
-    <div role="status" style={{ border: `2px solid ${pal.text}`, borderRadius: 14, padding: 16, marginBottom: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+    <div role="status" style={{ border: `2px solid ${pal.text}`, borderRadius: 6, padding: 16, marginBottom: 16, display: "flex", flexDirection: "column", gap: 10 }}>
       <div style={{ fontWeight: 700 }}>Password for {revealed.who}</div>
-      <code style={{ fontSize: 16, letterSpacing: 0.5, wordBreak: "break-all", background: pal.bgMuted, padding: "8px 12px", borderRadius: 10 }}>{revealed.password}</code>
+      <code style={{ fontSize: 16, letterSpacing: 0.5, wordBreak: "break-all", background: pal.bgMuted, padding: "8px 12px", borderRadius: 5 }}>{revealed.password}</code>
       <Text size="sm" secondary>Share it privately. It isn’t stored anywhere readable and won’t be shown again.</Text>
       <div style={{ display: "flex", gap: 8 }}>
         <Button size="sm" onClick={async () => { try { await navigator.clipboard.writeText(revealed.password); toast("Password copied"); } catch { toast("Couldn’t copy. Select and copy it manually.", "error"); } }}>Copy password</Button>
@@ -60,7 +60,7 @@ function WelcomeOption({ checked, onChange, hasEmail }: { checked: boolean; onCh
 
 function Err({ children }: { children: ReactNode }) {
   const pal = usePalette();
-  return children ? <p role="alert" style={{ border: `1px solid ${pal.text}`, borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 600 }}>Error: {children}</p> : null;
+  return children ? <p role="alert" style={{ border: `1px solid ${pal.text}`, borderRadius: 5, padding: "8px 12px", fontSize: 13, fontWeight: 600 }}>Error: {children}</p> : null;
 }
 
 function useGuard() {
@@ -172,7 +172,7 @@ function DesignersPanel({ designers, projects, reload, setRevealed }: { designer
 function ProjectPicker({ projects, value, onChange, legend = "Projects this client can see" }: { projects: Project[]; value: string[]; onChange: (v: string[]) => void; legend?: string }) {
   const pal = usePalette();
   return (
-    <fieldset style={{ border: `1px solid ${pal.border}`, borderRadius: 14, padding: "10px 14px", margin: 0 }}>
+    <fieldset style={{ border: `1px solid ${pal.border}`, borderRadius: 6, padding: "10px 14px", margin: 0 }}>
       <legend style={{ fontSize: 13, color: pal.textSecondary, padding: "0 6px" }}>{legend}</legend>
       {projects.length === 0 && <Text size="sm" secondary>No projects yet.</Text>}
       <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 200, overflowY: "auto" }}>

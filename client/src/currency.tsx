@@ -30,10 +30,10 @@ export function CurrencyToggle() {
   const { currency, setCurrency } = useMoney();
   const pal = usePalette();
   return (
-    <div role="group" aria-label="Currency" style={{ display: "inline-flex", border: `1px solid ${pal.border}`, borderRadius: 999, padding: 2 }}>
+    <div role="group" aria-label="Currency" style={{ display: "inline-flex", border: `1px solid ${pal.border}`, borderRadius: 4, padding: 2 }}>
       {(["EUR", "USD"] as const).map((c) => (
         <button key={c} type="button" aria-pressed={currency === c} onClick={() => setCurrency(c)} aria-label={c === "EUR" ? "Show prices in euros" : "Show prices in US dollars"}
-          style={{ all: "unset", cursor: "pointer", padding: "2px 10px", borderRadius: 999, fontSize: 12, fontWeight: 600, background: currency === c ? pal.text : "transparent", color: currency === c ? pal.bg : pal.textSecondary, transition: "background-color .2s, color .2s" }}>{c === "EUR" ? "€" : "$"}</button>
+          style={{ all: "unset", cursor: "pointer", padding: "2px 10px", borderRadius: 4, fontSize: 12, fontWeight: 600, background: currency === c ? pal.text : "transparent", color: currency === c ? pal.bg : pal.textSecondary, transition: "background-color .2s, color .2s" }}>{c === "EUR" ? "€" : "$"}</button>
       ))}
     </div>
   );

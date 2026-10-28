@@ -124,7 +124,7 @@ export function Dashboard() {
         <ul className="grid" aria-label={`${tab} projects`}>
           {shown.map((p) => (
             <li key={p.id} style={{ display: "flex" }}>
-              <div className="lift"><Card padding={22} style={{ width: "100%", display: "flex", flexDirection: "column", gap: 18, borderRadius: 16 }}>
+              <div className="lift"><Card padding={22} style={{ width: "100%", display: "flex", flexDirection: "column", gap: 18, borderRadius: 6 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
                   <div>
                     <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, letterSpacing: "-0.02em" }}><a href={`#/p/${p.id}`} style={{ textDecoration: "none" }}>{p.name}</a></h2>
