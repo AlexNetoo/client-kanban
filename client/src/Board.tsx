@@ -1,3 +1,4 @@
+import { Linkify } from "./Linkify";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type DragEvent } from "react";
 import { Badge, Button, Heading, Progress } from "./halaska-kit";
 import { api } from "./api";
@@ -141,6 +142,13 @@ export function Board({ id, taskId }: { id: string; taskId?: string }) {
           </>}
         </div>}
       </div>
+
+      {(project.references || project.notes) && (
+        <dl className="proj-details" aria-label="Project links and notes" style={{ borderColor: pal.border }}>
+          {project.references && <div className="wide"><dt style={{ color: pal.textTertiary }}>Links</dt><dd style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}><Linkify text={project.references} /></dd></div>}
+          {project.notes && <div className="wide"><dt style={{ color: pal.textTertiary }}>Notes</dt><dd style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}><Linkify text={project.notes} /></dd></div>}
+        </dl>
+      )}
 
       <div style={{ maxWidth: 480, marginBottom: 28 }}>
         <Progress value={project.progress} />
