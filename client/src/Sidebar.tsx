@@ -1,67 +1,77 @@
-import { useId, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { isDemo } from "./demo";
-import { Button } from "./halaska-kit";
 import { api, loginPath } from "./api";
 import { statusDotColor } from "./chips";
 import { useProjectsNav } from "./nav";
 import { useMe } from "./session";
 import { usePalette, useTheme } from "./theme";
 
-function Item({ href, active, icon, label, indent = false }: { href: string; active: boolean; icon: ReactNode; label: string; indent?: boolean }) {
+/** One navigation row: a link, or a button when it has no destination (the Projects drawer toggle and Log out). */
+function Item({ href, active = false, icon, label, onClick, trailing, expanded, small = false }: {
+  href?: string; active?: boolean; icon?: ReactNode; label: string; onClick?: () => void; trailing?: ReactNode; expanded?: boolean; small?: boolean;
+}) {
   const pal = usePalette();
-  return (
-    <a href={href} aria-current={active ? "page" : undefined} className="nav-item" title={label}
-      style={{ display: "flex", alignItems: "center", gap: 10, padding: indent ? "7px 12px 7px 14px" : "9px 12px", borderRadius: 5, textDecoration: "none", fontSize: indent ? 13 : 14, fontWeight: active ? 700 : 500,
-        color: active ? "var(--accent-text)" : pal.textSecondary, background: active ? "color-mix(in srgb, var(--accent) 12%, transparent)" : "transparent", minWidth: 0 }}>{icon}<span className="nav-label">{label}</span></a>
-  );
+  const style = {
+    display: "flex", alignItems: "center", gap: small ? 8 : 10, width: "100%", padding: small ? "5px 10px" : "6px 10px", borderRadius: 6, textDecoration: "none", textAlign: "left" as const,
+    fontSize: small ? 12 : 13, lineHeight: small ? "16px" : "20px", fontWeight: 400, color: small && !active ? pal.textSecondary : pal.text, minWidth: 0,
+  };
+  const inner = <>{icon}<span className="nav-label">{label}</span>{trailing}</>;
+  return href !== undefined
+    ? <a href={href} aria-current={active ? "page" : undefined} className="nav-item" title={label} style={style}>{inner}</a>
+    : <button type="button" className="nav-item" title={label} aria-expanded={expanded} onClick={onClick} style={style}>{inner}</button>;
 }
 
-const Icon = ({ d }: { d: ReactNode }) => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: "none" }}>{d}</svg>
+/** Lucide icons (https://lucide.dev), drawn at 16px with a 2px stroke. */
+const Icon = ({ d, size = 16 }: { d: ReactNode; size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: "none" }}>{d}</svg>
 );
+const FolderIcon = () => <Icon d={<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />} />;
+const ClockIcon = () => <Icon d={<><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></>} />;
+const ShieldIcon = () => <Icon d={<><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" /><path d="m9 12 2 2 4-4" /></>} />;
+const GearIcon = () => <Icon d={<><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></>} />;
+const PlusIcon = () => <Icon d={<><path d="M5 12h14" /><path d="M12 5v14" /></>} />;
+const LogOutIcon = () => <Icon d={<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" x2="9" y1="12" y2="12" /></>} />;
+const Chevron = ({ open }: { open: boolean }) => <span className="nav-chev" aria-hidden="true" style={{ marginLeft: "auto", display: "inline-flex", transform: open ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.25s var(--ease)" }}><Icon size={14} d={<path d="m6 9 6 6 6-6" />} /></span>;
 
-/** Primary navigation: projects, team (owner) and settings. Shown as a sidebar on desktop and inside a drawer on phones. */
+/** Primary navigation: a Projects drawer, then team (owner) and settings, with Log out at the bottom. Sidebar on desktop, a sheet on phones. */
 export function Nav({ route, admin = false, collapsed = false, onNavigate }: { route: string; admin?: boolean; collapsed?: boolean; onNavigate?: () => void }) {
-  const pal = usePalette();
   const scheme = useTheme();
   const me = useMe();
   const { projects } = useProjectsNav();
-  const listId = useId();
+  const drawerId = useId();
+  const [open, setOpen] = useState(() => { try { return localStorage.getItem("projects-drawer") !== "closed"; } catch { return true; } });
+  const toggle = () => setOpen((o) => { try { localStorage.setItem("projects-drawer", o ? "closed" : "open"); } catch { /* storage unavailable */ } return !o; });
   const home = isDemo() ? "/demo" : "/"; // the demo lives at /demo, so menu links must stay there
   const owner = me.role === "owner";
   const [, kind, param] = route.split("/");
-  const onProjects = kind === undefined || kind === "" || kind === "p" || kind === "c";
 
   return (
-    <nav aria-label="Main" onClick={(e) => { if ((e.target as HTMLElement).closest("a")) onNavigate?.(); }} style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1, minHeight: 0, overflowY: "auto" }}>
-      <Item href={`${home}#/`} active={!admin && (route === "/" || route === "")} label={owner ? "All projects" : "My projects"} icon={<Icon d={<><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></>} />} />
-      {me.role === "client" && <Item href={`${home}#/new`} active={kind === "new"} label="New project" icon={<Icon d={<path d="M12 5v14M5 12h14" />} />} />}
-
-      {projects.length > 0 && (
-        <div style={{ margin: "10px 0 4px" }}>
-          <div id={listId} className="side-heading" style={{ padding: "0 12px 6px", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.09em", fontWeight: 700, color: pal.textTertiary }}>Projects</div>
-          <ul aria-labelledby={listId} style={{ display: "flex", flexDirection: "column", gap: 2, maxHeight: "40vh", overflowY: "auto" }}>
-            {projects.map((p) => (
-              <li key={p.id}>
-                <Item href={`${home}#/p/${p.id}`} active={!admin && kind === "p" && param === p.id} indent label={p.name}
-                  icon={<span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: "50%", background: statusDotColor(p.status, scheme), flex: "none" }} />} />
-              </li>
-            ))}
-          </ul>
-        </div>
+    <nav aria-label="Main" onClick={(e) => { if ((e.target as HTMLElement).closest("a")) onNavigate?.(); }} style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minHeight: 0, overflowY: "auto" }}>
+      {collapsed ? (
+        <Item href={`${home}#/`} active={!admin && (route === "/" || route === "")} label={owner ? "All projects" : "My projects"} icon={<FolderIcon />} />
+      ) : (
+        <>
+          <Item label="Projects" icon={<FolderIcon />} onClick={toggle} expanded={open} trailing={<Chevron open={open} />} />
+          <div id={drawerId} className="drawer" data-open={open} style={{ display: "grid", gridTemplateRows: open ? "1fr" : "0fr", transition: "grid-template-rows 0.3s var(--ease)" }}>
+            <ul style={{ overflow: "hidden", display: "flex", flexDirection: "column", gap: 2, minHeight: 0, paddingLeft: 14, maxHeight: "40vh", overflowY: open ? "auto" : "hidden" }}>
+              <li><Item small href={`${home}#/`} active={!admin && (route === "/" || route === "")} label={owner ? "All projects" : "My projects"} icon={<span aria-hidden="true" style={{ width: 6, height: 6, flex: "none" }} />} /></li>
+              {projects.map((p) => (
+                <li key={p.id}>
+                  <Item small href={`${home}#/p/${p.id}`} active={!admin && kind === "p" && param === p.id} label={p.name}
+                    icon={<span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: "50%", background: statusDotColor(p.status, scheme), flex: "none" }} />} />
+                </li>
+              ))}
+            </ul>
+          </div>
+        </>
       )}
+      {me.role === "client" && <Item href={`${home}#/new`} active={kind === "new"} label="New project" icon={<PlusIcon />} />}
+      {owner && <Item href="/emerald" label="Timesheet" icon={<ClockIcon />} />}
+      {owner && <Item href="/admin" active={admin} label="Admin console" icon={<ShieldIcon />} />}
+      <Item href={`${home}#/settings`} active={!admin && kind === "settings"} label="Settings" icon={<GearIcon />} />
 
-      <div style={{ height: 1, background: pal.border, margin: "8px 4px" }} />
-      {owner && <Item href="/emerald" active={false} label="Timesheet" icon={<Icon d={<><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>} />} />}
-      {owner && <Item href="/admin" active={admin} label="Admin console" icon={<Icon d={<><path d="M12 3 4 6v6c0 4.5 3.2 8.2 8 9 4.8-.8 8-4.5 8-9V6l-8-3z" /><path d="m9 12 2 2 4-4" /></>} />} />}
-      <Item href={`${home}#/settings`} active={!admin && kind === "settings"} label="Settings" icon={<Icon d={<><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></>} />} />
-
-      <div style={{ marginTop: "auto", paddingTop: 16, display: "flex", flexDirection: "column", gap: 10 }}>
-        <div className="side-user" style={{ padding: "0 12px", fontSize: 13, color: pal.textSecondary }}>
-          <div style={{ fontWeight: 600, color: pal.text }}>{me.designer?.name ?? me.client?.name ?? "Admin"}</div>
-          <div>{owner ? "Admin account" : me.role === "client" ? "Client account" : "Designer account"}</div>
-        </div>
-        <Button variant="secondary" size="sm" fullWidth onClick={async () => { try { await api.logout(); } finally { location.replace(loginPath()); } }} aria-label="Sign out" title="Sign out">{collapsed ? <Icon d={<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5M21 12H9" /></>} /> : "Sign out"}</Button>
+      <div style={{ marginTop: "auto", paddingTop: 12 }}>
+        <Item label="Log out" icon={<LogOutIcon />} onClick={async () => { try { await api.logout(); } finally { location.replace(loginPath()); } }} />
       </div>
     </nav>
   );
