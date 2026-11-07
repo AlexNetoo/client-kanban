@@ -15,8 +15,8 @@
 :root { --bg: #ffffff; --ink: #000000; --fg-rgb: 0, 0, 0; --surface: #fafafa; --line: #eeeeee; --ease: cubic-bezier(0.16, 1, 0.3, 1);
   --accent: #000000; --accent-text: #000000; --on-accent: #ffffff;
   --halaska-mono: "DM Sans", system-ui, sans-serif; --mono: var(--halaska-mono); }
-:root[data-theme="dark"] { --bg: #000000; --ink: #ffffff; --fg-rgb: 255, 255, 255; --surface: #0f0f0f; --line: rgba(255, 255, 255, 0.1);
-  --accent: #ffffff; --accent-text: #ffffff; --on-accent: #000000; }
+:root[data-theme="dark"] { --bg: #1f1f1f; --ink: #f5f5f5; --fg-rgb: 245, 245, 245; --surface: #282828; --line: rgba(255, 255, 255, 0.12);
+  --accent: #ffffff; --accent-text: #ffffff; --on-accent: #1f1f1f; }
 :root[data-theme="light"] { --bg: #ffffff; --ink: #000000; }
 
 /* Intro (ported from alexneto.com): a pixel-dot vinyl record and a "loading 000" counter. Plays once per session; boot.js adds .no-intro afterwards */
@@ -195,7 +195,7 @@ button:not(:disabled):active { transform: scale(0.97); }
 
 /* Form fields: clearly visible against cards and modals (the kit's default blends into the surface) */
 :root { --field-bg: #ffffff; --field-border: #dedede; --field-border-hover: #999999; --field-border-focus: var(--accent); }
-:root[data-theme="dark"] { --field-bg: #000000; --field-border: rgba(255, 255, 255, 0.16); --field-border-hover: rgba(255, 255, 255, 0.4); --field-border-focus: var(--accent); }
+:root[data-theme="dark"] { --field-bg: #1f1f1f; --field-border: rgba(255, 255, 255, 0.2); --field-border-hover: rgba(255, 255, 255, 0.45); --field-border-focus: var(--accent); }
 input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea {
   background: var(--field-bg) !important; border: 1px solid var(--field-border) !important; transition: border-color 0.2s, box-shadow 0.2s;
 }
