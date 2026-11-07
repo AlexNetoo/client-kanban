@@ -9,6 +9,8 @@ import { useMe } from "./session";
 import { generatePassword } from "./lib/password";
 import { RequestList } from "./Requests";
 import { ProjectDialog } from "./dialogs";
+import { Linkify } from "./Linkify";
+import { formatDate } from "./lib/format";
 import type { ClientAccount, Designer, Project, ProjectRequest } from "./types";
 
 const MIN = 10;
@@ -277,6 +279,21 @@ function ClientsPanel({ clients, projects, reload, setRevealed }: { clients: Cli
   );
 }
 
+/** Type, dates, budget (private), links and notes for one project. Moved here from the board page. */
+function ProjectDetails({ project }: { project: Project }) {
+  const pal = usePalette();
+  if (!(project.type || project.startDate || project.dueDate || project.references || project.notes || project.budget != null)) return null;
+  return (
+    <dl className="proj-details" aria-label={`${project.name} details`} style={{ borderColor: pal.border, flexBasis: "100%", margin: "4px 0 0" }}>
+      {project.type && <div><dt style={{ color: pal.textTertiary }}>Type</dt><dd>{project.type}</dd></div>}
+      {(project.startDate || project.dueDate) && <div><dt style={{ color: pal.textTertiary }}>Dates</dt><dd>{project.startDate ? formatDate(project.startDate) : "—"} → {project.recurring ? "ongoing" : project.dueDate ? formatDate(project.dueDate) : "no due date"}</dd></div>}
+      {project.budget != null && <div><dt style={{ color: pal.textTertiary }}>Budget (private)</dt><dd>{new Intl.NumberFormat("en-IE", { style: "currency", currency: "EUR", maximumFractionDigits: 2 }).format(project.budget)}</dd></div>}
+      {project.references && <div className="wide"><dt style={{ color: pal.textTertiary }}>Links</dt><dd style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}><Linkify text={project.references} /></dd></div>}
+      {project.notes && <div className="wide"><dt style={{ color: pal.textTertiary }}>Notes</dt><dd style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}><Linkify text={project.notes} /></dd></div>}
+    </dl>
+  );
+}
+
 // ============================== Projects ==============================
 function ProjectsPanel({ projects, reload }: { projects: Project[]; reload: () => void }) {
   const pal = usePalette();
@@ -300,6 +317,7 @@ function ProjectsPanel({ projects, reload }: { projects: Project[]; reload: () =
             <Button size="sm" variant="ghost" aria-label={`${p.archived ? "Restore" : "Archive"} ${p.name}`}
               onClick={async () => { try { await api.updateProject(p.id, { archived: !p.archived }); toast(p.archived ? "Project restored" : "Project archived"); reload(); } catch (e) { toast((e as Error).message, "error"); } }}>{p.archived ? "Restore" : "Archive"}</Button>
             <Button size="sm" variant="secondary" aria-label={`Delete ${p.name}`} onClick={() => setDeleting(p)}>Delete</Button>
+            <ProjectDetails project={p} />
           </li>
         ))}
       </ul>

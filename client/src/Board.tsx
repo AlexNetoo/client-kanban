@@ -2,8 +2,6 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type DragEve
 import { Badge, Button, Heading, Progress } from "./halaska-kit";
 import { api } from "./api";
 import { TaskDialog } from "./dialogs";
-import { Linkify } from "./Linkify";
-import { formatDate } from "./lib/format";
 import { Assistant } from "./Assistant";
 import { useTouchDrag } from "./useTouchDrag";
 import { TaskCard } from "./TaskCard";
@@ -143,16 +141,6 @@ export function Board({ id, taskId }: { id: string; taskId?: string }) {
           </>}
         </div>}
       </div>
-
-      {(project.type || project.startDate || project.references || project.notes || (owner && project.budget != null)) && (
-        <dl className="proj-details" aria-label="Project details" style={{ borderColor: pal.border }}>
-          {project.type && <div><dt style={{ color: pal.textTertiary }}>Type</dt><dd>{project.type}</dd></div>}
-          {(project.startDate || project.dueDate) && <div><dt style={{ color: pal.textTertiary }}>Dates</dt><dd>{project.startDate ? formatDate(project.startDate) : "—"} → {project.recurring ? "ongoing" : project.dueDate ? formatDate(project.dueDate) : "no due date"}</dd></div>}
-          {owner && project.budget != null && <div><dt style={{ color: pal.textTertiary }}>Budget (private)</dt><dd>{new Intl.NumberFormat("en-IE", { style: "currency", currency: "EUR", maximumFractionDigits: 2 }).format(project.budget)}</dd></div>}
-          {project.references && <div className="wide"><dt style={{ color: pal.textTertiary }}>Links</dt><dd style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}><Linkify text={project.references} /></dd></div>}
-          {project.notes && <div className="wide"><dt style={{ color: pal.textTertiary }}>Notes</dt><dd style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}><Linkify text={project.notes} /></dd></div>}
-        </dl>
-      )}
 
       <div style={{ maxWidth: 480, marginBottom: 28 }}>
         <Progress value={project.progress} />
