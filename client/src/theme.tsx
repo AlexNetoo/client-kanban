@@ -33,7 +33,7 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <PrefCtx.Provider value={{ pref, setPref }}>
       <ThemeProvider theme={scheme}>
-        <AccentContext.Provider value={scheme === "dark" ? "#6b95ff" : "#3e63dd"}>
+        <AccentContext.Provider value={scheme === "dark" ? "#ffffff" : "#000000"}>
           <Page>{children}</Page>
         </AccentContext.Provider>
       </ThemeProvider>

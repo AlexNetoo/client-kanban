@@ -7,15 +7,17 @@
 @font-face { font-family: "Suisse Intl"; src: url("./assets/fonts/suisse-intl-regular.woff2") format("woff2"); font-weight: 100 449; font-style: normal; font-display: swap; }
 @font-face { font-family: "Suisse Intl"; src: url("./assets/fonts/suisse-intl-book.woff2") format("woff2"); font-weight: 450 599; font-style: normal; font-display: swap; }
 @font-face { font-family: "Suisse Intl"; src: url("./assets/fonts/suisse-intl-medium.woff2") format("woff2"); font-weight: 600 900; font-style: normal; font-display: swap; }
+/* DM Sans (variable, OFL) for navigation, labels, buttons and dates, as in the Figma system. */
+@font-face { font-family: "DM Sans"; src: url("./assets/fonts/dm-sans-latin.woff2") format("woff2"); font-weight: 100 1000; font-style: normal; font-display: swap; }
 /* Halaska reads --halaska-sans; point it at Suisse Int'l instead of Geist. */
 :root { --halaska-sans: "Suisse Intl"; }
-/* Colours (the warm tokens of the new alexneto.com). The intro and the hero background read --bg and --ink. */
-:root { --bg: #f3f0ea; --ink: #1a1917; --fg-rgb: 26, 25, 23; --surface: #e8e4dc; --line: rgba(26, 25, 23, 0.12); --ease: cubic-bezier(0.16, 1, 0.3, 1);
-  --accent: #3e63dd; --accent-text: #3e63dd; --on-accent: #ffffff;
-  --halaska-mono: ui-monospace, "SF Mono", "Geist Mono", "JetBrains Mono", Menlo, Consolas, monospace; --mono: var(--halaska-mono); }
-:root[data-theme="dark"] { --bg: #1a1917; --ink: #fff7f0; --fg-rgb: 255, 247, 240; --surface: #242320; --line: rgba(255, 247, 240, 0.1);
-  --accent: #6b95ff; --accent-text: #6b95ff; --on-accent: #1a1917; }
-:root[data-theme="light"] { --bg: #f3f0ea; --ink: #1a1917; }
+/* Colours: the grayscale tokens of the Figma file (bg/primary, bg/subtle, bg/muted, border/default, text/*). The intro reads --bg and --ink. */
+:root { --bg: #ffffff; --ink: #000000; --fg-rgb: 0, 0, 0; --surface: #fafafa; --line: #eeeeee; --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --accent: #000000; --accent-text: #000000; --on-accent: #ffffff;
+  --halaska-mono: "DM Sans", system-ui, sans-serif; --mono: var(--halaska-mono); }
+:root[data-theme="dark"] { --bg: #000000; --ink: #ffffff; --fg-rgb: 255, 255, 255; --surface: #0f0f0f; --line: rgba(255, 255, 255, 0.1);
+  --accent: #ffffff; --accent-text: #ffffff; --on-accent: #000000; }
+:root[data-theme="light"] { --bg: #ffffff; --ink: #000000; }
 
 /* Intro (ported from alexneto.com): a pixel-dot vinyl record and a "loading 000" counter. Plays once per session; boot.js adds .no-intro afterwards */
 .intro { position: fixed; inset: 0; z-index: 30000; background: var(--bg); display: none; place-content: center; justify-items: center; gap: 22px; transition: opacity 0.5s 0.2s var(--ease); }
@@ -192,10 +194,10 @@ button:not(:disabled):active { transform: scale(0.97); }
 @media (prefers-reduced-motion: reduce) { .page > *, .grid > li, .stats > *, .cards > .task { animation: none !important; } .lift:hover, .task-surface:hover { transform: none; } }
 
 /* Form fields: clearly visible against cards and modals (the kit's default blends into the surface) */
-:root { --field-bg: #f8f6f1; --field-border: rgba(26, 25, 23, 0.26); --field-border-hover: rgba(26, 25, 23, 0.5); --field-border-focus: var(--accent); }
-:root[data-theme="dark"] { --field-bg: #141311; --field-border: rgba(255, 247, 240, 0.2); --field-border-hover: rgba(255, 247, 240, 0.42); --field-border-focus: var(--accent); }
+:root { --field-bg: #ffffff; --field-border: #dedede; --field-border-hover: #999999; --field-border-focus: var(--accent); }
+:root[data-theme="dark"] { --field-bg: #000000; --field-border: rgba(255, 255, 255, 0.16); --field-border-hover: rgba(255, 255, 255, 0.4); --field-border-focus: var(--accent); }
 input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea {
-  background: var(--field-bg) !important; border: 1.5px solid var(--field-border) !important; transition: border-color 0.2s, box-shadow 0.2s;
+  background: var(--field-bg) !important; border: 1px solid var(--field-border) !important; transition: border-color 0.2s, box-shadow 0.2s;
 }
 input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):hover, textarea:hover { border-color: var(--field-border-hover) !important; }
 input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus, textarea:focus { border-color: var(--field-border-focus) !important; box-shadow: 0 0 0 3px color-mix(in srgb, var(--field-border-focus) 18%, transparent) !important; outline: none !important; }
@@ -203,7 +205,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus, text
 /* Date field: the kit's picker, styled like the other fields */
 .datefield { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
 .datefield > div { width: 100%; min-width: 0 !important; }
-.datefield button[aria-haspopup="dialog"] { width: 100%; background: var(--field-bg) !important; border: 1.5px solid var(--field-border) !important; height: 44px !important; }
+.datefield button[aria-haspopup="dialog"] { width: 100%; background: var(--field-bg) !important; border: 1px solid var(--field-border) !important; height: 44px !important; }
 .datefield button[aria-haspopup="dialog"]:hover { border-color: var(--field-border-hover) !important; }
 .datefield button[aria-haspopup="dialog"][aria-expanded="true"], .datefield button[aria-haspopup="dialog"]:focus-visible { border-color: var(--field-border-focus) !important; }
 
@@ -321,9 +323,9 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus, text
 @media print { .emerald-top { display: none !important; } .emerald-main { padding: 0; } }
 .emerald-shell { position: relative; min-height: 100vh; }
 .emerald-bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.55; }
-.emerald-top, .emerald-main { position: relative; z-index: 1; }
-.emerald-top { background: color-mix(in srgb, var(--bg) 86%, transparent); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+.emerald-shell.shell { min-height: 100vh; }
 .emerald-shell .ts-week, .emerald-shell .ts-total { background: var(--bg); }
+@media print { .emerald-shell.shell { display: block; } }
 @media print { .emerald-bg { display: none; } }
 
 /* Project details strip on the board */
@@ -337,11 +339,13 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus, text
 .ts-week__head:focus-visible, .ai-more:focus-visible, .ai-starter:focus-visible, .type-chip:focus-visible { outline-color: var(--accent); }
 .ai-starter:hover, .type-chip:hover { border-color: var(--accent) !important; }
 
-/* New alexneto.com look: monospace for the interface chrome (menus, buttons, labels), Suisse for content, hairlines, sharp corners */
+/* Figma system: DM Sans for the interface chrome (buttons, tabs, labels, dates), Suisse Int'l for content, hairlines, 5-6px corners */
 button:not(.nav-item), [role="tab"], [role="menuitem"], label, legend, dt, th, .mono, .stepper, .ts-cols, .ts-week__head, .ai-tag, .type-chip, .ai-more, .proj-details dt { font-family: var(--mono) !important; }
 button:not(.task-title):not(.ts-week__head):not(.type-chip):not(.ai-starter):not(.side-toggle):not(.ai-send):not(.ai-x) { letter-spacing: 0 !important; }
 .task-title, .task-title * { font-family: "Suisse Intl", system-ui, sans-serif !important; }
-[style*="text-transform: uppercase"], .brand-sub, .ts-cols, .proj-details dt, .ai-props__bar, .ai-tag, .side-heading { text-transform: none !important; letter-spacing: 0.01em !important; }
+/* Label style (DM Sans Label/Default): 12px, 6% tracking, uppercase */
+[style*="text-transform: uppercase"], .ts-cols, .proj-details dt, .ai-props__bar, .ai-tag, .side-heading { font-family: var(--mono) !important; font-weight: 400 !important; letter-spacing: 0.06em !important; text-transform: uppercase !important; }
+.hero__bg, .emerald-bg { display: none !important; }
 .card-hairline, .ts-week, .ts-total, .proj-details, .ai-prop, .req-card > div { box-shadow: none; }
 .lift:hover, .task-surface:hover { transform: translateY(-1px); box-shadow: none; }
 .task-surface > div, .lift > div { border: 1px solid var(--line); }

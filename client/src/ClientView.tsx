@@ -47,7 +47,7 @@ export function ClientView({ token, role }: { token: string; role: "owner" | "cl
       <section aria-labelledby="proj-title" style={{ padding: "8px 0 32px", marginBottom: 32, borderBottom: `1px solid ${pal.border}`, display: "flex", flexDirection: "column", gap: 18 }}>
         <div>
           <Text secondary>{p.client}</Text>
-          <h1 id="proj-title" style={{ margin: "4px 0 0", fontSize: "clamp(1.8rem, 4vw, 2.4rem)", fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.15 }}>{p.name}</h1>
+          <h1 id="proj-title" style={{ margin: "4px 0 0", fontSize: 28, fontWeight: 500, letterSpacing: "-0.01em", lineHeight: "32px" }}>{p.name}</h1>
           {p.summary && <p style={{ marginTop: 8, color: pal.textSecondary }}>{p.summary}</p>}
         </div>
         <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>

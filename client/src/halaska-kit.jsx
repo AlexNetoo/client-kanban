@@ -172,7 +172,7 @@ if (typeof document !== "undefined") injectStyles();
 
 const tokens = {
   space: { xs: 4, sm: 8, md: 16, lg: 32, xl: 40, xxl: 80, xxxl: 160, xxxxl: 240 },
-  radius: { xs: 3, sm: 4, md: 6, lg: 8, xl: 10, pill: 6 },
+  radius: { xs: 3, sm: 4, md: 5, lg: 6, xl: 8, pill: 6 },
   type: {
     xxs: { fontSize: 9, lineHeight: 1.3 },
     xs: { fontSize: 10, lineHeight: 1.45 },
@@ -192,28 +192,28 @@ const tokens = {
   },
   weight: { regular: 400, medium: 500, semibold: 600, bold: 700 },
   light: {
-    bg: "#f3f0ea",
-    bgElevated: "#e8e4dc",
-    bgSubtle: "#eeeae3",
-    bgMuted: "#e8e4dc",
-    bgHover: "#e0dbd1",
-    bgInput: "#ece8e1",
-    border: "rgba(26,25,23,0.12)",
-    borderSubtle: "rgba(26,25,23,0.07)",
-    borderInput: "rgba(26,25,23,0.1)",
-    borderFocus: "#1a1917",
-    text: "#1a1917",
-    textSecondary: "rgba(26,25,23,0.58)",
-    textTertiary: "rgba(26,25,23,0.4)",
-    textMuted: "rgba(26,25,23,0.24)",
-    textInverse: "#f3f0ea",
-    shadow: "rgba(26,25,23,0.04)",
-    shadowMd: "rgba(26,25,23,0.06)",
-    shadowLg: "rgba(26,25,23,0.12)",
-    accent: "#3e63dd",
-    accentHover: "#3453c4",
-    accentBg: "rgba(62,99,221,0.1)",
-    accentText: "#3e63dd",
+    bg: "#ffffff",
+    bgElevated: "#fafafa",
+    bgSubtle: "#fafafa",
+    bgMuted: "#eeeeee",
+    bgHover: "#f4f4f4",
+    bgInput: "#ffffff",
+    border: "#eeeeee",
+    borderSubtle: "#f4f4f4",
+    borderInput: "#dedede",
+    borderFocus: "#000000",
+    text: "#000000",
+    textSecondary: "#666666",
+    textTertiary: "#999999",
+    textMuted: "#c4c4c4",
+    textInverse: "#ffffff",
+    shadow: "rgba(0,0,0,0.03)",
+    shadowMd: "rgba(0,0,0,0.05)",
+    shadowLg: "rgba(0,0,0,0.1)",
+    accent: "#000000",
+    accentHover: "#222222",
+    accentBg: "rgba(0,0,0,0.06)",
+    accentText: "#000000",
     success: "#22c55e",
     successHover: "#16a34a",
     successBg: "#f0fdf4",
@@ -225,28 +225,28 @@ const tokens = {
     dangerBg: "#fef2f2",
   },
   dark: {
-    bg: "#1a1917",
-    bgElevated: "#242320",
-    bgSubtle: "#201f1c",
-    bgMuted: "#2b2a26",
-    bgHover: "#33322d",
-    bgInput: "#201f1c",
-    border: "rgba(255,247,240,0.1)",
-    borderSubtle: "rgba(255,247,240,0.06)",
-    borderInput: "rgba(255,247,240,0.08)",
-    borderFocus: "#fff7f0",
-    text: "#fff7f0",
-    textSecondary: "rgba(255,247,240,0.5)",
-    textTertiary: "rgba(255,247,240,0.34)",
-    textMuted: "rgba(255,247,240,0.2)",
-    textInverse: "#1a1917",
-    shadow: "rgba(0,0,0,0.2)",
-    shadowMd: "rgba(0,0,0,0.3)",
-    shadowLg: "rgba(0,0,0,0.4)",
-    accent: "#6b95ff",
-    accentHover: "#5a85f0",
-    accentBg: "rgba(107,149,255,0.14)",
-    accentText: "#6b95ff",
+    bg: "#000000",
+    bgElevated: "#0f0f0f",
+    bgSubtle: "#0f0f0f",
+    bgMuted: "#1a1a1a",
+    bgHover: "#222222",
+    bgInput: "#000000",
+    border: "rgba(255,255,255,0.1)",
+    borderSubtle: "rgba(255,255,255,0.06)",
+    borderInput: "rgba(255,255,255,0.16)",
+    borderFocus: "#ffffff",
+    text: "#ffffff",
+    textSecondary: "rgba(255,255,255,0.6)",
+    textTertiary: "rgba(255,255,255,0.4)",
+    textMuted: "rgba(255,255,255,0.22)",
+    textInverse: "#000000",
+    shadow: "rgba(0,0,0,0.3)",
+    shadowMd: "rgba(0,0,0,0.4)",
+    shadowLg: "rgba(0,0,0,0.5)",
+    accent: "#ffffff",
+    accentHover: "#e5e5e5",
+    accentBg: "rgba(255,255,255,0.1)",
+    accentText: "#ffffff",
     success: "#4ade80",
     successHover: "#22c55e",
     successBg: "rgba(74,222,128,0.1)",
@@ -588,9 +588,10 @@ function Heading({ children, level = 1, theme: tp, style: sp }) {
   const Tag = `h${level}`;
   return (
     <Tag style={{
-      ...tokens.type[sizes[level]], fontWeight: level <= 2 ? tokens.weight.bold : tokens.weight.semibold,
+      ...tokens.type[sizes[level]], ...(level === 1 ? { fontSize: 28, lineHeight: "32px" } : level === 2 ? { fontSize: 20, lineHeight: "28px" } : null),
+      fontWeight: level === 1 ? 500 : tokens.weight.semibold, // Suisse Book for the page title, Medium below it (Figma: Sans/H1/Book, Sans/XL/Medium)
       fontFamily: tokens.font.sans, color: pal.text, margin: 0,
-      letterSpacing: level <= 2 ? "-0.02em" : "0em", transition: `color ${motion.smooth} ${motion.easeInOut}`, ...sp,
+      letterSpacing: level === 1 ? "-0.01em" : "0em", transition: `color ${motion.smooth} ${motion.easeInOut}`, ...sp,
     }}>{children}</Tag>
   );
 }
@@ -599,7 +600,7 @@ function Label({ children, required, htmlFor, theme: tp, style: sp }) {
   const ctx = useThemeContext(); const theme = tp || ctx; const pal = usePal(theme);
   return (
     <label htmlFor={htmlFor} style={{
-      ...tokens.type.sm, fontWeight: tokens.weight.medium, fontFamily: tokens.font.sans,
+      ...tokens.type.sm, fontWeight: tokens.weight.regular, fontFamily: tokens.font.mono,
       color: pal.textSecondary, display: "flex", alignItems: "center",
       gap: 4, transition: `color ${motion.smooth} ${motion.easeInOut}`, ...sp,
     }}>{children}{required && <span aria-hidden="true" style={{ color: pal.danger }}>*</span>}</label>
@@ -634,9 +635,9 @@ function Button({
   const [pressed, setPressed] = useState(false);
 
   const sizes = {
-    sm: { padding: `${8 - 1}px ${12}px`, ...tokens.type.sm, height: 30 },
-    md: { padding: `${8}px ${16}px`, ...tokens.type.base, height: 36 },
-    lg: { padding: `${12}px ${24}px`, ...tokens.type.md, height: 42 },
+    sm: { padding: `${5}px ${10}px`, ...tokens.type.sm, height: 28 },
+    md: { padding: `${7}px ${12}px`, ...tokens.type.sm, height: 32 },
+    lg: { padding: `${9}px ${16}px`, ...tokens.type.base, height: 38 },
     xl: { padding: `${16}px ${32}px`, ...tokens.type.lg, height: 48 },
   };
 
@@ -662,12 +663,13 @@ function Button({
 
   const variants = {
     primary: {
-      background: disabled ? pal.bgMuted : pal.accent, // primary colour (blue, set in theme.tsx)
+      background: disabled ? pal.bgMuted : pal.accent, // primary colour (black, set in theme.tsx)
       color: disabled ? pal.textMuted : "var(--on-accent, #ffffff)",
     },
     secondary: {
-      background: disabled ? "transparent" : pal.bgMuted,
-      color: disabled ? pal.textMuted : pal.text,
+      background: "transparent",
+      color: disabled ? pal.textMuted : pal.textSecondary,
+      border: `1px solid ${disabled ? pal.borderSubtle : pal.border}`,
     },
     outline: {
       background: disabled ? "transparent" : "transparent",
@@ -704,21 +706,21 @@ function Button({
       type={type} aria-label={ariaLabel} aria-expanded={ariaExpanded} aria-haspopup={ariaHaspopup} aria-describedby={ariaDescribedby} aria-busy={loading || undefined}
       style={{
         ...interactiveBase, ...s, border: "none", ...v,
-        fontWeight: tokens.weight.medium, borderRadius: tokens.radius.md,
+        fontWeight: tokens.weight.regular, borderRadius: tokens.radius.md,
         display: "inline-flex", alignItems: "center", justifyContent: "center",
         gap: 8, width: fullWidth ? "100%" : "auto",
         transform: pressed && !disabled ? "scale(0.97)" : "scale(1)",
         opacity: loading ? 0.7 : 1, pointerEvents: disabled || loading ? "none" : "auto",
-        letterSpacing: "-0.01em",
-        boxShadow: isHover ? shadow : "none",
-        filter: isHover ? `brightness(${brightness})` : "brightness(1)",
+        letterSpacing: 0,
+        boxShadow: "none",
+        filter: isHover ? (variant === "secondary" || variant === "outline" || variant === "ghost" ? "brightness(0.97)" : `brightness(${variant === "primary" ? 1.25 : brightness})`) : "brightness(1)",
         transition: `all ${motion.normal} ${motion.easeInOut}, box-shadow ${motion.fast} ${motion.easeOut}, filter ${motion.fast} ${motion.easeOut}`,
         ...sp,
       }}
     >
       {loading && <Spinner size={s.fontSize} color={v.color} />}
       {!loading && icon && <span style={{ fontSize: s.fontSize + 2, lineHeight: 1, display: "flex" }}>{icon}</span>}
-      <span style={{ fontFamily: tokens.font.sans, fontWeight: tokens.weight.medium }}>
+      <span style={{ fontFamily: tokens.font.mono, fontWeight: tokens.weight.regular }}>
         {children}
       </span>
       {iconRight && <span style={{ fontSize: s.fontSize + 2, lineHeight: 1, display: "flex" }}>{iconRight}</span>}

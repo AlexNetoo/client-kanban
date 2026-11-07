@@ -64,7 +64,7 @@ export function TaskModal({ task: t, projectName, designers, onClose, onChange, 
       <div className="task-modal">
         <div className="task-main">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
-            <h2 style={{ margin: 0, fontSize: 24, fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1.25 }}>{t.title}</h2>
+            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: 0, lineHeight: "28px" }}>{t.title}</h2>
             <div style={{ display: "flex", gap: 8 }}>
               <Button size="sm" variant="ghost" aria-label={`Copy link to ${t.title}`} onClick={copyLink}>Copy link</Button>
               {canEdit && <Button size="sm" variant="secondary" aria-label={`Edit task ${t.title}`} onClick={onEdit}>Edit</Button>}

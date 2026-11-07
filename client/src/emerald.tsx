@@ -4,16 +4,16 @@ import "./index.css";
 import { Button, Heading, Text, TextInput } from "./halaska-kit";
 import { api } from "./api";
 import { Timesheet } from "./Timesheet";
-import { HeroBackground } from "./HeroBackground";
 import { markReady } from "./intro";
 import { Providers, usePalette } from "./theme";
-import { ToastProvider, Loading, val } from "./ui";
+import { ToastProvider, Loading, val, Brand } from "./ui";
+import { Item, ClockIcon, FolderIcon, ShieldIcon, LogOutIcon } from "./Sidebar";
 
-markReady(); // there is no intro here, so the drifting-lines background can fade in straight away
+markReady(); // there is no intro on this site
 
 /** The Emerald timesheet as its own small site (neto.design/emerald): its own password, its own session, no portal around it. */
 function Mark() {
-  return <span className="nav__brand" style={{ fontSize: 20 }}><span className="nav__mark" /><span className="nav__word">Emerald</span><span style={{ fontWeight: 400, opacity: 0.55 }}>timesheet</span></span>;
+  return <Brand href="/emerald" label="Emerald" />;
 }
 
 function SignIn({ onDone }: { onDone: () => void }) {
@@ -28,7 +28,6 @@ function SignIn({ onDone }: { onDone: () => void }) {
   };
   return (
     <main className="login-wrap hero">
-      <HeroBackground />
       <form onSubmit={submit} style={{ width: "min(100%, 360px)", display: "flex", flexDirection: "column", gap: 18 }} noValidate>
         <div style={{ marginBottom: 14 }}><Mark /></div>
         <div><Heading level={1}>Sign in</Heading><Text secondary>This page is private. Enter the password to open the timesheet.</Text></div>
@@ -46,14 +45,25 @@ function Site() {
   useEffect(() => { api.emeraldSession().then(() => setState("in")).catch(() => setState("out")); }, []);
   if (state === "checking") return <div style={{ padding: 32 }}><Loading rows={1} /></div>;
   if (state === "out") return <SignIn onDone={() => setState("in")} />;
+  const signOut = async () => { try { await api.emeraldLogout(); } finally { setState("out"); } };
   return (
-    <div className="emerald-shell">
-      <div className="emerald-bg" aria-hidden="true"><HeroBackground /></div>
-      <header className="emerald-top" style={{ borderBottom: `1px solid ${pal.border}` }}>
-        <Mark />
-        <Button variant="secondary" size="sm" onClick={async () => { try { await api.emeraldLogout(); } finally { setState("out"); } }}>Sign out</Button>
-      </header>
-      <main className="emerald-main"><Timesheet /></main>
+    <div className="shell emerald-shell">
+      <aside className="sidebar" style={{ borderRight: `1px solid ${pal.border}`, background: pal.bg }}>
+        <div style={{ padding: "2px 2px 16px 10px" }}><Mark /></div>
+        <nav aria-label="Main" style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minHeight: 0 }}>
+          <Item href="/emerald" active label="Timesheet" icon={<ClockIcon />} />
+          <Item href="/" label="Projects" icon={<FolderIcon />} />
+          <Item href="/admin" label="Admin console" icon={<ShieldIcon />} />
+          <div style={{ marginTop: "auto", paddingTop: 12 }}><Item label="Log out" icon={<LogOutIcon />} onClick={signOut} /></div>
+        </nav>
+      </aside>
+      <div className="shell-main">
+        <header className="topbar" style={{ borderBottom: `1px solid ${pal.border}`, justifyContent: "space-between" }}>
+          <Mark />
+          <Button variant="secondary" size="sm" onClick={signOut}>Log out</Button>
+        </header>
+        <main className="emerald-main"><Timesheet /></main>
+      </div>
     </div>
   );
 }

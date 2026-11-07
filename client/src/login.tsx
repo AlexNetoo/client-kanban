@@ -2,7 +2,6 @@ import { StrictMode, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import { runIntro } from "./intro";
-import { HeroBackground } from "./HeroBackground";
 runIntro();
 import { Button, Heading, Text, TextInput } from "./halaska-kit";
 import { api } from "./api";
@@ -22,7 +21,6 @@ const COPY = DESIGNER
 function Shell({ children, onSubmit }: { children: React.ReactNode; onSubmit: (e: FormEvent) => void }) {
   return (
     <main className="login-wrap hero">
-      <HeroBackground />
       <form onSubmit={onSubmit} style={{ width: "min(100%, 380px)", display: "flex", flexDirection: "column", gap: 18 }} noValidate>
         <div style={{ marginBottom: 18 }}><Brand href="/login" portalOnly /></div>
         {children}
@@ -116,7 +114,6 @@ function Login() {
 
   return (
     <main className="login-wrap hero">
-      <HeroBackground />
       <form onSubmit={submit} style={{ width: "min(100%, 380px)", display: "flex", flexDirection: "column", gap: 18 }} noValidate>
         <div style={{ marginBottom: 18 }}><Brand href="/login" portalOnly /></div>
         <div>
