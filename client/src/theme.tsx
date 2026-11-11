@@ -7,8 +7,8 @@ const query = "(prefers-color-scheme: dark)";
 const KEY = "ph-theme";
 
 const readPref = (): ThemePref => {
-  try { const v = localStorage.getItem(KEY); if (v === "light" || v === "dark") return v; } catch { /* storage unavailable */ }
-  return "system";
+  try { const v = localStorage.getItem(KEY); if (v === "light" || v === "dark" || v === "system") return v; } catch { /* storage unavailable */ }
+  return "light"; // light by default, like alexneto.com; dark or system can still be picked in Settings
 };
 
 const PrefCtx = createContext<{ pref: ThemePref; setPref: (p: ThemePref) => void }>({ pref: "system", setPref: () => {} });
@@ -23,11 +23,11 @@ function useScheme(): [Scheme, ThemePref, (p: ThemePref) => void] {
     mq.addEventListener("change", on);
     return () => mq.removeEventListener("change", on);
   }, []);
-  const setPref = (p: ThemePref) => { setPrefState(p); try { if (p === "system") localStorage.removeItem(KEY); else localStorage.setItem(KEY, p); } catch { /* ignore */ } };
+  const setPref = (p: ThemePref) => { setPrefState(p); try { if (p === "light") localStorage.removeItem(KEY); else localStorage.setItem(KEY, p); } catch { /* ignore */ } };
   return [pref === "system" ? system : pref, pref, setPref];
 }
 
-/** The interface is grayscale with one primary colour: the blue from alexneto.com (#3e63dd on light, #6b95ff on dark, from the new site). */
+/** The interface is grayscale with black as its primary colour, like alexneto.com (white on dark). */
 export function Providers({ children }: { children: ReactNode }) {
   const [scheme, pref, setPref] = useScheme();
   return (

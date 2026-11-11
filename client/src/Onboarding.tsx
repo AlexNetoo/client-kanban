@@ -112,7 +112,7 @@ export function Onboarding() {
   const [startDate, setStart] = useState(today);
   const [dueDate, setDue] = useState("");
   const head = useRef<HTMLHeadingElement>(null);
-  useEffect(() => { document.title = "New project · Alex Neto - Client Portal"; }, []);
+  useEffect(() => { document.title = "New project · Alex Neto Portal"; }, []);
   useEffect(() => { head.current?.focus({ preventScroll: true }); }, [step, done]);
 
   const days = startDate && dueDate ? daysBetween(startDate, dueDate) : 0;

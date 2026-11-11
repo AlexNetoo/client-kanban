@@ -172,7 +172,7 @@ if (typeof document !== "undefined") injectStyles();
 
 const tokens = {
   space: { xs: 4, sm: 8, md: 16, lg: 32, xl: 40, xxl: 80, xxxl: 160, xxxxl: 240 },
-  radius: { xs: 3, sm: 4, md: 5, lg: 6, xl: 8, pill: 6 },
+  radius: { xs: 4, sm: 6, md: 8, lg: 12, xl: 12, pill: 999 }, // alexneto.com: 12px cards, pill buttons
   type: {
     xxs: { fontSize: 9, lineHeight: 1.3 },
     xs: { fontSize: 10, lineHeight: 1.45 },
@@ -706,7 +706,7 @@ function Button({
       type={type} aria-label={ariaLabel} aria-expanded={ariaExpanded} aria-haspopup={ariaHaspopup} aria-describedby={ariaDescribedby} aria-busy={loading || undefined}
       style={{
         ...interactiveBase, ...s, border: "none", ...v,
-        fontWeight: tokens.weight.regular, borderRadius: tokens.radius.md,
+        fontWeight: tokens.weight.regular, borderRadius: tokens.radius.pill,
         display: "inline-flex", alignItems: "center", justifyContent: "center",
         gap: 8, width: fullWidth ? "100%" : "auto",
         transform: pressed && !disabled ? "scale(0.97)" : "scale(1)",

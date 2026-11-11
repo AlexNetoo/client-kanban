@@ -344,7 +344,7 @@ export function AdminConsole() {
       setData({ designers, clients, projects, requests }); setError("");
     } catch (e) { setError((e as Error).message); }
   }, []);
-  useEffect(() => { document.title = "Admin console · Alex Neto - Client Portal"; load(); }, [load]);
+  useEffect(() => { document.title = "Admin console · Alex Neto Portal"; load(); }, [load]);
 
   if (error) return <StateBlock title="Couldn’t load the admin console" description={error} action={<Button onClick={load}>Try again</Button>} />;
   if (!data) return <Loading rows={2} />;

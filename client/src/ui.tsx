@@ -136,13 +136,13 @@ export function Person({ name, size = 28 }: { name: string; size?: number }) {
   );
 }
 
-/** The alexneto.com logo (circle + name) with "Client Portal" as a quiet label underneath. */
-/** The site logo (a ball with four dots) with "Client Portal" beside it. */
-export function Brand({ href = "#/", label = "Client Portal" }: { href?: string; label?: string; portalOnly?: boolean }) {
+/** The brand, as on alexneto.com and its admin: "Alex Neto" with a small uppercase label beside it. */
+export function Brand({ href = "#/", label = "Portal" }: { href?: string; label?: string; portalOnly?: boolean }) {
+  const tag = label === "Client Portal" ? "Portal" : label;
   return (
-    <a href={href} className="nav__brand" aria-label={`${label}, home`}>
-      <svg className="nav__mark" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="currentColor" /><g fill="var(--bg)"><circle cx="9.5" cy="9.5" r="1.6" /><circle cx="14.5" cy="9.5" r="1.6" /><circle cx="9.5" cy="14.5" r="1.6" /><circle cx="14.5" cy="14.5" r="1.6" /></g></svg>
-      <span className="nav__word">{label}</span>
+    <a href={href} className="nav__brand" aria-label={`Alex Neto ${tag}, home`}>
+      <span className="nav__word">Alex Neto</span>
+      <span className="nav__tag">{tag}</span>
     </a>
   );
 }

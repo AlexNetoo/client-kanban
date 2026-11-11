@@ -18,7 +18,7 @@ export function Settings() {
   const toast = useToast();
   const [pw, setPw] = useState(false);
   const [notify, setNotify] = useState(me.notify !== false);
-  useEffect(() => { document.title = "Settings · Alex Neto - Client Portal"; }, []);
+  useEffect(() => { document.title = "Settings · Alex Neto Portal"; }, []);
 
   const Section = ({ title, children }: { title: string; children: ReactNode }) => (
     <section aria-label={title} style={{ border: `1px solid ${pal.border}`, borderRadius: 6, padding: 20, display: "flex", flexDirection: "column", gap: 12 }}>
