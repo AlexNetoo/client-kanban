@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Button, IconButton, Sheet } from "./halaska-kit";
+import { Sheet } from "./halaska-kit";
 import { api, loginPath } from "./api";
 import { AdminConsole } from "./AdminConsole";
 import { Board } from "./Board";
@@ -11,7 +11,6 @@ import { Nav } from "./Sidebar";
 import { Settings } from "./Settings";
 import { SessionProvider, type Me } from "./session";
 import { Brand } from "./ui";
-import { usePalette } from "./theme";
 import { isDemo } from "./demo";
 
 function useHash() {
@@ -25,11 +24,8 @@ const signOut = async () => { try { await api.logout(); } finally { location.rep
 export const isAdminPath = () => location.pathname.replace(/\/+$/, "") === "/admin";
 
 export function App() {
-  const pal = usePalette();
   const [me, setMe] = useState<Me | null>(null);
   const [menu, setMenu] = useState(false);
-  const [collapsed, setCollapsed] = useState(() => { try { return localStorage.getItem("sidebar") === "collapsed"; } catch { return false; } });
-  const toggleSide = () => setCollapsed((c) => { try { localStorage.setItem("sidebar", c ? "open" : "collapsed"); } catch { /* storage unavailable */ } return !c; });
   const route = useHash();
   const main = useRef<HTMLElement>(null);
   useEffect(() => { api.session().then((s) => setMe({ role: s.role, designer: s.designer, client: s.client, expiresAt: s.expiresAt, maxUploadBytes: s.maxUploadBytes, ai: s.ai, mail: s.mail, notify: s.notify })).catch(() => {}); }, []);
@@ -48,30 +44,33 @@ export function App() {
   else if (kind === "p" && param) view = <Board key={param} id={decodeURIComponent(param)} taskId={sub === "t" && subParam ? decodeURIComponent(subParam) : undefined} />;
   else view = <Dashboard />;
 
+  const home = isDemo() ? "/demo" : "/"; // the demo lives at /demo, so links must stay there
+  const owner = role === "owner";
+  const links: { href: string; label: string; active: boolean }[] = [
+    { href: `${home}#/`, label: owner ? "Projects" : "My projects", active: !admin && (kind === undefined || kind === "" || kind === "p") },
+    ...(role === "client" ? [{ href: `${home}#/new`, label: "New project", active: kind === "new" }] : []),
+    ...(owner ? [{ href: "/emerald", label: "Timesheet", active: false }, { href: "/admin", label: "Admin console", active: admin }] : []),
+    { href: `${home}#/settings`, label: "Settings", active: !admin && kind === "settings" },
+  ];
+
+  // The same frame as alexneto.com/admin: the name on the left, links and a black pill on the right, one centred column.
   return (
     <SessionProvider value={me}>
       <ProjectsProvider>
         {skip}
-        <div className={collapsed ? "shell is-collapsed" : "shell"}>
-          <aside className="sidebar" style={{ borderRight: `1px solid ${pal.border}`, background: pal.bg }}>
-            <div style={{ padding: collapsed ? "2px 0 16px" : "2px 2px 16px 10px", display: "flex", alignItems: "center", justifyContent: collapsed ? "center" : "space-between", gap: 4 }}>
-              {!collapsed && <Brand href={isDemo() ? "/demo#/" : "/#/"} />}
-              <button type="button" className="side-toggle" onClick={toggleSide} aria-expanded={!collapsed} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} title={collapsed ? "Expand sidebar" : "Collapse sidebar"} style={{ color: pal.textSecondary }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
-              </button>
-            </div>
-            <Nav route={route} admin={admin} collapsed={collapsed} />
-          </aside>
-          <div className="shell-main">
-            <header className="topbar" style={{ borderBottom: `1px solid ${pal.border}` }}>
-              <IconButton icon={<span aria-hidden="true" style={{ fontSize: 18 }}>☰</span>} label="Open menu" onClick={() => setMenu(true)} aria-haspopup="dialog" />
-              <Brand href={isDemo() ? "/demo#/" : "/#/"} />
-            </header>
-            <main id="main" ref={main} tabIndex={-1} className="page" style={{ maxWidth: 1280, margin: "0 auto", padding: "36px 28px 96px" }}>{view}</main>
-          </div>
+        <div className="portal">
+          <header className="ptop">
+            <Brand href={`${home}#/`} />
+            <nav className="ptop__nav" aria-label="Main">
+              {links.map((l) => <a key={l.href} href={l.href} className="ptop__link" aria-current={l.active ? "page" : undefined}>{l.label}</a>)}
+              <button type="button" className="ppill" onClick={signOut}>Log out</button>
+            </nav>
+            <button type="button" className="ptop__menu" onClick={() => setMenu(true)} aria-haspopup="dialog">Menu</button>
+          </header>
+          <main id="main" ref={main} tabIndex={-1} className="ppage">{view}</main>
         </div>
         {isDemo() && <div className="demo-pill" role="status"><span>Demo: a sample project. Nothing is saved.</span><button type="button" onClick={() => { location.href = "/login"; }}>Exit demo</button></div>}
-        <Sheet open={menu} onClose={() => setMenu(false)} title="Menu" side="left"><div style={{ height: "calc(100vh - 110px)", display: "flex", flexDirection: "column" }}><Nav route={route} admin={admin} onNavigate={() => setMenu(false)} /></div></Sheet>
+        <Sheet open={menu} onClose={() => setMenu(false)} title="Menu" side="right"><div style={{ height: "calc(100vh - 110px)", display: "flex", flexDirection: "column" }}><Nav route={route} admin={admin} onNavigate={() => setMenu(false)} /></div></Sheet>
       </ProjectsProvider>
     </SessionProvider>
   );
