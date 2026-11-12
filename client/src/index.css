@@ -19,15 +19,18 @@
   --accent: #ffffff; --accent-text: #ffffff; --on-accent: #1f1f1f; }
 :root[data-theme="light"] { --bg: #ffffff; --ink: #000000; }
 
-/* Intro (ported from alexneto.com): a pixel-dot vinyl record and a "loading 000" counter. Plays once per session; boot.js adds .no-intro afterwards */
-.intro { position: fixed; inset: 0; z-index: 30000; background: var(--bg); display: none; place-content: center; justify-items: center; gap: 22px; transition: opacity 0.5s 0.2s var(--ease); }
+/* Intro: a small patch of the site's dot grid with a spot of light sweeping across it. Plays once per session; boot.js adds .no-intro afterwards */
+.intro { position: fixed; inset: 0; z-index: 30000; background: var(--bg); display: none; place-content: center; transition: opacity 0.4s var(--ease); }
 .js .intro { display: grid; }
 .no-intro .intro { display: none !important; }
-.intro canvas { max-width: 92vw; aspect-ratio: 1; }
-.intro p { display: flex; gap: 18px; margin: 0; font-family: var(--mono); font-size: 12px; color: rgba(var(--fg-rgb), 0.4); font-variant-numeric: tabular-nums; }
-.intro p span:last-child { color: rgba(var(--fg-rgb), 0.58); }
+.intro__dots { position: relative; display: block; width: 117px; height: 117px; }
+.intro__dots::before, .intro__dots::after { content: ""; position: absolute; inset: 0; background-image: radial-gradient(rgb(var(--fg-rgb)) 0.9px, transparent 1.1px); background-size: 9px 9px; }
+.intro__dots::before { opacity: 0.14; } /* the resting grid */
+.intro__dots::after { opacity: 0.9; -webkit-mask-image: radial-gradient(34px circle at var(--ix, 20%) var(--iy, 30%), #000, transparent 85%); mask-image: radial-gradient(34px circle at var(--ix, 20%) var(--iy, 30%), #000, transparent 85%); animation: intro-sweep 1.4s var(--ease) infinite alternate; }
+@property --ix { syntax: "<percentage>"; inherits: false; initial-value: 15%; }
+@property --iy { syntax: "<percentage>"; inherits: false; initial-value: 25%; }
+@keyframes intro-sweep { 0% { --ix: 15%; --iy: 25%; } 50% { --ix: 80%; --iy: 45%; } 100% { --ix: 35%; --iy: 85%; } }
 .intro.is-done { opacity: 0; pointer-events: none; }
-.intro.is-done canvas { transform: scale(5); opacity: 0; transition: transform 0.7s cubic-bezier(0.7, 0, 0.84, 0), opacity 0.5s 0.15s; }
 
 /* Hero background (ported from alexneto.com) */
 .hero { position: relative; overflow: hidden; }
