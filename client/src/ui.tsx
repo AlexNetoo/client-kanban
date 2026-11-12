@@ -140,8 +140,8 @@ export function Person({ name, size = 28 }: { name: string; size?: number }) {
 }
 
 /** The brand, as on alexneto.com and its admin: "Alex Neto" with a small uppercase label beside it. */
-export function Brand({ href = "#/", label = "Portal" }: { href?: string; label?: string; portalOnly?: boolean }) {
-  const tag = label === "Client Portal" ? "Portal" : label;
+export function Brand({ href = "#/", label = "Client Portal" }: { href?: string; label?: string; portalOnly?: boolean }) {
+  const tag = label;
   return (
     <a href={href} className="nav__brand" aria-label={`Alex Neto ${tag}, home`}>
       <span className="nav__word">Alex Neto</span>
