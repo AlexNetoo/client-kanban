@@ -1014,61 +1014,6 @@ test('email: welcome, password reset, project approved and due-date reminders', 
   } finally { s7.close(); fs.rmSync(dir7, { recursive: true, force: true }); }
 });
 
-test('timesheet (/emerald): admin only, validated, totals at the hourly rate', async () => {
-  const owner = (await login(OWNER_PW)).cookie;
-  // /emerald is its own small site: the page is public (no data), the API needs the site's own session (or the admin's portal session)
-  const anon = await call('GET', '/emerald');
-  assert.ok(anon.res.status === 200 && anon.text.includes('assets/emerald-'), 'the standalone site is served');
-  assert.strictEqual((await call('GET', '/api/timesheet?month=2026-09')).res.status, 401);
-  assert.strictEqual((await call('GET', '/api/emerald/session')).res.status, 401);
-  const client = await newClient(owner);
-  assert.strictEqual((await call('GET', '/api/timesheet?month=2026-09', { cookie: client.cookie })).res.status, 401); // a client session is not a timesheet session
-  assert.strictEqual((await call('PUT', '/api/timesheet/2026-09-08', { cookie: client.cookie, body: { hours: 3, note: 'x' } })).res.status, 401);
-  assert.strictEqual((await call('GET', '/api/emerald/session', { cookie: owner })).res.status, 200); // the admin's portal session also opens it
-  // its own password and cookie
-  const wrong = await call('POST', '/api/emerald/login', { body: { password: 'definitely-wrong' } });
-  assert.strictEqual(wrong.res.status, 401);
-  const right = await call('POST', '/api/emerald/login', { body: { password: OWNER_PW } });
-  assert.strictEqual(right.res.status, 200);
-  const emerald = (right.res.headers.get('set-cookie') || '').split(';')[0];
-  assert.ok(emerald.startsWith('emerald='));
-  assert.strictEqual((await call('GET', '/api/emerald/session', { cookie: emerald })).res.status, 200);
-  assert.strictEqual((await call('GET', '/api/timesheet?month=2026-09', { cookie: emerald })).res.status, 200);
-  for (const u of ['/api/projects', '/api/clients', '/api/designers']) assert.strictEqual((await call('GET', u, { cookie: emerald })).res.status, 401, `${u}: the timesheet session must not open the portal`);
-  assert.strictEqual((await call('POST', '/api/projects', { cookie: emerald, body: { name: 'x', client: 'y' } })).res.status, 401);
-  assert.strictEqual((await call('POST', '/api/emerald/logout', { cookie: emerald, body: {} })).res.status, 200);
-
-  const put = (date, body) => call('PUT', `/api/timesheet/${date}`, { cookie: owner, body });
-  assert.strictEqual((await put('2026-09-08', { hours: 3, note: 'Platform e-mail centralisation' })).res.status, 200);
-  assert.strictEqual((await put('2026-09-09', { hours: '2,5', note: 'Design revisions' })).json.hours, 2.5); // comma decimals and numeric strings are accepted
-  assert.strictEqual((await put('2026-09-10', { hours: 1.25, note: '' })).json.hours, 1.25);
-  assert.strictEqual((await put('2026-10-01', { hours: 4, note: 'next month' })).res.status, 200);
-  for (const bad of [{ hours: -1 }, { hours: 25 }, { hours: 1.1 }, { hours: 'abc' }, { hours: 2, note: 'x'.repeat(501) }]) assert.strictEqual((await put('2026-09-11', bad)).res.status, 400, JSON.stringify(bad));
-  assert.strictEqual((await put('2026-13-40', { hours: 1 })).res.status, 400);
-  assert.strictEqual((await put('2026-02-30', { hours: 1 })).res.status, 400);
-  const sep = (await call('GET', '/api/timesheet?month=2026-09', { cookie: owner })).json;
-  assert.deepStrictEqual([sep.rate, sep.hours, sep.amount], [30, 6.75, 202.5]);
-  assert.deepStrictEqual(Object.keys(sep.entries), ['2026-09-08', '2026-09-09', '2026-09-10']);
-  assert.strictEqual(sep.entries['2026-09-08'].note, 'Platform e-mail centralisation');
-  assert.strictEqual((await call('GET', '/api/timesheet?month=2026-10', { cookie: owner })).json.amount, 120);
-  assert.strictEqual((await call('GET', '/api/timesheet?month=nope', { cookie: owner })).res.status, 400);
-  // clearing a day removes it
-  assert.strictEqual((await put('2026-09-10', { hours: 0, note: '' })).res.status, 200);
-  assert.strictEqual((await call('GET', '/api/timesheet?month=2026-09', { cookie: owner })).json.hours, 5.5);
-  // days off: a day off (or a normal weekend) doesn't count, a worked weekend does; off can be switched back
-  assert.strictEqual((await put('2026-09-14', { hours: 5, note: 'Monday', off: null })).json.off, null);
-  assert.strictEqual((await call('GET', '/api/timesheet?month=2026-09', { cookie: owner })).json.hours, 10.5);
-  assert.strictEqual((await put('2026-09-14', { hours: 5, note: 'Monday', off: true })).json.off, true);
-  assert.strictEqual((await call('GET', '/api/timesheet?month=2026-09', { cookie: owner })).json.hours, 5.5); // the day off is excluded, the entry is kept
-  assert.strictEqual((await put('2026-09-19', { hours: 2, note: 'Saturday', off: null })).res.status, 200); // a weekend entry without a flag is still a day off
-  assert.strictEqual((await call('GET', '/api/timesheet?month=2026-09', { cookie: owner })).json.hours, 5.5);
-  assert.strictEqual((await put('2026-09-19', { hours: 2, note: 'Saturday', off: false })).res.status, 200); // a worked weekend counts
-  assert.strictEqual((await call('GET', '/api/timesheet?month=2026-09', { cookie: owner })).json.hours, 7.5);
-  assert.strictEqual((await put('2026-09-14', { hours: 5, note: 'Monday', off: 'yes' })).res.status, 400);
-  assert.strictEqual((await put('2026-09-14', { hours: 0, note: '', off: null })).res.status, 200); // back to the default and empty: removed
-  assert.ok(!('2026-09-14' in (await call('GET', '/api/timesheet?month=2026-09', { cookie: owner })).json.entries));
-});
-
 test('project details survive approval and can be edited afterwards; the budget stays with the admin', async () => {
   const owner = (await login(OWNER_PW)).cookie;
   const client = await newClient(owner);

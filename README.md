@@ -166,12 +166,6 @@ URLs in task descriptions, client updates and comments become clickable links th
 
 Ollama is deliberately limited to `localhost`: a deployed site (Vercel) can't reach your computer, and the app refuses any other Ollama address so a server can never be pointed at an open Ollama by mistake. If both `ANTHROPIC_API_KEY` and `OLLAMA_MODEL` are set, Anthropic is used unless `AI_PROVIDER=ollama`.
 
-## Emerald timesheet (`/emerald`)
-
-A separate, password-protected site for logging hours: it has no portal menu around it, its own sign-in and its own session cookie (so it never signs you in to or out of the portal, and its session can't open any portal data). The password is the admin password unless you set `EMERALD_PASSWORD_HASH` (create one with the same hashing as `APP_PASSWORD_HASH`, see `npm run setup`). A signed-in admin portal session opens it without asking again, and the admin menu has a **Timesheet** link. Sign-in attempts are limited (5 wrong tries per address in 15 minutes).
-
-Pick a month, then type the hours worked (quarter hours are fine, for example `1.5`) and a note about what was done for each day. Entries save by themselves. Each week and the month show the hours and the amount at **€30 per hour** (`TIMESHEET_RATE` in `server/validate.js`). Each week can be collapsed (its totals stay visible; the choice is remembered). The **Off** tick at the end of a day marks a day off: it is greyed out, locked and not counted. Weekends are days off by default, and un-ticking a weekend lets you log hours on it. Days outside the month are greyed out. **Print** produces a clean copy (or a PDF). Data lives in the same database as everything else.
-
 ## Email notifications
 
 Set `RESEND_API_KEY` and `EMAIL_FROM` (an address on a domain verified in [Resend](https://resend.com)) to turn on email. Without them nothing is sent in production, and in development each email is printed to the terminal.

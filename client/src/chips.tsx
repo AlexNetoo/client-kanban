@@ -2,8 +2,8 @@ import { useTheme } from "./theme";
 import { discountPercent } from "./lib/pricing";
 import { PRIORITY, PROJECT_STATUS, type Priority, type ProjectStatus } from "./types";
 
-// The only coloured elements in an otherwise grayscale UI. Each chip also carries a text label (and a
-// shape for priority), so colour is never the only signal. Pairs are tuned for AA contrast.
+// The only coloured elements in an otherwise grayscale UI. Each chip also carries a text label,
+// so colour is never the only signal. Pairs are tuned for AA contrast.
 type Pair = { bg: string; fg: string };
 const PRIORITY_COLORS: Record<Priority, { light: Pair; dark: Pair }> = {
   high: { light: { bg: "#fde8e8", fg: "#a4161a" }, dark: { bg: "#3b1d1d", fg: "#ff9b9b" } },
@@ -18,12 +18,10 @@ const STATUS_COLORS: Record<ProjectStatus, { light: Pair; dark: Pair }> = {
 
 const base = { display: "inline-flex", alignItems: "center", gap: 6, padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 500, letterSpacing: 0, textTransform: "none", fontFamily: "var(--mono)", whiteSpace: "nowrap" } as const;
 
-// Arrow shapes double-encode the level: ▲ high, ◆ medium, ▼ low.
-const PRIORITY_MARK: Record<Priority, string> = { high: "▲", medium: "◆", low: "▼" };
-
-export function PriorityChip({ priority, suffix = " priority" }: { priority: Priority; suffix?: string }) {
+/** The priority as a small coloured tag that hugs its word: "Low", "Medium" or "High". */
+export function PriorityChip({ priority }: { priority: Priority; suffix?: string }) {
   const c = PRIORITY_COLORS[priority][useTheme()];
-  return <span style={{ ...base, background: c.bg, color: c.fg }}><span aria-hidden="true" style={{ fontSize: 9 }}>{PRIORITY_MARK[priority]}</span>{PRIORITY[priority]}{suffix}</span>;
+  return <span style={{ ...base, alignSelf: "flex-start", width: "fit-content", background: c.bg, color: c.fg }}>{PRIORITY[priority]}</span>;
 }
 
 export function StatusChip({ status }: { status: ProjectStatus }) {

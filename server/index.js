@@ -7,7 +7,7 @@ const { hashPassword, verifyPassword, signSession, readSession, parseCookies } =
 const { Store } = require('./store');
 const { FilePersistence, BlobPersistence } = require('./persist');
 const { LocalFiles, BlobFiles } = require('./files');
-const { COLUMNS, HttpError, cleanProject, cleanTask, cleanComment, cleanDesigner, cleanLink, cleanAttachment, cleanRef, cleanClient, cleanRequest, MAX_REQUEST_DAYS, cleanTimesheetEntry, cleanIsoDate, TIMESHEET_RATE } = require('./validate');
+const { COLUMNS, HttpError, cleanProject, cleanTask, cleanComment, cleanDesigner, cleanLink, cleanAttachment, cleanRef, cleanClient, cleanRequest, MAX_REQUEST_DAYS } = require('./validate');
 const { estimate, daysBetween } = require('./pricing');
 const { assist } = require('./ai');
 const { createMailer } = require('./mailer');
@@ -16,7 +16,6 @@ const emails = require('./emails');
 const crypto = require('crypto');
 const PUBLIC_DIR = path.join(ROOT, 'web');
 const COOKIE = 'sid';
-const EMERALD_COOKIE = 'emerald'; // the timesheet site has its own session cookie, so it never signs you in to (or out of) the portal
 const MAX_BODY = 64 * 1024;
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
@@ -24,7 +23,7 @@ const MIME = {
 };
 // Reachable without a session: only what the login page needs. No data lives in these files.
 // Built bundles under /assets are public too (static code, no data); the app shell (index.html) is not.
-const PUBLIC_FILES = new Set(['/login.html', '/emerald.html', '/favicon.svg', '/boot.js']);
+const PUBLIC_FILES = new Set(['/login.html', '/favicon.svg', '/boot.js']);
 const isPublic = (rel) => PUBLIC_FILES.has(rel) || rel.startsWith('/assets/');
 
 const SECURITY_HEADERS = {
@@ -102,25 +101,6 @@ function createApp(config) {
   ].filter(Boolean).join('; ');
   const cookie = (value, maxAgeSec) => cookieNamed(COOKIE, value, maxAgeSec);
 
-  // ---- Emerald timesheet site: its own password (EMERALD_PASSWORD_HASH, else the admin password) and its own cookie ----
-  const emeraldHash = config.emeraldHash || config.ownerHash;
-  const emeraldVersion = crypto.createHash('sha256').update(`emerald:${emeraldHash}`).digest('base64url').slice(0, 16);
-  const emeraldSessionOf = (req) => {
-    const s = readSession(parseCookies(req.headers.cookie)[EMERALD_COOKIE], config.secret);
-    return s && s.role === 'timesheet' && s.v === emeraldVersion ? s : null;
-  };
-  route('POST', '/api/emerald/login', 'public', ({ req, res, body }) => {
-    const ip = clientIp(req);
-    const keys = [`emerald:${ip}`, 'emerald:any'];
-    if (tooMany(keys[0], 5) || tooMany(keys[1], 25)) throw new HttpError(429, 'Too many attempts. Try again in 15 minutes.');
-    const password = typeof body.password === 'string' ? body.password : '';
-    if (!verifyPassword(password, emeraldHash)) { keys.forEach(fail); throw new HttpError(401, 'That password isn’t right.'); }
-    attempts.delete(keys[0]);
-    res.setHeader('Set-Cookie', cookieNamed(EMERALD_COOKIE, signSession({ role: 'timesheet', v: emeraldVersion, exp: Date.now() + config.sessionMs }, config.secret), Math.floor(config.sessionMs / 1000)));
-    return { ok: true };
-  });
-  route('POST', '/api/emerald/logout', 'public', ({ res }) => { res.setHeader('Set-Cookie', cookieNamed(EMERALD_COOKIE, '', 0)); return { ok: true }; });
-  route('GET', '/api/emerald/session', 'emerald', () => ({ ok: true }));
 
   // ---- Auth ----
   const ADMIN_LIMIT = 5; // the admin sign-in locks much sooner than ordinary accounts
@@ -464,21 +444,6 @@ function createApp(config) {
     return { after: async (res) => sendJson(res, 200, await assist(config.ai, input)) };
   });
 
-  // ---- Timesheet (/emerald): admin only. Hours per day at a fixed hourly rate. ----
-  route('GET', '/api/timesheet', 'emerald', ({ req }) => {
-    const month = new URL(req.url, 'http://localhost').searchParams.get('month') || '';
-    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new HttpError(400, 'month must look like 2026-09');
-    const entries = store.timesheetMonth(month);
-    // A day off doesn't count. Weekends are off unless the entry says off:false (a weekend that was worked).
-    const isOff = (date, e) => (typeof e.off === 'boolean' ? e.off : [0, 6].includes(new Date(`${date}T00:00:00Z`).getUTCDay()));
-    const hours = Object.entries(entries).reduce((n, [d, e]) => n + (isOff(d, e) ? 0 : e.hours), 0);
-    return { month, rate: TIMESHEET_RATE, entries, hours, amount: hours * TIMESHEET_RATE };
-  });
-  route('PUT', '/api/timesheet/:date', 'emerald', ({ params, body }) => {
-    const date = cleanIsoDate(params.date);
-    const entry = store.setTimesheetEntry(date, cleanTimesheetEntry(body));
-    return { date, hours: entry.hours, note: entry.note, off: typeof entry.off === 'boolean' ? entry.off : null };
-  });
 
   // ---- Euro to US dollar rate for the estimate's currency switch (ECB reference rate via frankfurter.dev, cached 6 hours) ----
   let fxCache = null;
@@ -617,12 +582,11 @@ function createApp(config) {
     // Side effects on files (deleting blobs, streaming a download) are queued and run only after the commit succeeds.
     const { result, deferred } = await store.transact(async () => {
       const deferred = [];
-      // 'emerald' routes accept the admin's portal session or the timesheet site's own session
-      const session = route_.access === 'emerald' ? ((s) => (s && s.role === 'owner' ? s : emeraldSessionOf(req)))(sessionOf(req)) : sessionOf(req);
+      const session = sessionOf(req);
       if (route_.access !== 'public') {
         if (!session) throw new HttpError(401, 'Please sign in');
         const allowed = {
-          any: ['owner', 'client', 'designer'], staff: ['owner', 'designer'], owner: ['owner'], viewer: ['owner', 'client'], client: ['client'], emerald: ['owner', 'timesheet'],
+          any: ['owner', 'client', 'designer'], staff: ['owner', 'designer'], owner: ['owner'], viewer: ['owner', 'client'], client: ['client'],
         }[route_.access];
         if (!allowed.includes(session.role)) throw new HttpError(403, 'Not allowed');
       }
@@ -649,8 +613,6 @@ function createApp(config) {
     if (rel === '/login' || rel === '/designer' || resetPage) rel = '/login.html';
     // /admin: the admin console for a signed-in admin, otherwise the admin sign-in (same page as /login, admin mode).
     const adminPage = pathname === '/admin' || pathname === '/admin/';
-    // /emerald: the standalone timesheet site. The page itself holds no data (it asks for the password); the API checks the session.
-    if (pathname === '/emerald' || pathname === '/emerald/') rel = '/emerald.html';
     if (adminPage) rel = session && session.role === 'owner' ? '/index.html' : '/login.html';
     // /demo: the app shell for the in-browser demo project. It is public because it carries no data: the demo is answered
     // entirely in the browser and every real API call still needs a real session.

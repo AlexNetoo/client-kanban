@@ -292,62 +292,10 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus, text
 .ai-hint { font-size: 11px; padding-left: 4px; }
 @media (max-width: 520px) { .ai-starters { grid-template-columns: 1fr; } .ai-prop__fields > div { grid-template-columns: 1fr; gap: 0; } }
 
-/* Emerald timesheet */
-.ts { max-width: 980px; }
-.ts-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 16px; margin-bottom: 22px; }
-.ts-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.ts-weeks { display: flex; flex-direction: column; gap: 18px; }
-.ts-week { border: 1px solid; border-radius: 6px; overflow: hidden; animation: rise 0.4s var(--ease) backwards; }
-.ts-week__title { margin: 0; font-size: inherit; font-weight: inherit; }
-.ts-week__head { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; padding: 10px 16px; border-bottom: 1px solid; font-size: 14px; transition: filter 0.2s; }
-.ts-week__head:hover { filter: brightness(0.97); }
-.ts-week__head:focus-visible { outline: 2px solid currentColor; outline-offset: -3px; border-radius: 6px; }
-.ts-chev { transition: transform 0.3s var(--ease); flex: none; }
-.ts-week.is-collapsed .ts-chev { transform: rotate(-90deg); }
-.ts-week.is-collapsed .ts-week__head { border-bottom-color: transparent; }
-.ts-body { display: grid; grid-template-rows: 1fr; transition: grid-template-rows 0.35s var(--ease); }
-.ts-body__inner { min-height: 0; overflow: hidden; }
-.ts-week.is-collapsed .ts-body { grid-template-rows: 0fr; }
-.ts-week__total { margin-left: auto; font-variant-numeric: tabular-nums; }
-.ts-cols, .ts-row { display: grid; grid-template-columns: 52px 104px 84px minmax(0, 1fr) 56px 36px; align-items: center; gap: 10px; padding: 0 16px; }
-.ts-off { display: flex; justify-content: center; }
-.ts-cols span:last-child { text-align: center; }
-.ts-cols { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding-top: 8px; padding-bottom: 4px; }
-.ts-row { min-height: 46px; border-top: 1px solid; transition: background-color 0.2s; }
-.ts-row.is-today { box-shadow: inset 3px 0 0 var(--accent); }
-.ts-row.is-out { opacity: 0.45; }
-.ts-day { font-weight: 600; font-size: 14px; }
-.ts-date { font-size: 13px; font-variant-numeric: tabular-nums; }
-.ts-row input { font: inherit; font-size: 14px; color: inherit; border-radius: 5px; padding: 7px 10px; min-width: 0; width: 100%; }
-.ts-row input.ts-hours { text-align: center; font-variant-numeric: tabular-nums; font-weight: 600; }
-.ts .ts-row input:disabled { background: transparent !important; border-color: transparent !important; }
-.ts-state { font-size: 11px; text-align: right; opacity: 0; transition: opacity 0.25s; }
-.ts-state.is-saving, .ts-state.is-saved, .ts-state.is-error { opacity: 0.8; }
-.ts-state.is-error { font-weight: 700; opacity: 1; }
-.ts-total { border: 2px solid; border-radius: 6px; padding: 18px 20px; display: flex; flex-wrap: wrap; gap: 20px 56px; }
-.ts-total__big { font-size: 32px; font-weight: 600; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; line-height: 1.15; }
-@media (max-width: 640px) {
-  .ts-cols { display: none; }
-  .ts-row { grid-template-columns: 44px minmax(0, 1fr) 76px 32px; grid-template-areas: "day date hours off" "note note note note"; row-gap: 6px; padding-top: 8px; padding-bottom: 10px; }
-  .ts-day { grid-area: day; } .ts-date { grid-area: date; } .ts-row .ts-hours { grid-area: hours; } .ts-row .ts-note { grid-area: note; } .ts-off { grid-area: off; } .ts-state { display: none; }
-}
 @media print {
-  .sidebar, .topbar, .demo-pill, .ts-nav, .ts-state, .skip-link { display: none !important; }
+  .sidebar, .topbar, .demo-pill, .skip-link { display: none !important; }
   .shell { display: block !important; } .page { padding: 0 !important; max-width: none !important; }
-  .ts-row input { border: 0 !important; background: transparent !important; padding-left: 0; }
-  .ts-week { break-inside: avoid; animation: none; }
 }
-
-/* The standalone /emerald site */
-.emerald-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 24px; position: sticky; top: 0; z-index: 20; background: var(--bg); }
-.emerald-main { max-width: 1040px; margin: 0 auto; padding: 32px 20px 96px; animation: rise 0.45s var(--ease) backwards; }
-@media print { .emerald-top { display: none !important; } .emerald-main { padding: 0; } }
-.emerald-shell { position: relative; min-height: 100vh; }
-.emerald-bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.55; }
-.emerald-shell.shell { min-height: 100vh; }
-.emerald-shell .ts-week, .emerald-shell .ts-total { background: var(--bg); }
-@media print { .emerald-shell.shell { display: block; } }
-@media print { .emerald-bg { display: none; } }
 
 /* Project details strip on the board */
 .proj-details { display: flex; flex-wrap: wrap; gap: 10px 32px; margin: 0 0 22px; padding: 14px 18px; border: 1px solid; border-radius: 6px; font-size: 14px; }
@@ -357,17 +305,17 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus, text
 
 /* Primary colour touches */
 .type-chip[aria-pressed="true"] { color: var(--accent-text) !important; background: color-mix(in srgb, var(--accent) 10%, transparent) !important; }
-.ts-week__head:focus-visible, .ai-more:focus-visible, .ai-starter:focus-visible, .type-chip:focus-visible { outline-color: var(--accent); }
+.ai-more:focus-visible, .ai-starter:focus-visible, .type-chip:focus-visible { outline-color: var(--accent); }
 .ai-starter:hover, .type-chip:hover { border-color: var(--accent) !important; }
 
 /* Figma system: DM Sans for the interface chrome (buttons, tabs, labels, dates), Suisse Int'l for content, hairlines, 5-6px corners */
-button:not(.nav-item), [role="tab"], [role="menuitem"], label, legend, dt, th, .mono, .stepper, .ts-cols, .ts-week__head, .ai-tag, .type-chip, .ai-more, .proj-details dt { font-family: var(--mono) !important; }
-button:not(.task-title):not(.ts-week__head):not(.type-chip):not(.ai-starter):not(.side-toggle):not(.ai-send):not(.ai-x) { letter-spacing: 0 !important; }
+button:not(.nav-item), [role="tab"], [role="menuitem"], label, legend, dt, th, .mono, .stepper, .ai-tag, .type-chip, .ai-more, .proj-details dt { font-family: var(--mono) !important; }
+button:not(.task-title):not(.type-chip):not(.ai-starter):not(.side-toggle):not(.ai-send):not(.ai-x) { letter-spacing: 0 !important; }
 .task-title, .task-title * { font-family: "Suisse Intl", system-ui, sans-serif !important; }
 /* Label style (DM Sans Label/Default): 12px, 6% tracking, uppercase */
-[style*="text-transform: uppercase"], .ts-cols, .proj-details dt, .ai-props__bar, .ai-tag, .side-heading { font-family: var(--mono) !important; font-weight: 400 !important; letter-spacing: 0.06em !important; text-transform: uppercase !important; }
-.hero__bg, .emerald-bg { display: none !important; }
-.card-hairline, .ts-week, .ts-total, .proj-details, .ai-prop, .req-card > div { box-shadow: none; }
+[style*="text-transform: uppercase"], .proj-details dt, .ai-props__bar, .ai-tag, .side-heading { font-family: var(--mono) !important; font-weight: 400 !important; letter-spacing: 0.06em !important; text-transform: uppercase !important; }
+.hero__bg { display: none !important; }
+.card-hairline, .proj-details, .ai-prop, .req-card > div { box-shadow: none; }
 .lift:hover, .task-surface:hover { transform: translateY(-1px); box-shadow: none; }
 /* cards keep the kit's own stroke and soft shadow (the alexneto.com admin card); the wrapper follows the card's corners */
 .lift { border-radius: 24px; }

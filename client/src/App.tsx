@@ -49,7 +49,7 @@ export function App() {
   const links: { href: string; label: string; active: boolean }[] = [
     { href: `${home}#/`, label: owner ? "Projects" : "My projects", active: !admin && (kind === undefined || kind === "" || kind === "p") },
     ...(role === "client" ? [{ href: `${home}#/new`, label: "New project", active: kind === "new" }] : []),
-    ...(owner ? [{ href: "/emerald", label: "Timesheet", active: false }, { href: "/admin", label: "Admin console", active: admin }] : []),
+    ...(owner ? [{ href: "/admin", label: "Admin console", active: admin }] : []),
     { href: `${home}#/settings`, label: "Settings", active: !admin && kind === "settings" },
   ];
 

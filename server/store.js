@@ -78,7 +78,7 @@ class Store {
     if (!this.data.links) { this.data.links = []; changed = true; }
     if (!this.data.clients) { this.data.clients = []; changed = true; }
     if (!this.data.requests) { this.data.requests = []; changed = true; }
-    if (!this.data.timesheet) { this.data.timesheet = {}; changed = true; }
+    // (hours recorded with the old timesheet stay in the data under `timesheet`; nothing reads them any more)
     for (const c of this.data.clients) if (c.notify === undefined) { c.notify = true; c.resetHash = ''; c.resetExpires = 0; changed = true; }
     for (const p of this.data.projects) { // projects approved before the brief details were kept on the project get them from their request
       if (p.type !== undefined) continue;
@@ -234,18 +234,6 @@ class Store {
     if (!this.data.requests.some((x) => x.id === id)) throw new HttpError(404, 'Request not found');
     this.data.requests = this.data.requests.filter((x) => x.id !== id);
     this.save();
-  }
-
-  // ---- timesheet (the /emerald page): hours and notes per day, keyed by date ----
-  timesheetMonth(month) {
-    return Object.fromEntries(Object.entries(this.data.timesheet).filter(([d]) => d.startsWith(`${month}-`)).sort(([a], [b]) => a.localeCompare(b)));
-  }
-
-  setTimesheetEntry(date, { hours, note, off }) {
-    if (hours === 0 && note === '' && off === null) delete this.data.timesheet[date];
-    else this.data.timesheet[date] = { hours, note, ...(off === null ? {} : { off }), updatedAt: new Date().toISOString() };
-    this.save();
-    return this.data.timesheet[date] || { hours: 0, note: '' };
   }
 
   // ---- email: password links, notification preference, due-date reminders ----
