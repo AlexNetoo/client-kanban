@@ -3,15 +3,14 @@ import { Button, Checkbox, Heading, Stat, Tabs, Text } from "./halaska-kit";
 import { api } from "./api";
 import { Text1 } from "./fields";
 import { StatusChip } from "./chips";
-import { ConfirmDialog, Loading, Person, StateBlock, TypedConfirmDialog, useToast } from "./ui";
+import { ConfirmDialog, Loading, Person, PlusIcon, StateBlock, TypedConfirmDialog, useToast } from "./ui";
 import { usePalette } from "./theme";
 import { useMe } from "./session";
 import { generatePassword } from "./lib/password";
-import { RequestList } from "./Requests";
 import { ProjectDialog } from "./dialogs";
 import { Linkify } from "./Linkify";
 import { formatDate } from "./lib/format";
-import type { ClientAccount, Designer, Project, ProjectRequest } from "./types";
+import type { ClientAccount, Designer, Project } from "./types";
 
 const MIN = 10;
 type Revealed = { who: string; password: string } | null;
@@ -279,15 +278,16 @@ function ClientsPanel({ clients, projects, reload, setRevealed }: { clients: Cli
   );
 }
 
-/** Type, dates, budget (private), links and notes for one project. Moved here from the board page. */
-function ProjectDetails({ project }: { project: Project }) {
+/** Type, dates, links and notes for one project. Moved here from the board page. (Budgets are agreed offline, so none is kept here.) */
+function ProjectDetails({ project, designers }: { project: Project; designers: Designer[] }) {
   const pal = usePalette();
-  if (!(project.type || project.startDate || project.dueDate || project.references || project.notes || project.budget != null)) return null;
+  const team = [...(project.adminAssigned ? ["You (admin)"] : []), ...designers.filter((d) => d.projectIds?.includes(project.id)).map((d) => d.name)];
+  if (!(team.length || project.type || project.startDate || project.dueDate || project.references || project.notes)) return null;
   return (
     <dl className="proj-details" aria-label={`${project.name} details`} style={{ borderColor: pal.border, flexBasis: "100%", margin: "4px 0 0" }}>
+      {team.length > 0 && <div><dt style={{ color: pal.textTertiary }}>Assigned to</dt><dd>{team.join(", ")}</dd></div>}
       {project.type && <div><dt style={{ color: pal.textTertiary }}>Type</dt><dd>{project.type}</dd></div>}
       {(project.startDate || project.dueDate) && <div><dt style={{ color: pal.textTertiary }}>Dates</dt><dd>{project.startDate ? formatDate(project.startDate) : "—"} → {project.recurring ? "ongoing" : project.dueDate ? formatDate(project.dueDate) : "no due date"}</dd></div>}
-      {project.budget != null && <div><dt style={{ color: pal.textTertiary }}>Budget (private)</dt><dd>{new Intl.NumberFormat("en-IE", { style: "currency", currency: "EUR", maximumFractionDigits: 2 }).format(project.budget)}</dd></div>}
       {project.references && <div className="wide"><dt style={{ color: pal.textTertiary }}>Links</dt><dd style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}><Linkify text={project.references} /></dd></div>}
       {project.notes && <div className="wide"><dt style={{ color: pal.textTertiary }}>Notes</dt><dd style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}><Linkify text={project.notes} /></dd></div>}
     </dl>
@@ -295,16 +295,21 @@ function ProjectDetails({ project }: { project: Project }) {
 }
 
 // ============================== Projects ==============================
-function ProjectsPanel({ projects, reload }: { projects: Project[]; reload: () => void }) {
+function ProjectsPanel({ projects, designers, reload }: { projects: Project[]; designers: Designer[]; reload: () => void }) {
   const pal = usePalette();
   const toast = useToast();
   const [deleting, setDeleting] = useState<Project | null>(null);
   const [editing, setEditing] = useState<Project | null>(null);
+  const [creating, setCreating] = useState(false);
   const sorted = [...projects].sort((a, b) => Number(a.archived) - Number(b.archived) || a.name.localeCompare(b.name));
   return (
     <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
+        <Text secondary>Create a project here, then give a client access to it in the Clients tab.</Text>
+        <Button icon={<PlusIcon />} onClick={() => setCreating(true)}>New project</Button>
+      </div>
       <ul aria-label="All projects">
-        {sorted.length === 0 && <li style={row(pal)}><Text secondary>No projects.</Text></li>}
+        {sorted.length === 0 && <li style={row(pal)}><Text secondary>No projects yet. Use “New project” to add the first one.</Text></li>}
         {sorted.map((p) => (
           <li key={p.id} style={{ ...row(pal), display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <div style={{ flex: 1, minWidth: 200 }}>
@@ -317,11 +322,12 @@ function ProjectsPanel({ projects, reload }: { projects: Project[]; reload: () =
             <Button size="sm" variant="ghost" aria-label={`${p.archived ? "Restore" : "Archive"} ${p.name}`}
               onClick={async () => { try { await api.updateProject(p.id, { archived: !p.archived }); toast(p.archived ? "Project restored" : "Project archived"); reload(); } catch (e) { toast((e as Error).message, "error"); } }}>{p.archived ? "Restore" : "Archive"}</Button>
             <Button size="sm" variant="secondary" aria-label={`Delete ${p.name}`} onClick={() => setDeleting(p)}>Delete</Button>
-            <ProjectDetails project={p} />
+            <ProjectDetails project={p} designers={designers} />
           </li>
         ))}
       </ul>
       {editing && <ProjectDialog project={editing} onClose={() => setEditing(null)} onSaved={reload} />}
+      {creating && <ProjectDialog onClose={() => setCreating(false)} onSaved={reload} />}
       <TypedConfirmDialog open={!!deleting} expected={deleting?.name ?? ""} title="Delete this project?" confirmLabel="Delete project" onClose={() => setDeleting(null)}
         description={deleting ? `“${deleting.name}” and its ${deleting.total} tasks, comments, links and attachments will be permanently deleted. Clients lose access to it. This can’t be undone.` : ""}
         onConfirm={async () => { if (deleting) { await api.deleteProject(deleting.id); toast("Project deleted"); reload(); } }} />
@@ -330,18 +336,18 @@ function ProjectsPanel({ projects, reload }: { projects: Project[]; reload: () =
 }
 
 // ============================== Console ==============================
-const TABS = ["Designers", "Clients", "Projects", "Requests"]; // Requests only shows while old client briefs are left to handle
+const TABS = ["Designers", "Clients", "Projects"];
 
 export function AdminConsole() {
   const [tab, setTab] = useState(TABS[0]);
-  const [data, setData] = useState<{ designers: Designer[]; clients: ClientAccount[]; projects: Project[]; requests: ProjectRequest[] } | null>(null);
+  const [data, setData] = useState<{ designers: Designer[]; clients: ClientAccount[]; projects: Project[] } | null>(null);
   const [error, setError] = useState("");
   const [revealed, setRevealed] = useState<Revealed>(null);
 
   const load = useCallback(async () => {
     try {
-      const [designers, clients, projects, requests] = await Promise.all([api.listDesigners(), api.listClients(), api.listProjects(), api.listRequests()]);
-      setData({ designers, clients, projects, requests }); setError("");
+      const [designers, clients, projects] = await Promise.all([api.listDesigners(), api.listClients(), api.listProjects()]);
+      setData({ designers, clients, projects }); setError("");
     } catch (e) { setError((e as Error).message); }
   }, []);
   useEffect(() => { document.title = "Admin console · Alex Neto Client Portal"; load(); }, [load]);
@@ -360,17 +366,13 @@ export function AdminConsole() {
         <Stat label="Designers" value={String(data.designers.length)} />
         <Stat label="Clients" value={String(data.clients.length)} />
         <Stat label="Projects" value={String(data.projects.length)} />
-        <Stat label="New requests" value={String(data.requests.filter((r) => r.status === "new").length)} />
         <Stat label="Open tasks" value={String(openTasks)} />
       </div>
-      <div style={{ marginBottom: 20 }}><Tabs tabs={data.requests.length ? TABS : TABS.filter((t) => t !== "Requests")} value={tab} onChange={(t: string) => { setTab(t); setRevealed(null); }} /></div>
+      <div style={{ marginBottom: 20 }}><Tabs tabs={TABS} value={tab} onChange={(t: string) => { setTab(t); setRevealed(null); }} /></div>
       <RevealBanner revealed={revealed} onDismiss={() => setRevealed(null)} />
       {tab === "Designers" && <DesignersPanel designers={data.designers} projects={data.projects} reload={load} setRevealed={setRevealed} />}
       {tab === "Clients" && <ClientsPanel clients={data.clients} projects={data.projects} reload={load} setRevealed={setRevealed} />}
-      {tab === "Requests" && (data.requests.length === 0
-        ? <StateBlock title="No requests yet" description="Clients can no longer submit project briefs from their account." />
-        : <RequestList requests={data.requests} admin onChange={load} />)}
-      {tab === "Projects" && <ProjectsPanel projects={data.projects} reload={load} />}
+      {tab === "Projects" && <ProjectsPanel projects={data.projects} designers={data.designers} reload={load} />}
     </div>
   );
 }

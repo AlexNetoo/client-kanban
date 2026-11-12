@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Button, Checkbox, Select, Text } from "./halaska-kit";
 import { api } from "./api";
 import { Area, DateField, Text1 } from "./fields";
@@ -42,13 +42,28 @@ export function ProjectDialog({ project, onClose, onSaved }: { project?: Project
   const [summary, setSummary] = useState(project?.summary ?? "");
   const [type, setType] = useState(project?.type ?? "");
   const [startDate, setStart] = useState(project?.startDate ?? "");
-  const [budget, setBudget] = useState(project?.budget != null ? String(project.budget) : "");
   const [references, setReferences] = useState(project?.references ?? "");
   const [notes, setNotes] = useState(project?.notes ?? "");
+  // Team: the admin picks who works on the project (themself included). Designers get access to the projects they are on.
+  const owner = useMe().role === "owner";
+  const pal = usePalette();
+  const [designers, setDesigners] = useState<Designer[]>([]);
+  const [team, setTeam] = useState<string[]>([]);
+  const [adminAssigned, setAdminAssigned] = useState(project ? project.adminAssigned === true : true);
+  useEffect(() => {
+    if (!owner) return;
+    api.listDesigners().then((list) => { setDesigners(list); if (project) setTeam(list.filter((d) => d.projectIds?.includes(project.id)).map((d) => d.id)); }).catch(() => {});
+  }, [owner, project]);
   const { busy, error, run } = useSave(onClose);
   const save = () => run(async () => {
-    const data = { name, client, status, dueDate: recurring ? "" : dueDate, recurring, summary, type, startDate, budget: budget.trim() === "" ? null : Number(budget.replace(",", ".")), references, notes };
-    if (project) await api.updateProject(project.id, data); else await api.createProject(data);
+    const data = { name, client, status, dueDate: recurring ? "" : dueDate, recurring, summary, type, startDate, references, notes, ...(owner ? { adminAssigned } : {}) }; // no budget: it is agreed offline
+    const saved = project ? await api.updateProject(project.id, data) : await api.createProject(data);
+    if (owner) {
+      for (const d of designers) {
+        const had = (d.projectIds ?? []).includes(saved.id); const has = team.includes(d.id);
+        if (had !== has) await api.updateDesigner(d.id, { projectIds: has ? [...(d.projectIds ?? []), saved.id] : (d.projectIds ?? []).filter((x) => x !== saved.id) });
+      }
+    }
     toast(project ? "Project updated" : "Project created");
     onSaved();
   });
@@ -66,11 +81,21 @@ export function ProjectDialog({ project, onClose, onSaved }: { project?: Project
         </div>
         <Checkbox checked={recurring} onChange={(c: boolean) => { setRecurring(c); if (c) setDue(""); }} label="Recurring project (no due date)" aria-label="Recurring project (no due date)" />
         <Area label="Summary (visible to the client)" value={summary} onChange={setSummary} />
+        {owner && (
+          <fieldset style={{ border: 0, padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+            <legend style={{ fontSize: 13, color: pal.textSecondary, padding: 0, marginBottom: 8 }}>Assigned to</legend>
+            <Checkbox checked={adminAssigned} onChange={setAdminAssigned} label="You (admin)" aria-label="Assign yourself (admin)" />
+            {designers.map((d) => (
+              <Checkbox key={d.id} checked={team.includes(d.id)} label={d.role ? `${d.name} · ${d.role}` : d.name} aria-label={`Assign ${d.name}`}
+                onChange={(c: boolean) => setTeam((t) => (c ? [...t, d.id] : t.filter((x) => x !== d.id)))} />
+            ))}
+            {designers.length === 0 && <Text size="sm" secondary>No designers yet. Add them in the Designers tab.</Text>}
+          </fieldset>
+        )}
         <div className="row2">
           <Select label="Type of project" value={type} onChange={(v: string) => setType(v)} options={[{ value: "", label: "Not set" }, ...REQUEST_TYPES.map((t) => ({ value: t, label: t })), ...(type && !(REQUEST_TYPES as readonly string[]).includes(type) ? [{ value: type, label: type }] : [])]} />
           <DateField label="Start date" clearable value={startDate} onChange={setStart} />
         </div>
-        <Text1 label="Budget in € (private, only you see it)" type="number" value={budget} onChange={setBudget} />
         <Area label="Inspiration or links" rows={2} value={references} onChange={setReferences} />
         <Area label="Notes from the brief" rows={2} value={notes} onChange={setNotes} />
       </Form>

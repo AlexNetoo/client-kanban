@@ -2,14 +2,13 @@ import { useCallback, useEffect, useState } from "react";
 import { Badge, Button, Card, DropdownMenu, Heading, Progress, Stat, Tabs, Text } from "./halaska-kit";
 import { api } from "./api";
 import { ProjectDialog } from "./dialogs";
-import { RequestList } from "./Requests";
 import { StatusChip } from "./chips";
 import { useProjectsNav } from "./nav";
 import { CalendarIcon, ChevronDownIcon, ConfirmDialog, RepeatIcon, Loading, PlusIcon, StateBlock, useToast } from "./ui";
 import { usePalette } from "./theme";
 import { useMe } from "./session";
 import { formatDate, isOverdue } from "./lib/format";
-import { type Project, type ProjectRequest } from "./types";
+import { type Project } from "./types";
 
 export const clientLink = (p: Project) => `${location.origin}/#/c/${p.shareToken}`;
 
@@ -72,11 +71,10 @@ export function Dashboard() {
   const [tab, setTab] = useState<"Active" | "Archived">("Active");
   const [creating, setCreating] = useState(false);
   const nav = useProjectsNav();
-  const [requests, setRequests] = useState<ProjectRequest[]>([]);
 
   const load = useCallback(async () => {
     setError("");
-    try { setProjects(await api.listProjects()); nav.reload(); if (me.role === "client") api.listRequests().then(setRequests).catch(() => {}); } catch (e) { setError((e as Error).message); }
+    try { setProjects(await api.listProjects()); nav.reload(); } catch (e) { setError((e as Error).message); }
   }, []);
   useEffect(() => { document.title = "Projects · Alex Neto Client Portal"; load(); }, [load]);
 
@@ -146,13 +144,6 @@ export function Dashboard() {
             </li>
           ))}
         </ul>
-      )}
-      {me.role === "client" && requests.length > 0 && (
-        <section style={{ marginTop: 40 }} aria-label="Your project requests">
-          <Heading level={2}>Your requests</Heading>
-          <p style={{ margin: "4px 0 16px" }}><Text secondary>Briefs you’ve sent. Approved ones become projects.</Text></p>
-          <RequestList requests={requests} />
-        </section>
       )}
       {creating && <ProjectDialog onClose={() => setCreating(false)} onSaved={load} />}
     </>

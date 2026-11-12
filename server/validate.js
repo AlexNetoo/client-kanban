@@ -63,6 +63,7 @@ function cleanProject(body, partial = false) {
       out.budget = Math.round(n * 100) / 100;
     }
   }
+  if ('adminAssigned' in body) out.adminAssigned = body.adminAssigned === true; // the admin lists themself on the project's team
   if ('archived' in body) out.archived = body.archived === true;
   if ('recurring' in body) out.recurring = body.recurring === true;
   if (out.recurring) out.dueDate = ''; // a recurring project has no end date

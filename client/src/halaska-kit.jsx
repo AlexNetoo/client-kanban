@@ -2426,11 +2426,29 @@ function DatePicker({ value, onChange, label, placeholder = "Pick a date", theme
   const [open, setOpen] = useState(false);
   const [hover, setHover] = useState(false);
   const ref = useRef(null);
+  const pop = useRef(null);
+  const [pos, setPos] = useState(null);
   useEffect(() => {
-    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target) && !(pop.current && pop.current.contains(e.target))) setOpen(false); };
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
   }, []);
+  // The calendar is drawn on top of the page (not inside the scrolling dialog) and nudged to stay fully on screen.
+  useLayoutEffect(() => {
+    if (!open) { setPos(null); return; }
+    const place = () => {
+      const btn = ref.current?.querySelector("button"); const el = pop.current;
+      if (!btn || !el) return;
+      const b = btn.getBoundingClientRect(); const w = el.offsetWidth; const h = el.offsetHeight; const m = 8;
+      let top = b.bottom + 4;
+      if (top + h > window.innerHeight - m) top = b.top - h - 4 >= m ? b.top - h - 4 : Math.max(m, window.innerHeight - h - m);
+      const left = Math.max(m, Math.min(b.left, window.innerWidth - w - m));
+      setPos((p) => (p && p.top === top && p.left === left ? p : { top, left }));
+    };
+    place();
+    window.addEventListener("resize", place); window.addEventListener("scroll", place, true);
+    return () => { window.removeEventListener("resize", place); window.removeEventListener("scroll", place, true); };
+  }, [open]);
   const formatted = value ? value.toLocaleDateString("default", { year: "numeric", month: "short", day: "numeric" }) : null;
   return (
     <div ref={ref} onKeyDown={(e) => { if (e.key === "Escape" && open) { e.stopPropagation(); setOpen(false); ref.current?.querySelector("button")?.focus(); } }}
@@ -2449,11 +2467,10 @@ function DatePicker({ value, onChange, label, placeholder = "Pick a date", theme
         <span style={{ color: pal.textTertiary, fontSize: 14, display: "inline-flex" }}>⌯</span>
         <span style={{ flex: 1 }}>{formatted || placeholder}</span>
       </button>
-      {open && (
-        <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 100 }}>
+      {open && createPortal(
+        <div ref={pop} onMouseDown={(e) => e.stopPropagation()} style={{ position: "fixed", top: pos ? pos.top : 0, left: pos ? pos.left : 0, visibility: pos ? "visible" : "hidden", zIndex: 10050, maxHeight: "calc(100vh - 16px)", overflowY: "auto" }}>
           <Calendar theme={theme} value={value} onChange={(d) => { onChange?.(d); setOpen(false); }} />
-        </div>
-      )}
+        </div>, document.body)}
     </div>
   );
 }
