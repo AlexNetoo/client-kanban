@@ -25,9 +25,10 @@ export interface TaskLink {
   task: { id: string; title: string; status: Column; projectId: string; projectName: string };
 }
 export interface Attachment { id: string; name: string; size: number; type: string; uploadedById: string; uploadedByName: string; uploadedAt: string; visibility: "internal" | "client" }
+export interface WebLink { id: string; url: string; title: string; addedById: string; addedByName: string; addedByRole: "owner" | "designer" | "client"; addedAt: string }
 export interface TaskSearchResult { id: string; title: string; status: Column; projectId: string; projectName: string }
 export interface Task {
-  links: TaskLink[]; attachments: Attachment[];
+  links: TaskLink[]; attachments: Attachment[]; refs?: WebLink[]; // refs: web links (Figma, staging, references)
   assigneeId: string; comments: Comment[];
   id: string; projectId: string; title: string; description: string; status: Column; priority: Priority; dueDate: string;
   clientUpdate: string; clientUpdateAt: string; privateNotes: string; createdAt: string; updatedAt: string;

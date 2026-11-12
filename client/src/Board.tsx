@@ -20,7 +20,7 @@ export function Board({ id, taskId }: { id: string; taskId?: string }) {
   const me = useMe();
   const owner = me.role === "owner";
   const canAdd = me.role !== "client"; // the admin and designers add tasks; clients only read and comment
-  const canMove = (_t: Task) => me.role !== "client"; // admin and designers can move any task in the project
+  const canMove = (_t: Task) => true; // everyone who can open the project can move its cards, clients included (the server allows clients to move, not edit)
   const toast = useToast();
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -124,7 +124,7 @@ export function Board({ id, taskId }: { id: string; taskId?: string }) {
   return (
     <div ref={root} className="board-page">
       <a href="#/" style={{ display: "inline-block", marginBottom: 14, color: pal.textSecondary, fontSize: 14 }}>← {owner ? "All projects" : "My projects"}</a>
-      {!owner && <p style={{ marginBottom: 14, fontSize: 14, color: pal.textSecondary }}>{me.role === "client" ? "You’re viewing this board. Open a task to read the details and leave a comment." : "You can add tasks, move your own between columns and comment on any task here."}</p>}
+      {!owner && <p style={{ marginBottom: 14, fontSize: 14, color: pal.textSecondary }}>{me.role === "client" ? "Drag a card to move it. Open a task to read the details, comment, and add images or links." : "You can add tasks, move your own between columns and comment on any task here."}</p>}
       <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-start", gap: 16, marginBottom: 20 }}>
         <div>
           <Heading level={1}>{project.name}</Heading>
@@ -162,7 +162,7 @@ export function Board({ id, taskId }: { id: string; taskId?: string }) {
           const items = tasks.filter((t) => t.status === col.id);
           return (
             <section key={col.id} className="column" aria-labelledby={`col-${col.id}`}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 10, marginBottom: 10, borderBottom: `1px solid ${pal.text}` }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
                 <h2 id={`col-${col.id}`} style={{ margin: 0, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.09em", fontWeight: 700 }}>
                   {col.label} <span aria-label={`${items.length} tasks`} style={{ color: pal.textTertiary, marginLeft: 6 }}>{items.length}</span>
                 </h2>

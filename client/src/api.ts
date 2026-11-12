@@ -53,6 +53,8 @@ export const api = {
   deleteComment: (taskId: string, commentId: string) => request<Task>("DELETE", `/api/tasks/${taskId}/comments/${commentId}`),
   addLink: (taskId: string, d: { targetId: string; type: TaskLink["type"]; inverse?: boolean }) => request<Task>("POST", `/api/tasks/${taskId}/links`, d),
   deleteLink: (taskId: string, linkId: string) => request<Task>("DELETE", `/api/tasks/${taskId}/links/${linkId}`),
+  addRef: (taskId: string, d: { url: string; title?: string }) => request<Task>("POST", `/api/tasks/${taskId}/refs`, d),
+  deleteRef: (taskId: string, refId: string) => request<Task>("DELETE", `/api/tasks/${taskId}/refs/${refId}`),
   searchTasks: (q: string, exclude: string) => request<TaskSearchResult[]>("GET", `/api/task-search?q=${encodeURIComponent(q)}&exclude=${encodeURIComponent(exclude)}`),
   requestAttachment: (taskId: string, d: { name: string; size: number; type: string; shared?: boolean }) => request<{ attachmentId: string; upload: UploadTarget }>("POST", `/api/tasks/${taskId}/attachments`, d),
   updateAttachment: (taskId: string, attId: string, d: { shared: boolean }) => request<Task>("PATCH", `/api/tasks/${taskId}/attachments/${attId}`, d),

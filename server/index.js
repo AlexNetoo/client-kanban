@@ -7,7 +7,7 @@ const { hashPassword, verifyPassword, signSession, readSession, parseCookies } =
 const { Store } = require('./store');
 const { FilePersistence, BlobPersistence } = require('./persist');
 const { LocalFiles, BlobFiles } = require('./files');
-const { COLUMNS, HttpError, cleanProject, cleanTask, cleanComment, cleanDesigner, cleanLink, cleanAttachment, cleanClient, cleanRequest, MAX_REQUEST_DAYS, cleanTimesheetEntry, cleanIsoDate, TIMESHEET_RATE } = require('./validate');
+const { COLUMNS, HttpError, cleanProject, cleanTask, cleanComment, cleanDesigner, cleanLink, cleanAttachment, cleanRef, cleanClient, cleanRequest, MAX_REQUEST_DAYS, cleanTimesheetEntry, cleanIsoDate, TIMESHEET_RATE } = require('./validate');
 const { estimate, daysBetween } = require('./pricing');
 const { assist } = require('./ai');
 const { createMailer } = require('./mailer');
@@ -51,6 +51,8 @@ const staffTask = ({ privateNotes, ...t }) => t; // eslint-disable-line no-unuse
 // Designers may only change the column/order of a task assigned to them.
 // Designers edit the working fields of tasks in their projects; private notes, client updates, deleting and links stay with the admin.
 const DESIGNER_TASK_FIELDS = new Set(['title', 'description', 'status', 'priority', 'dueDate', 'assigneeId', 'position']);
+const CLIENT_TASK_FIELDS = new Set(['status', 'position']); // a client can move a card, nothing more
+const CLIENT_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']); // what a client may attach
 
 function createApp(config) {
   const store = new Store(config.storage === 'blob' ? new BlobPersistence(config.blobPath) : new FilePersistence(config.dataFile), { seedDemo: !!config.seedDemo });
@@ -247,7 +249,7 @@ function createApp(config) {
     const attachments = (t.attachments || []).filter((a) => a.status === 'ready' && (!isClient(s) || a.visibility === 'client'))
       .map(({ id, name, size, type, uploadedById, uploadedByName, uploadedAt, visibility }) => ({ id, name, size, type, uploadedById, uploadedByName, uploadedAt, visibility }));
     const comments = isClient(s) ? t.comments.filter((c) => c.visibility === 'client') : t.comments;
-    return { ...(restricted(s) ? staffTask(t) : t), links, attachments, comments };
+    return { ...(restricted(s) ? staffTask(t) : t), links, attachments, comments, refs: t.refs || [] };
   };
 
   // ---- Projects: owner sees all; a designer sees only their own, without private notes or share links ----
@@ -285,7 +287,13 @@ function createApp(config) {
     }
     return { status: 201, body: outTask(session, store.createTask(params.id, fields)) };
   });
-  route('PATCH', '/api/tasks/:id', 'staff', ({ params, body, session }) => {
+  route('PATCH', '/api/tasks/:id', 'any', ({ params, body, session }) => {
+    if (isClient(session)) {
+      // Clients may move a card (another column, or up and down within one) in their own projects, and nothing else.
+      taskFor(session, params.id); // 404 unless the task is in one of their projects
+      if (!body || typeof body !== 'object' || Object.keys(body).some((k) => !CLIENT_TASK_FIELDS.has(k))) throw new HttpError(403, 'Clients can move tasks, not edit them');
+      return outTask(session, store.updateTask(params.id, cleanTask(body, true)));
+    }
     if (!isDesigner(session)) return outTask(session, store.updateTask(params.id, cleanTask(body, true)));
     taskFor(session, params.id); // 404 unless the task is in one of their projects
     if (Object.keys(body).some((k) => !DESIGNER_TASK_FIELDS.has(k))) throw new HttpError(403, 'Designers can’t change private notes or client updates');
@@ -301,18 +309,24 @@ function createApp(config) {
 
   // ---- Attachments. Owner: any task. Designer: attach to tasks assigned to them, remove only their own uploads.
   //      Clients never see attachments. Bytes go straight to storage (Blob) or through /api/uploads (local dev). ----
-  const uploaderId = (s) => (isDesigner(s) ? s.uid : 'owner');
-  const uploaderName = (s) => (isDesigner(s) ? s.designer.name : 'Admin');
+  //      Clients may attach images (PNG, JPEG, GIF, WebP) to tasks in their projects; those are always shared, and they remove only their own.
+  const uploaderId = (s) => (restricted(s) ? s.uid : 'owner');
+  const uploaderName = (s) => (isDesigner(s) ? s.designer.name : isClient(s) ? s.client.name : 'Admin');
   const attachmentOf = (task, attId) => {
     const att = task.attachments.find((a) => a.id === attId);
     if (!att) throw new HttpError(404, 'Attachment not found');
     return att;
   };
 
-  route('POST', '/api/tasks/:id/attachments', 'staff', async ({ params, body, session, defer }) => {
+  route('POST', '/api/tasks/:id/attachments', 'any', async ({ params, body, session, defer }) => {
     const task = taskFor(session, params.id);
     if (isDesigner(session) && task.assigneeId !== session.uid) throw new HttpError(403, 'Only the admin or the assigned designer can attach files');
     const info = cleanAttachment(body, maxBytes);
+    if (isClient(session)) {
+      const ext = (info.name.match(/\.([a-z0-9]+)$/i) || [])[1];
+      if (!CLIENT_IMAGE_TYPES.has(info.type) || !['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(String(ext).toLowerCase())) throw new HttpError(400, 'You can attach images: PNG, JPEG, GIF or WebP');
+      info.shared = true; // a client's image is always visible to the client
+    }
     const stale = store.purgeStaleAttachments();
     defer(() => Promise.all(stale.map((a) => files.remove(a))));
     const { shared, ...meta } = info;
@@ -320,10 +334,10 @@ function createApp(config) {
     return { status: 201, body: { attachmentId: att.id, upload: await files.createUpload(att, maxBytes) } };
   });
 
-  route('POST', '/api/tasks/:id/attachments/:aid/complete', 'staff', async ({ params, session }) => {
+  route('POST', '/api/tasks/:id/attachments/:aid/complete', 'any', async ({ params, session }) => {
     const task = taskFor(session, params.id);
     const att = attachmentOf(task, params.aid);
-    if (isDesigner(session) && att.uploadedById !== session.uid) throw new HttpError(403, 'Not your upload');
+    if (restricted(session) && att.uploadedById !== session.uid) throw new HttpError(403, 'Not your upload');
     if (att.status === 'ready') return outTask(session, task);
     const stat = await files.stat(att);
     if (!stat) throw new HttpError(409, 'The upload didn’t finish. Please try again.');
@@ -350,7 +364,7 @@ function createApp(config) {
     return { after: (res) => files.download(att, res, { ...SECURITY_HEADERS, 'Content-Disposition': disposition }) };
   });
 
-  route('PUT', '/api/uploads/:aid', 'staff', ({ params, req, session }) => { // local development only
+  route('PUT', '/api/uploads/:aid', 'any', ({ params, req, session }) => { // local development only
     if (files.kind !== 'local') throw new HttpError(404, 'Not found');
     const found = store.findAttachment(params.aid);
     if (!found || found.att.status !== 'pending') throw new HttpError(404, 'Upload not found');
@@ -374,13 +388,30 @@ function createApp(config) {
     return outTask(session, store.setAttachmentVisibility(task.id, att.id, body.shared ? 'client' : 'internal'));
   });
 
-  route('DELETE', '/api/tasks/:id/attachments/:aid', 'staff', ({ params, session, defer }) => {
+  route('DELETE', '/api/tasks/:id/attachments/:aid', 'any', ({ params, session, defer }) => {
     const task = taskFor(session, params.id);
     const att = attachmentOf(task, params.aid);
-    if (isDesigner(session) && att.uploadedById !== session.uid) throw new HttpError(403, 'You can only remove files you uploaded');
+    if (isClient(session) && att.visibility !== 'client') throw new HttpError(404, 'Attachment not found'); // internal files don't exist for clients
+    if (restricted(session) && att.uploadedById !== session.uid) throw new HttpError(403, 'You can only remove files you uploaded');
     store.removeAttachment(task.id, att.id);
     defer(() => files.remove(att));
     return outTask(session, store.getTask(task.id));
+  });
+
+  // ---- Web links on a task: anyone who can open the task may add one (a title and an http(s) address).
+  //      The admin removes any; designers and clients remove only their own. ----
+  route('POST', '/api/tasks/:id/refs', 'any', ({ params, body, session }) => {
+    taskFor(session, params.id);
+    const ref = cleanRef(body);
+    const addedById = restricted(session) ? session.uid : 'owner';
+    return { status: 201, body: outTask(session, store.addRef(params.id, { ...ref, addedById, addedByName: uploaderName(session), addedByRole: session.role })) };
+  });
+  route('DELETE', '/api/tasks/:id/refs/:rid', 'any', ({ params, session }) => {
+    const task = taskFor(session, params.id);
+    const ref = (task.refs || []).find((r) => r.id === params.rid);
+    if (!ref) throw new HttpError(404, 'Link not found');
+    if (restricted(session) && ref.addedById !== session.uid) throw new HttpError(403, 'You can only remove links you added');
+    return outTask(session, store.removeRef(params.id, params.rid));
   });
 
   // ---- Task links (owner edits; designers only ever see links to projects they can access) ----

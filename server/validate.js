@@ -150,6 +150,18 @@ function cleanAttachment(body, maxBytes) {
   return { name, size, type, shared: body.shared === true };
 }
 
+// A web link on a task: an http(s) address and an optional title. Anything else (javascript:, data:, …) is refused.
+function cleanRef(body) {
+  if (!body || typeof body !== 'object') throw new HttpError(400, 'Invalid body');
+  let raw = str(body, 'url', { max: 2000, required: true });
+  if (!/^[a-z][a-z0-9+.-]*:/i.test(raw)) raw = `https://${raw}`; // "example.com/page" is fine to type
+  let u;
+  try { u = new URL(raw); } catch { throw new HttpError(400, 'That doesn’t look like a web address'); }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new HttpError(400, 'Links must start with http:// or https://');
+  if (!u.hostname.includes('.') && u.hostname !== 'localhost') throw new HttpError(400, 'That doesn’t look like a web address');
+  return { url: u.toString(), title: str(body, 'title', { max: 120 }) };
+}
+
 // partial=true (PATCH): only validate fields that are present.
 function cleanClient(body, partial = false) {
   if (!body || typeof body !== 'object') throw new HttpError(400, 'Invalid body');
@@ -219,4 +231,4 @@ function cleanIsoDate(v) {
   return v;
 }
 
-module.exports = { cleanTimesheetEntry, cleanIsoDate, TIMESHEET_RATE, cleanRequest, REQUEST_TYPES, MAX_REQUEST_DAYS, cleanClient, cleanAttachment, LINK_TYPES, cleanLink, cleanComment, cleanDesigner, COLUMNS, STATUSES, PROJECT_STATUSES, PRIORITIES, HttpError, cleanProject, cleanTask };
+module.exports = { cleanTimesheetEntry, cleanIsoDate, TIMESHEET_RATE, cleanRequest, REQUEST_TYPES, MAX_REQUEST_DAYS, cleanClient, cleanAttachment, cleanRef, LINK_TYPES, cleanLink, cleanComment, cleanDesigner, COLUMNS, STATUSES, PROJECT_STATUSES, PRIORITIES, HttpError, cleanProject, cleanTask };

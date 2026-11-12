@@ -22,8 +22,9 @@ export function Attachments({ task, onChange }: { task: Task; onChange: (t: Task
   const me = useMe();
   const owner = me.role === "owner";
   const isClient = me.role === "client";
-  const canAttach = owner || task.assigneeId === me.designer?.id;
   const max = me.maxUploadBytes ?? 25 * 1024 * 1024;
+  // Clients attach images only (the server checks too); in the demo uploads are off (max is 0).
+  const canAttach = owner || task.assigneeId === me.designer?.id || (isClient && max > 0);
   const input = useRef<HTMLInputElement>(null);
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [over, setOver] = useState(false);
@@ -36,6 +37,7 @@ export function Attachments({ task, onChange }: { task: Task; onChange: (t: Task
   async function uploadOne(file: File) {
     const key = ++counter.current;
     setUploads((s) => [...s, { key, name: file.name, size: file.size, progress: 0 }]);
+    if (isClient && !PREVIEWABLE.has(file.type)) { patch(key, { error: "You can attach images: PNG, JPEG, GIF or WebP" }); return; }
     if (file.size > max) { patch(key, { error: `Too large (limit ${formatBytes(max)})` }); return; }
     if (file.size === 0) { patch(key, { error: "That file is empty" }); return; }
     try {
@@ -67,20 +69,22 @@ export function Attachments({ task, onChange }: { task: Task; onChange: (t: Task
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10 }}>
         <h3 style={{ margin: 0, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.09em", fontWeight: 700, color: pal.textTertiary }}>Attachments ({items.length})</h3>
         {canAttach && <>
-          <Button size="sm" variant="secondary" onClick={() => input.current?.click()}>Add files</Button>
-          <input ref={input} type="file" multiple aria-label="Add files to this task" className="sr-only" tabIndex={-1}
+          <Button size="sm" variant="secondary" onClick={() => input.current?.click()}>{isClient ? "Add images" : "Add files"}</Button>
+          <input ref={input} type="file" multiple accept={isClient ? "image/png,image/jpeg,image/gif,image/webp" : undefined} aria-label={isClient ? "Add images to this task" : "Add files to this task"} className="sr-only" tabIndex={-1}
             onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }} />
         </>}
       </div>
 
-      {isClient && <div style={{ marginBottom: 10 }}><Text size="sm" secondary>Files your team shared with you.</Text></div>}
+      {isClient && items.length > 0 && <div style={{ marginBottom: 10 }}><Text size="sm" secondary>Files shared on this task, yours and your team’s.</Text></div>}
       {canAttach && (
         <div onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={onDrop}
           style={{ border: `2px dashed ${over ? pal.accent : pal.border}`, borderRadius: 6, padding: "14px 16px", textAlign: "center", marginBottom: items.length || uploads.length ? 12 : 0, background: over ? pal.bgMuted : "transparent" }}>
-          <Text size="sm" secondary>Drop files here or use “Add files”. Up to {formatBytes(max)} each. Files are internal unless you share them with the client.</Text>
+          {isClient
+            ? <Text size="sm" secondary>Drop images here or use “Add images”. PNG, JPEG, GIF or WebP, up to {formatBytes(max)} each. Your team sees them on this task.</Text>
+            : <><Text size="sm" secondary>Drop files here or use “Add files”. Up to {formatBytes(max)} each. Files are internal unless you share them with the client.</Text>
           <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
             <Checkbox checked={shareNew} onChange={(c: boolean) => setShareNew(c)} label="Share new files with the client" aria-label="Share new files with the client" />
-          </div>
+          </div></>}
         </div>
       )}
 
@@ -120,6 +124,7 @@ export function Attachments({ task, onChange }: { task: Task; onChange: (t: Task
                   <Button variant="ghost" size="sm" aria-label={a.visibility === "client" ? `Make ${a.name} internal` : `Share ${a.name} with the client`} onClick={() => toggleShare(a)}>{a.visibility === "client" ? "Make internal" : "Share with client"}</Button>
                   <Button variant="ghost" size="sm" aria-label={`Remove ${a.name}`} onClick={() => remove(a)}>Remove</Button>
                 </>}
+                {isClient && a.uploadedById === me.client?.id && <Button variant="ghost" size="sm" aria-label={`Remove ${a.name}`} onClick={() => remove(a)}>Remove</Button>}
               </li>
             );
           })}

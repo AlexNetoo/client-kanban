@@ -193,7 +193,7 @@ const tokens = {
   weight: { regular: 400, medium: 500, semibold: 600, bold: 700 },
   light: {
     bg: "#ffffff",
-    bgElevated: "#ffffff",
+    bgElevated: "#ffffff", // modals, menus and dialogs are white, like the cards
     bgSubtle: "#fafafa",
     bgMuted: "#eeeeee",
     bgHover: "#e6e6e6",
@@ -1212,10 +1212,12 @@ function Card({ children, theme: tp, padding, hover, onClick, style: sp }) {
   return (
     <div onClick={onClick} {...pressable(onClick)} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
       style={{
-        background: pal.bgSubtle, // very light gray (Figma Background/Subtle)
-        border: `1px solid ${pal.border}`,
-        borderRadius: tokens.radius.lg, padding: padding ?? 24,
-        boxShadow: hovered && hover ? `0 4px 16px ${pal.shadowMd}` : `0 1px 4px ${pal.shadow}`,
+        // white with a hairline stroke on light (like the alexneto.com admin cards); a soft raised surface on dark
+        background: theme === "dark" ? pal.bgSubtle : pal.bg,
+        // the alexneto.com admin card: a barely-there stroke, a large radius and a soft shadow
+        border: `1px solid ${theme === "dark" ? pal.border : "rgba(0,0,0,0.06)"}`,
+        borderRadius: 24, padding: padding ?? 24,
+        boxShadow: hovered && hover ? `0 4px 16px ${pal.shadowMd}` : (theme === "dark" ? `0 1px 4px ${pal.shadow}` : "0 1px 4px rgba(0,0,0,0.04)"),
         transition: `all ${motion.normal} ${motion.easeInOut}`, fontFamily: tokens.font.sans,
         cursor: onClick ? "pointer" : "default", ...sp,
       }}>{children}</div>
