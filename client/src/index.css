@@ -107,15 +107,32 @@ main:focus { outline: none !important; }
 .shell-main { min-width: 0; }
 .topbar { display: none; align-items: center; gap: 8px; padding: 10px 14px; position: sticky; top: 0; z-index: 50; background: inherit; }
 .nav-item:hover { filter: brightness(0.97); }
-.task-modal { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 32px; padding: 24px; align-items: start; }
-.task-main { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
-.task-side { display: flex; flex-direction: column; gap: 16px; position: sticky; top: 0; }
+/* The task pop-up, laid out like Jira: the title, then the content on the left and status + details on the right. */
+.task-modal { display: grid; grid-template-columns: minmax(0, 1fr) 340px; grid-template-areas: "head side" "main side"; gap: 24px 40px; padding: 28px 32px 40px; align-items: start; }
+.task-head { grid-area: head; margin: 0; font-size: 28px; line-height: 1.2; font-weight: 500; letter-spacing: -0.01em; overflow-wrap: anywhere; }
+.task-main { grid-area: main; display: flex; flex-direction: column; gap: 32px; min-width: 0; }
+.task-side { grid-area: side; display: flex; flex-direction: column; gap: 16px; position: sticky; top: 0; }
+.sec-h { margin: 0 0 12px; font-family: "Suisse Intl", system-ui, sans-serif !important; font-size: 16px; line-height: 24px; font-weight: 600; letter-spacing: 0 !important; text-transform: none !important; }
+.sec-n { font-weight: 400; color: rgba(var(--fg-rgb), 0.45); margin-left: 4px; }
+.task-empty { all: unset; cursor: pointer; font-size: 15px; color: rgba(var(--fg-rgb), 0.45); padding: 6px 0; }
+.task-empty:hover { color: var(--ink); }
+.task-note { border: 1px solid; border-radius: 12px; padding: 16px; }
+.task-activity { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.task-tab { display: inline-flex; align-items: center; height: 28px; padding: 0 12px; border-radius: 14px; font-size: 13px; }
+.task-vis { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border: 1px solid; border-radius: 10px; font-size: 11px; }
+.task-status { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border-radius: 12px; }
+.task-pill { display: inline-flex; align-self: flex-start; align-items: center; height: 32px; padding: 0 14px; border-radius: 16px; font-size: 14px; }
+.task-details { display: flex; flex-direction: column; gap: 18px; padding: 20px; border: 1px solid; border-radius: 12px; }
+.task-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.task-field__label { font-size: 13px; color: rgba(var(--fg-rgb), 0.55); }
 @media (max-width: 899px) {
   .shell { grid-template-columns: minmax(0, 1fr); }
   .sidebar { display: none; }
   .topbar { display: flex; }
-  .task-modal { grid-template-columns: minmax(0, 1fr); gap: 24px; padding: 16px; }
-  .task-side { position: static; order: -1; }
+  /* narrow: the title always comes first, then the content, then status and details */
+  .task-modal { grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "side" "main"; gap: 20px; padding: 20px 16px 32px; }
+  .task-head { font-size: 22px; }
+  .task-side { position: static; }
 }
 @media (max-width: 899px) { .page { padding: 24px 16px 96px !important; } }
 @media (max-width: 900px) { .client-layout { grid-template-columns: 1fr; gap: 24px; } }

@@ -67,7 +67,7 @@ export function Attachments({ task, onChange }: { task: Task; onChange: (t: Task
   return (
     <section aria-label="Attachments">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10 }}>
-        <h3 style={{ margin: 0, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.09em", fontWeight: 700, color: pal.textTertiary }}>Attachments ({items.length})</h3>
+        <h3 className="sec-h">Attachments <span className="sec-n">{items.length}</span></h3>
         {canAttach && <>
           <Button size="sm" variant="secondary" onClick={() => input.current?.click()}>{isClient ? "Add images" : "Add files"}</Button>
           <input ref={input} type="file" multiple accept={isClient ? "image/png,image/jpeg,image/gif,image/webp" : undefined} aria-label={isClient ? "Add images to this task" : "Add files to this task"} className="sr-only" tabIndex={-1}

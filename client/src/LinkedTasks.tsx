@@ -53,7 +53,7 @@ export function LinkedTasks({ task, onChange }: { task: Task; onChange: (t: Task
   return (
     <section aria-label="Linked tasks">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10 }}>
-        <h3 style={{ margin: 0, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.09em", fontWeight: 700, color: pal.textTertiary }}>Linked tasks ({links.length})</h3>
+        <h3 className="sec-h">Linked tasks <span className="sec-n">{links.length}</span></h3>
         {owner && !adding && <Button size="sm" variant="secondary" onClick={() => setAdding(true)}>Link a task</Button>}
       </div>
 
