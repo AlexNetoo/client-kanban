@@ -478,7 +478,7 @@ test('attachments: upload, download, limits, permissions, cleanup', async () => 
 
   // permissions
   assert.strictEqual((await call('GET', `/api/attachments/${r.json.attachmentId}/file`, {})).res.status, 401);
-  assert.strictEqual((await req(task.id, { name: 'x.txt', size: 1, type: 'text/plain' }, client.cookie)).res.status, 403);
+  assert.strictEqual((await req(task.id, { name: 'x.txt', size: 1, type: 'text/plain' }, client.cookie)).res.status, 400); // clients attach images only
   assert.strictEqual((await call('GET', `/api/attachments/${r.json.attachmentId}/file`, { cookie: client.cookie })).res.status, 404); // internal: doesn't exist for clients
   const kim = (await call('POST', '/api/designers', { ...O, body: { name: 'Kim', email: 'kim@example.com', password: 'kim-password-123' } })).json;
   await call('PATCH', `/api/tasks/${task.id}`, { ...O, body: { assigneeId: kim.id } });
@@ -574,11 +574,11 @@ test('clients: read-only board, shared comments only, no private notes or attach
   assert.ok((await tasksOf2(O.cookie)).comments.some((x) => x.text === 'Question from the client'));
   assert.strictEqual((await comment(C.cookie, { text: '' })).res.status, 400);
 
-  // everything else is read-only
+  // everything else is read-only (moving cards, images and web links are covered in their own test)
   const adminCommentId = (await tasksOf2(O.cookie)).comments.find((x) => x.text === 'SHARED-ADMIN').id;
   const internalId = (await tasksOf2(O.cookie)).comments.find((x) => x.text === 'INTERNAL-ADMIN').id;
-  for (const [m, u, b] of [['PATCH', `/api/tasks/${T.id}`, { status: 'done' }], ['POST', `/api/projects/${P.id}/tasks`, { title: 'x' }], ['DELETE', `/api/tasks/${T.id}`], ['POST', `/api/tasks/${T.id}/links`, { targetId: QT.id, type: 'relates' }],
-    ['POST', `/api/tasks/${T.id}/attachments`, { name: 'a.txt', size: 1, type: 'text/plain' }], ['PATCH', `/api/projects/${P.id}`, { name: 'x' }], ['DELETE', `/api/projects/${P.id}`], ['GET', '/api/task-search?q=a'], ['GET', '/api/clients']]) {
+  for (const [m, u, b] of [['PATCH', `/api/tasks/${T.id}`, { title: 'renamed' }], ['PATCH', `/api/tasks/${T.id}`, { status: 'done', clientUpdate: 'x' }], ['POST', `/api/projects/${P.id}/tasks`, { title: 'x' }], ['DELETE', `/api/tasks/${T.id}`], ['POST', `/api/tasks/${T.id}/links`, { targetId: QT.id, type: 'relates' }],
+    ['PATCH', `/api/projects/${P.id}`, { name: 'x' }], ['DELETE', `/api/projects/${P.id}`], ['GET', '/api/task-search?q=a'], ['GET', '/api/clients']]) {
     assert.strictEqual((await call(m, u, { ...C, body: b })).res.status, 403, `${m} ${u}`);
   }
   assert.strictEqual((await call('DELETE', `/api/tasks/${T.id}/comments/${adminCommentId}`, C)).res.status, 403); // someone else's
@@ -627,8 +627,10 @@ test('attachments can be shared with clients, file by file', async () => {
   assert.match(dl.headers.get('content-disposition'), /^attachment/);
   assert.strictEqual((await file(C.cookie, internal.id)).status, 404); // still hidden
 
-  // clients can't change anything about files
-  for (const [m, u, b] of [['PATCH', `/api/tasks/${T.id}/attachments/${internal.id}`, { shared: true }], ['DELETE', `/api/tasks/${T.id}/attachments/${shared.id}`], ['POST', `/api/tasks/${T.id}/attachments`, { name: 'x.txt', size: 1, type: 'text/plain' }]]) {
+  // clients can't change the team's files, and can attach images only
+  assert.strictEqual((await call('POST', `/api/tasks/${T.id}/attachments`, { ...C, body: { name: 'x.txt', size: 1, type: 'text/plain' } })).res.status, 400);
+  assert.strictEqual((await call('DELETE', `/api/tasks/${T.id}/attachments/${internal.id}`, C)).res.status, 404); // internal: doesn't exist for clients
+  for (const [m, u, b] of [['PATCH', `/api/tasks/${T.id}/attachments/${internal.id}`, { shared: true }], ['DELETE', `/api/tasks/${T.id}/attachments/${shared.id}`]]) {
     assert.strictEqual((await call(m, u, { ...C, body: b })).res.status, 403, `${m} ${u}`);
   }
 
@@ -1089,6 +1091,65 @@ test('project details survive approval and can be edited afterwards; the budget 
   assert.ok(!('budget' in asClient.json.project) && !asClient.text.includes('4000'));
   assert.ok(!(await call('GET', '/api/projects', { cookie: client.cookie })).text.includes('"budget"'));
   assert.ok(!(await call('GET', `/api/client/${p.shareToken}`)).text.includes('budget'));
+});
+
+test('clients can move cards, attach images and add web links in their own projects, and nothing more', async () => {
+  const owner = await login(OWNER_PW); const O = { cookie: owner.cookie };
+  const P = (await call('POST', '/api/projects', { ...O, body: { name: 'Client powers', client: 'CP Co', status: 'active' } })).json;
+  const other = (await call('POST', '/api/projects', { ...O, body: { name: 'Not theirs', client: 'Else', status: 'active' } })).json;
+  const mk = async (pid, title, status) => (await call('POST', `/api/projects/${pid}/tasks`, { ...O, body: { title, status, priority: 'medium' } })).json;
+  const a = await mk(P.id, 'A', 'backlog'); const b = await mk(P.id, 'B', 'backlog'); const z = await mk(other.id, 'Z', 'backlog');
+  const c = await newClient(owner.cookie, [P.id]); const C = { cookie: c.cookie };
+  const board = async () => (await call('GET', `/api/projects/${P.id}`, C)).json.tasks;
+
+  // moving: another column, and up and down within one
+  const moved = await call('PATCH', `/api/tasks/${a.id}`, { ...C, body: { status: 'todo' } });
+  assert.strictEqual(moved.res.status, 200); assert.strictEqual(moved.json.status, 'todo');
+  assert.strictEqual(moved.json.privateNotes, undefined);
+  await call('PATCH', `/api/tasks/${a.id}`, { ...C, body: { status: 'backlog', position: 0 } });
+  assert.deepStrictEqual((await board()).filter((t) => t.status === 'backlog').map((t) => t.title), ['A', 'B']);
+  await call('PATCH', `/api/tasks/${a.id}`, { ...C, body: { status: 'backlog', position: 1 } });
+  assert.deepStrictEqual((await board()).filter((t) => t.status === 'backlog').map((t) => t.title), ['B', 'A']);
+  // ...but not editing, not an unknown column, and not someone else's project
+  assert.strictEqual((await call('PATCH', `/api/tasks/${a.id}`, { ...C, body: { title: 'x' } })).res.status, 403);
+  assert.strictEqual((await call('PATCH', `/api/tasks/${a.id}`, { ...C, body: { status: 'nope' } })).res.status, 400);
+  assert.strictEqual((await call('PATCH', `/api/tasks/${z.id}`, { ...C, body: { status: 'done' } })).res.status, 404);
+
+  // images: allowed, always shared, theirs to remove; other file types and other projects are refused
+  const img = await call('POST', `/api/tasks/${a.id}/attachments`, { ...C, body: { name: 'shot.png', size: 4, type: 'image/png', shared: false } });
+  assert.strictEqual(img.res.status, 201);
+  await fetch(base + img.json.upload.url, { method: 'PUT', headers: { Cookie: c.cookie, 'Content-Type': 'application/octet-stream' }, body: Buffer.from('png!') });
+  const done = await call('POST', `/api/tasks/${a.id}/attachments/${img.json.attachmentId}/complete`, { ...C, body: {} });
+  assert.strictEqual(done.res.status, 200);
+  const mine = done.json.attachments.find((x) => x.id === img.json.attachmentId);
+  assert.deepStrictEqual([mine.name, mine.visibility, mine.uploadedById], ['shot.png', 'client', c.id]);
+  assert.strictEqual((await fetch(`${base}/api/attachments/${mine.id}/file`, { headers: { Cookie: c.cookie } })).status, 200);
+  const teamSees = (await call('GET', `/api/projects/${P.id}`, O)).json.tasks.find((t) => t.id === a.id).attachments;
+  assert.ok(teamSees.some((x) => x.id === mine.id));
+  for (const body of [{ name: 'notes.pdf', size: 3, type: 'application/pdf' }, { name: 'evil.svg', size: 3, type: 'image/svg+xml' }, { name: 'fake.exe', size: 3, type: 'image/png' }]) {
+    assert.strictEqual((await call('POST', `/api/tasks/${a.id}/attachments`, { ...C, body })).res.status, 400, body.name);
+  }
+  assert.strictEqual((await call('POST', `/api/tasks/${z.id}/attachments`, { ...C, body: { name: 'a.png', size: 3, type: 'image/png' } })).res.status, 404);
+  assert.strictEqual((await call('PATCH', `/api/tasks/${a.id}/attachments/${mine.id}`, { ...C, body: { shared: false } })).res.status, 403);
+  assert.strictEqual((await call('DELETE', `/api/tasks/${a.id}/attachments/${mine.id}`, C)).res.status, 200);
+
+  // web links: http(s) only; a client removes their own, not the team's
+  const add = (cookie, body, id = a.id) => call('POST', `/api/tasks/${id}/refs`, { cookie, body });
+  const l1 = await add(c.cookie, { url: 'figma.com/file/abc', title: 'Homepage in Figma' });
+  assert.strictEqual(l1.res.status, 201);
+  const r1 = l1.json.refs[0];
+  assert.deepStrictEqual([r1.url, r1.title, r1.addedById, r1.addedByRole], ['https://figma.com/file/abc', 'Homepage in Figma', c.id, 'client']);
+  for (const url of ['javascript:alert(1)', 'data:text/html,hi', 'ftp://x.example.com', '', 'not a link']) {
+    assert.strictEqual((await add(c.cookie, { url })).res.status, 400, url);
+  }
+  assert.strictEqual((await add(c.cookie, { url: 'https://example.com' }, z.id)).res.status, 404);
+  const l2 = await add(owner.cookie, { url: 'https://staging.example.com' });
+  const teamRef = l2.json.refs.find((r) => r.addedById === 'owner');
+  assert.strictEqual((await board()).find((t) => t.id === a.id).refs.length, 2);
+  assert.strictEqual((await call('DELETE', `/api/tasks/${a.id}/refs/${teamRef.id}`, C)).res.status, 403);
+  assert.strictEqual((await call('DELETE', `/api/tasks/${a.id}/refs/${r1.id}`, C)).res.status, 200);
+  assert.strictEqual((await call('DELETE', `/api/tasks/${a.id}/refs/${teamRef.id}`, O)).res.status, 200);
+  assert.strictEqual((await call('DELETE', `/api/tasks/${a.id}/refs/nope`, O)).res.status, 404);
 });
 
 test('admin sign-in locks out after 5 wrong passwords, even for the right one', async () => {

@@ -38,7 +38,7 @@ export function RequestList({ requests, admin = false, onChange }: { requests: P
       <ul style={{ display: "flex", flexDirection: "column", gap: 12 }} aria-label="Project requests">
         {requests.map((r) => (
           <li key={r.id} className="req-card">
-            <Card padding={20} style={{ borderRadius: 6, display: "flex", flexDirection: "column", gap: 12 }}>
+            <Card padding={20} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
                 <div style={{ minWidth: 0 }}>
                   <h3 style={{ fontSize: 16, fontWeight: 600, letterSpacing: "-0.01em" }}>{r.name}</h3>

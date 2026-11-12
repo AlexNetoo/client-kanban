@@ -348,4 +348,5 @@ button:not(.task-title):not(.ts-week__head):not(.type-chip):not(.ai-starter):not
 .hero__bg, .emerald-bg { display: none !important; }
 .card-hairline, .ts-week, .ts-total, .proj-details, .ai-prop, .req-card > div { box-shadow: none; }
 .lift:hover, .task-surface:hover { transform: translateY(-1px); box-shadow: none; }
-.task-surface > div, .lift > div { border: 1px solid var(--line); }
+/* cards keep the kit's own stroke and soft shadow (the alexneto.com admin card); the wrapper follows the card's corners */
+.lift { border-radius: 24px; }

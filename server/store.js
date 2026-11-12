@@ -483,6 +483,25 @@ class Store {
     return task;
   }
 
+  /** A web link on a task (the caller has already checked who may add it). At most 50 per task. */
+  addRef(taskId, { url, title, addedById, addedByName, addedByRole }) {
+    const task = this.getTask(taskId);
+    if (!Array.isArray(task.refs)) task.refs = [];
+    if (task.refs.length >= 50) throw new HttpError(400, 'A task can have at most 50 links');
+    task.refs.push({ id: crypto.randomUUID(), url, title: title || '', addedById, addedByName, addedByRole, addedAt: new Date().toISOString() });
+    task.updatedAt = new Date().toISOString();
+    this.save();
+    return task;
+  }
+
+  removeRef(taskId, refId) {
+    const task = this.getTask(taskId);
+    if (!(task.refs || []).some((r) => r.id === refId)) throw new HttpError(404, 'Link not found');
+    task.refs = task.refs.filter((r) => r.id !== refId);
+    this.save();
+    return task;
+  }
+
   deleteComment(taskId, commentId) {
     const task = this.getTask(taskId);
     if (!task.comments.some((c) => c.id === commentId)) throw new HttpError(404, 'Comment not found');

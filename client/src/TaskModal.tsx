@@ -6,6 +6,7 @@ import { api } from "./api";
 import { assigneeOptions } from "./dialogs";
 import { LinkedTasks } from "./LinkedTasks";
 import { Attachments } from "./Attachments";
+import { WebLinks } from "./WebLinks";
 import { PriorityChip } from "./chips";
 import { EyeIcon, LockIcon, Person, WideModal, useToast, val } from "./ui";
 import { useMe } from "./session";
@@ -78,6 +79,8 @@ export function TaskModal({ task: t, projectName, designers, onClose, onChange, 
           </section>
 
           <Attachments task={t} onChange={onChange} />
+
+          <WebLinks task={t} onChange={onChange} />
 
           <LinkedTasks task={t} onChange={onChange} />
 

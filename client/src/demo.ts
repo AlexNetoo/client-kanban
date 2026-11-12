@@ -129,6 +129,36 @@ export async function demoRequest(method: string, url: string, body?: unknown): 
     return clone(r);
   }
   if (method === "GET" && path === "/api/designers") return clone(DESIGNERS);
+  // Moving a card: another column, or up and down within one. Nothing else about a task can change, like a real client account.
+  if (method === "PATCH" && (m = path.match(/^\/api\/tasks\/([^/]+)$/))) {
+    const t = state.tasks.find((x) => x.id === m![1]); if (!t) throw fail(404, "Task not found");
+    if (Object.keys(json).some((k) => k !== "status" && k !== "position")) throw fail(403, "Clients can move tasks, not edit them");
+    const status = (typeof json.status === "string" ? json.status : t.status) as Column;
+    const rest = state.tasks.filter((x) => x.id !== t.id);
+    const col = rest.filter((x) => x.status === status);
+    const position = typeof json.position === "number" ? json.position : col.length;
+    t.status = status; t.updatedAt = new Date().toISOString();
+    const at = position >= col.length ? (col.length ? rest.indexOf(col[col.length - 1]) + 1 : rest.length) : rest.indexOf(col[position]);
+    state.tasks = [...rest.slice(0, at), t, ...rest.slice(at)];
+    return clone(taskView(t));
+  }
+  if (method === "POST" && (m = path.match(/^\/api\/tasks\/([^/]+)\/refs$/))) {
+    const t = state.tasks.find((x) => x.id === m![1]); if (!t) throw fail(404, "Task not found");
+    let raw = typeof json.url === "string" ? json.url.trim() : "";
+    if (!raw) throw fail(400, "url is required");
+    if (!/^[a-z][a-z0-9+.-]*:/i.test(raw)) raw = `https://${raw}`;
+    let u: URL; try { u = new URL(raw); } catch { throw fail(400, "That doesn’t look like a web address"); }
+    if (u.protocol !== "http:" && u.protocol !== "https:") throw fail(400, "Links must start with http:// or https://");
+    t.refs = [...(t.refs ?? []), { id: `w${++state.counter}`, url: u.toString(), title: typeof json.title === "string" ? json.title.trim().slice(0, 120) : "", addedById: ME.id, addedByName: ME.name, addedByRole: "client", addedAt: new Date().toISOString() }];
+    return clone(taskView(t));
+  }
+  if (method === "DELETE" && (m = path.match(/^\/api\/tasks\/([^/]+)\/refs\/([^/]+)$/))) {
+    const t = state.tasks.find((x) => x.id === m![1]); const r = t?.refs?.find((x) => x.id === m![2]);
+    if (!t || !r) throw fail(404, "Link not found");
+    if (r.addedById !== ME.id) throw fail(403, "You can only remove links you added");
+    t.refs = t.refs!.filter((x) => x.id !== r.id);
+    return clone(taskView(t));
+  }
   if (method === "POST" && (m = path.match(/^\/api\/tasks\/([^/]+)\/comments$/))) {
     const t = state.tasks.find((x) => x.id === m![1]); if (!t) throw fail(404, "Task not found");
     const text = typeof json.text === "string" ? json.text.trim() : "";

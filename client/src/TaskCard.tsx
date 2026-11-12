@@ -24,8 +24,8 @@ export function TaskCard({ task: t, designers, onOpen, onEdit, onMove, onReorder
   return (
     // The whole card opens the task (like Jira); the title stays a real button for keyboard and screen-reader users,
     // and the action buttons (marked data-no-open) keep their own behaviour.
-    <div className="task-surface" onClick={(e) => { if (!(e.target as HTMLElement).closest("[data-no-open]")) onOpen(); }} style={{ cursor: "pointer", borderRadius: 6 }}>
-    <Card padding={14} style={{ display: "flex", flexDirection: "column", gap: 10, borderRadius: 6 }}>
+    <div className="task-surface" onClick={(e) => { if (!(e.target as HTMLElement).closest("[data-no-open]")) onOpen(); }} style={{ cursor: "pointer", borderRadius: 16 }}>
+    <Card padding={14} style={{ display: "flex", flexDirection: "column", gap: 10, borderRadius: 16 }}>
       <button type="button" className="task-title" aria-haspopup="dialog" onClick={onOpen}
         style={{ all: "unset", cursor: "pointer", fontWeight: 600, fontSize: 14, lineHeight: 1.4, color: pal.text, display: "block" }}>{t.title}</button>
 
@@ -34,6 +34,7 @@ export function TaskCard({ task: t, designers, onOpen, onEdit, onMove, onReorder
         {t.dueDate && <DueLabel date={t.dueDate} done={t.status === "done"} />}
         {(t.attachments?.length ?? 0) > 0 && <Badge>{t.attachments.length} {t.attachments.length === 1 ? "file" : "files"}</Badge>}
         {(t.links?.length ?? 0) > 0 && <Badge>{t.links.length} linked</Badge>}
+        {(t.refs?.length ?? 0) > 0 && <Badge>{t.refs!.length} {t.refs!.length === 1 ? "link" : "links"}</Badge>}
         {t.comments.length > 0 && <Badge>{t.comments.length} {t.comments.length === 1 ? "comment" : "comments"}</Badge>}
         {t.clientUpdate && <Badge><EyeIcon /> Client update</Badge>}
         {owner && t.privateNotes && <span title="Private notes: only you can see them" style={{ display: "inline-flex", alignItems: "center", gap: 4, border: `1px dashed ${pal.textTertiary}`, borderRadius: 5, padding: "2px 8px", fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.3 }}><LockIcon /> Private note</span>}
@@ -45,7 +46,7 @@ export function TaskCard({ task: t, designers, onOpen, onEdit, onMove, onReorder
         </span>
         <span data-no-open style={{ display: "inline-flex", gap: 4 }}>
           {canEdit && <Button variant="ghost" size="sm" aria-label={`Edit task ${t.title}`} onClick={onEdit}>Edit</Button>}
-          {canEdit && <DropdownMenu
+          {<DropdownMenu
             trigger={<Button variant="ghost" size="sm" aria-label={`Move “${t.title}” to another column`}>Move to…</Button>}
             items={[
               ...(canUp ? [{ label: "Move up", onClick: () => onReorder(-1) }] : []),

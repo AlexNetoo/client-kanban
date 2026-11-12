@@ -41,7 +41,7 @@ function EstimatePanel({ days, ready, final = false }: { days: number; ready: bo
   const daily = ready ? days * RATES.day : 0;
   const saving = est ? Math.max(0, daily - est.total) : 0;
   return (
-    <Card padding={22} style={{ borderRadius: 6, display: "flex", flexDirection: "column", gap: 14 }}>
+    <Card padding={22} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
         <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.09em", fontWeight: 700, color: pal.textTertiary }}>{final ? "Your estimate" : "Estimate so far"}</div>
         <CurrencyToggle />
@@ -172,7 +172,7 @@ export function Onboarding() {
       </ol>
 
       <div className="onb-layout">
-        <Card padding={26} style={{ borderRadius: 6 }}>
+        <Card padding={26}>
           <form onSubmit={(e) => { e.preventDefault(); if (step < 3) next(); else submit(); }} noValidate>
             <div key={step} className={dir === 1 ? "step-in" : "step-in step-in--back"} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
               <h2 ref={head} tabIndex={-1} style={{ fontSize: 20, fontWeight: 600, letterSpacing: "-0.02em", outline: "none" }}>
