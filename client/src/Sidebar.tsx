@@ -64,7 +64,6 @@ export function Nav({ route, admin = false, collapsed = false, onNavigate }: { r
           </div>
         </>
       )}
-      {me.role === "client" && <Item href={`${home}#/new`} active={kind === "new"} label="New project" icon={<PlusIcon />} />}
       {owner && <Item href="/admin" active={admin} label="Admin console" icon={<ShieldIcon />} />}
       <Item href={`${home}#/settings`} active={!admin && kind === "settings"} label="Settings" icon={<GearIcon />} />
 

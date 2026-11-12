@@ -100,7 +100,6 @@ export function Dashboard() {
           <Button variant="secondary" onClick={() => { location.href = "/admin"; }}>Admin console</Button>
           <Button icon={<PlusIcon />} onClick={() => setCreating(true)}>New project</Button>
         </div>}
-        {me.role === "client" && <Button icon={<PlusIcon />} onClick={() => { location.hash = "#/new"; }}>New project</Button>}
       </div>
 
       {owner && <div className="stats">
@@ -116,7 +115,7 @@ export function Dashboard() {
       </div>}
 
       {shown.length === 0 ? (
-        !owner ? <StateBlock title="No projects yet" action={me.role === "client" ? <Button onClick={() => { location.hash = "#/new"; }}>Start a new project</Button> : undefined} description={me.role === "client" ? "Projects appear here once they are approved. Start by telling us about your project." : "You’ll see a project here once a task is assigned to you."} />
+        !owner ? <StateBlock title="No projects yet" description={me.role === "client" ? "Your projects appear here once your team sets them up." : "You’ll see a project here once a task is assigned to you."} />
         : tab === "Active"
           ? <StateBlock title="No projects yet" description="Create your first project to start a board and share progress with a client." action={<Button onClick={() => setCreating(true)}>New project</Button>} />
           : <StateBlock title="Nothing archived" description="Archived projects are kept here, hidden from clients." />

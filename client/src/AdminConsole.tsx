@@ -330,7 +330,7 @@ function ProjectsPanel({ projects, reload }: { projects: Project[]; reload: () =
 }
 
 // ============================== Console ==============================
-const TABS = ["Designers", "Clients", "Projects", "Requests"];
+const TABS = ["Designers", "Clients", "Projects", "Requests"]; // Requests only shows while old client briefs are left to handle
 
 export function AdminConsole() {
   const [tab, setTab] = useState(TABS[0]);
@@ -363,12 +363,12 @@ export function AdminConsole() {
         <Stat label="New requests" value={String(data.requests.filter((r) => r.status === "new").length)} />
         <Stat label="Open tasks" value={String(openTasks)} />
       </div>
-      <div style={{ marginBottom: 20 }}><Tabs tabs={TABS} value={tab} onChange={(t: string) => { setTab(t); setRevealed(null); }} /></div>
+      <div style={{ marginBottom: 20 }}><Tabs tabs={data.requests.length ? TABS : TABS.filter((t) => t !== "Requests")} value={tab} onChange={(t: string) => { setTab(t); setRevealed(null); }} /></div>
       <RevealBanner revealed={revealed} onDismiss={() => setRevealed(null)} />
       {tab === "Designers" && <DesignersPanel designers={data.designers} projects={data.projects} reload={load} setRevealed={setRevealed} />}
       {tab === "Clients" && <ClientsPanel clients={data.clients} projects={data.projects} reload={load} setRevealed={setRevealed} />}
       {tab === "Requests" && (data.requests.length === 0
-        ? <StateBlock title="No requests yet" description="When a client submits a project brief from their account it appears here with its estimate." />
+        ? <StateBlock title="No requests yet" description="Clients can no longer submit project briefs from their account." />
         : <RequestList requests={data.requests} admin onChange={load} />)}
       {tab === "Projects" && <ProjectsPanel projects={data.projects} reload={load} />}
     </div>

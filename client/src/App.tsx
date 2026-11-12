@@ -6,7 +6,6 @@ import { Board } from "./Board";
 import { ClientView } from "./ClientView";
 import { Dashboard } from "./Dashboard";
 import { ProjectsProvider } from "./nav";
-import { Onboarding } from "./Onboarding";
 import { Nav } from "./Sidebar";
 import { Settings } from "./Settings";
 import { SessionProvider, type Me } from "./session";
@@ -39,7 +38,6 @@ export function App() {
   let view;
   if (admin) view = <AdminConsole />;
   else if (kind === "c" && param && role === "owner") view = <ClientView key={param} token={decodeURIComponent(param)} role={role} />;
-  else if (kind === "new" && role === "client") view = <Onboarding />;
   else if (kind === "settings") view = <Settings />;
   else if (kind === "p" && param) view = <Board key={param} id={decodeURIComponent(param)} taskId={sub === "t" && subParam ? decodeURIComponent(subParam) : undefined} />;
   else view = <Dashboard />;
@@ -48,7 +46,6 @@ export function App() {
   const owner = role === "owner";
   const links: { href: string; label: string; active: boolean }[] = [
     { href: `${home}#/`, label: owner ? "Projects" : "My projects", active: !admin && (kind === undefined || kind === "" || kind === "p") },
-    ...(role === "client" ? [{ href: `${home}#/new`, label: "New project", active: kind === "new" }] : []),
     ...(owner ? [{ href: "/admin", label: "Admin console", active: admin }] : []),
     { href: `${home}#/settings`, label: "Settings", active: !admin && kind === "settings" },
   ];
