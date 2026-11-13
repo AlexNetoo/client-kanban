@@ -2709,7 +2709,7 @@ function AlertDialog({ open, onClose, title, description, variant = "danger", co
       animation: `halaska-fade-in ${motion.fast} ${motion.easeOut} both`,
     }}>
       <div ref={panelRef} role="alertdialog" aria-modal="true" aria-label={labelText(title)} tabIndex={-1} onClick={(e) => e.stopPropagation()} style={{
-        background: theme === "dark" ? "rgba(30,30,30,0.95)" : "rgba(255,255,255,0.95)",
+        background: theme === "dark" ? "rgba(30,30,30,0.95)" : "#ffffff",
         backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
         borderRadius: tokens.radius.lg, padding: 24, minWidth: 320, maxWidth: 420,
         border: `1px solid ${pal.borderSubtle}`, boxShadow: `0 16px 48px ${pal.shadowLg}`,
@@ -2742,7 +2742,7 @@ function FormDialog({ open, onClose, title, description, children, submitLabel =
       animation: `halaska-fade-in ${motion.fast} ${motion.easeOut} both`,
     }}>
       <div ref={panelRef} role="dialog" aria-modal="true" aria-label={labelText(title)} tabIndex={-1} onClick={(e) => e.stopPropagation()} style={{
-        background: theme === "dark" ? "rgba(30,30,30,0.95)" : "rgba(255,255,255,0.95)",
+        background: theme === "dark" ? "rgba(30,30,30,0.95)" : "#ffffff",
         backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
         borderRadius: tokens.radius.lg, padding: 24, minWidth: 360, maxWidth: 480,
         border: `1px solid ${pal.borderSubtle}`, boxShadow: `0 16px 48px ${pal.shadowLg}`,
@@ -2773,7 +2773,7 @@ function CardDialog({ open, onClose, cover, title, description, children, action
       animation: `halaska-fade-in ${motion.fast} ${motion.easeOut} both`,
     }}>
       <div ref={panelRef} role="dialog" aria-modal="true" aria-label={labelText(title)} tabIndex={-1} onClick={(e) => e.stopPropagation()} style={{
-        background: theme === "dark" ? "rgba(30,30,30,0.95)" : "rgba(255,255,255,0.95)",
+        background: theme === "dark" ? "rgba(30,30,30,0.95)" : "#ffffff",
         backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
         borderRadius: tokens.radius.lg, overflow: "hidden", minWidth: 360, maxWidth: 480,
         border: `1px solid ${pal.borderSubtle}`, boxShadow: `0 16px 48px ${pal.shadowLg}`,
@@ -2837,7 +2837,7 @@ function Dialog({ open, onClose, title, children, theme: tp }) {
       animation: `halaska-fade-in ${motion.fast} ${motion.easeOut} both`,
     }}>
       <div ref={panelRef} role="dialog" aria-modal="true" aria-label={labelText(title)} tabIndex={-1} onClick={(e) => e.stopPropagation()} style={{
-        background: theme === "dark" ? "rgba(30,30,30,0.95)" : "rgba(255,255,255,0.95)",
+        background: theme === "dark" ? "rgba(30,30,30,0.95)" : "#ffffff",
         backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
         borderRadius: tokens.radius.lg, padding: 24, minWidth: 320, maxWidth: 480,
         border: `1px solid ${pal.borderSubtle}`, boxShadow: `0 16px 48px ${pal.shadowLg}`,
@@ -2892,7 +2892,7 @@ function Popover({ trigger, children, theme: tp }) {
       {open && <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 9999 }} />}
       <div role="dialog" aria-hidden={!open} style={{
         position: "absolute", top: "100%", left: 0, marginTop: 8, zIndex: 10000,
-        background: theme === "dark" ? "rgba(30,30,30,0.95)" : "rgba(255,255,255,0.95)",
+        background: theme === "dark" ? "rgba(30,30,30,0.95)" : "#ffffff",
         backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
         border: `1px solid ${pal.borderSubtle}`, borderRadius: tokens.radius.md,
         padding: 16, minWidth: 200, boxShadow: `0 8px 24px ${pal.shadowLg}`,
